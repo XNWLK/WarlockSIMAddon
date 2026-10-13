@@ -4,7 +4,8 @@ A Warlock DPS simulator **inside the game**, for World of Warcraft: Forever. It 
 demon and the spell numbers on your character sheet — plays a few hundred fights in the background and shows your DPS,
 what each spell contributes and what each stat is worth to you.
 
-> First version. Built for the WoW: Forever beta client (interface 16001).
+> Built for the WoW: Forever beta client (interface 16001). What changed in each version:
+> [patch notes](PATCHNOTES.md).
 
 ## One of three
 
