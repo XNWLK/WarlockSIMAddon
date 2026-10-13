@@ -9,6 +9,9 @@ const names = f => new Set((fs.readFileSync(path.join(REF, f), 'utf8').match(/"(
 const api = names('GlobalAPI.lua'), framexml = names('FrameXML.lua'), frames = names('Frames.lua'), mixins = names('Mixins.lua'),
   widget = names('WidgetAPI.lua'), templates = names('Templates.lua'), events = names('Events.lua');
 
+// Lua-made namespaces of the game: the lists hold e.g. "TooltipUtil.GetDisplayedItem", so "TooltipUtil" itself exists.
+const namespaces = new Set();
+[api, framexml].forEach(set => set.forEach(n => { const i = n.indexOf('.'); if (i > 0) namespaces.add(n.slice(0, i)); }));
 const LUA = new Set(('assert error getmetatable ipairs next pairs pcall xpcall print rawequal rawget rawset select setmetatable tonumber tostring type unpack ' +
   'string table math coroutine bit date time strsplit strtrim tinsert tremove floor format _G').split(' '));
 const KEYWORDS = new Set('and break do else elseif end false for function if in local nil not or repeat return then true until while'.split(' '));
@@ -19,6 +22,8 @@ const GUARDED = {
   WarlockSimFrame: 'the addon\'s window', WarlockSimMenu: 'the addon\'s dropdown list',
   DEFAULT_CHAT_FRAME: 'tested before use', ChatFontNormal: 'font object, "or" fallback', GameFontHighlightSmall: 'font object (fonts are not on the lists)', CR_HIT_SPELL: 'constant, "or 8" fallback',
   issecretvalue: 'tested before use', debugprofilestop: 'tested before use',
+  CR_CRIT_SPELL: 'constant, numbered fallback', CR_HASTE_SPELL: 'constant, numbered fallback', Enum: 'the game\'s table of constants, tested before use',
+  WarlockSimItemPanel: 'the addon\'s panel under the item link window',
 };
 const strip = src => src.replace(/--\[(=*)\[[\s\S]*?\]\1\]/g, ' ').replace(/--[^\n]*/g, ' ')
   .replace(/\[(=*)\[[\s\S]*?\]\1\]/g, m => '"' + ' '.repeat(Math.max(0, m.length - 2)) + '"');
@@ -43,6 +48,7 @@ fs.readdirSync(ADDON).filter(f => f.endsWith('.lua') && f !== 'Data.lua' && f !=
   // C_Something.Function
   const seen = new Set();
   (code.match(/\bC_\w+\.\w+/g) || []).forEach(n => { if (seen.has(n)) return; seen.add(n); checked.functions++; if (!api.has(n)) say(file, n + ' is not in the Forever client'); });
+  (code.match(/\bTooltipUtil\.\w+/g) || []).forEach(n => { if (seen.has(n)) return; seen.add(n); checked.functions++; if (!framexml.has(n)) say(file, n + ' is not in the Forever client'); });
   // plain globals: an identifier that is not a field, not a table key, not local
   const re = /([.:]?)\s*\b([A-Za-z_]\w*)\b(\s*=(?!=))?/g;
   let m;
@@ -51,7 +57,7 @@ fs.readdirSync(ADDON).filter(f => f.endsWith('.lua') && f !== 'Data.lua' && f !=
     if (dot || KEYWORDS.has(name) || locals.has(name) || LUA.has(name) || seen.has(name) || /^C_\w+$/.test(name)) continue;
     if (assign) { const before = code.slice(0, m.index).replace(/\s+$/, '').slice(-1); if (before === '{' || before === ',') continue; }   // a table key
     seen.add(name); checked.functions++;
-    if (api.has(name) || framexml.has(name) || frames.has(name) || mixins.has(name) || GUARDED[name]) continue;
+    if (api.has(name) || framexml.has(name) || frames.has(name) || mixins.has(name) || GUARDED[name] || namespaces.has(name)) continue;
     say(file, 'global "' + name + '" is not in the Forever client (line ' + code.slice(0, m.index).split('\n').length + ')');
   }
   // methods called on frames, font strings and textures

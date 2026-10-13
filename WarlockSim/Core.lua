@@ -2,7 +2,7 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.1.1'
+WL.VERSION = '0.2.0'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -16,7 +16,8 @@ end
 -- WL.db        saved between sessions (WarlockSimDB): settings snapshot, options, imported builds, the last character read
 -- WL.cfg       the settings the sim runs with (the sim's defaults + what you changed)
 -- WL.char      the character read from the game (nil until "Read my character")
-local DEFAULT_OPTIONS = { fights = 300, weights = true, speed = 'smooth', template = nil, stone = 'sheet', race = nil, pet = 'auto', sacrifice = 'auto', minimapHint = true }
+local DEFAULT_OPTIONS = { fights = 300, weights = true, speed = 'smooth', template = nil, stone = 'sheet', race = nil, pet = 'auto', sacrifice = 'auto', minimapHint = true,
+                          itemButton = true, itemFights = 150 }
 
 function WL.newConfig()
   local cfg = copy(WL.DEFAULT_CONFIG)
@@ -154,6 +155,8 @@ local function startJob(label, total, fn)
   return true
 end
 
+WL.startJob = startJob
+
 local function fights() return math.max(10, math.min(20000, math.floor(tonumber(WL.db.options.fights) or 300))) end
 
 -- One build with stat weights (optional): result = { kind = 'single', res, weights, notes, build }.
@@ -237,6 +240,7 @@ function WL.dump()
                     talents = ch.talents, buffsOnYou = ch.buffsOnYou, otherAuras = ch.otherAuras, notes = ch.notes, isSword = ch.isSword, weaponEffect = ch.weaponEffect, raw = ch.raw }
   end
   d.lastTiming, d.selfTest, d.lastError = WL.db.lastTiming, WL.db.selfTest, WL.lastError
+  d.lastItem = WL.db.lastItem                              -- what the game returned for the items of the last item comparison
   WL.db.dump = d
   return d
 end

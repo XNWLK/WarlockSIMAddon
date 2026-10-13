@@ -130,3 +130,42 @@ C_Traits = {
   GetEntryInfo = function(_, entryID) return { definitionID = entryID + 1 } end,
   GetDefinitionInfo = function(defID) return { spellID = defID + 1 } end,
 }
+
+-- items: the item link window, what is equipped, and what the game says about an item
+MOCK.items = {
+  [1001] = { name = 'Ring of Tests', loc = 'INVTYPE_FINGER', class = 4, sub = 0, api = { ITEM_MOD_INTELLECT_SHORT = 10, ITEM_MOD_SPELL_POWER_SHORT = 20 },
+             lines = { 'Ring of Tests', 'Finger', '+10 Intellect', 'Equip: Increases spell power by 20.', 'Equip: Improves spell hit by 1%.' } },
+  [1002] = { name = 'Old Band', loc = 'INVTYPE_FINGER', class = 4, sub = 0, api = { ITEM_MOD_STAMINA_SHORT = 8 },
+             lines = { 'Old Band', '+8 Stamina', 'Equip: Increases damage and healing done by magical spells and effects by up to 12.', 'Enchanted: +30 Spell Power' } },
+  [1003] = { name = 'Plain Loop', loc = 'INVTYPE_FINGER', class = 4, sub = 0, api = {}, lines = { 'Plain Loop', '+3 Spirit', 'Use: Summons a cat. (10 Min Cooldown)' } },
+  [1004] = { name = 'Great Staff', loc = 'INVTYPE_2HWEAPON', class = 2, sub = 10, api = { ITEM_MOD_SPELL_POWER_SHORT = 60, ITEM_MOD_CRIT_SPELL_RATING_SHORT = 14 }, lines = { 'Great Staff', 'Two-Hand' } },
+  [1005] = { name = 'Short Blade', loc = 'INVTYPE_WEAPONMAINHAND', class = 2, sub = 7, api = { ITEM_MOD_SPELL_POWER_SHORT = 30 }, lines = { 'Short Blade' } },
+  [1006] = { name = 'Orb', loc = 'INVTYPE_HOLDABLE', class = 4, sub = 0, api = { ITEM_MOD_SPELL_POWER_SHORT = 15 }, lines = { 'Orb' } },
+  [1007] = { name = 'Bread', loc = '', class = 0, sub = 0, api = {}, lines = { 'Bread' } },
+}
+MOCK.equipped = { [11] = 1002, [12] = 1003, [16] = 1005, [17] = 1006 }
+local function mockItem(info)
+  if type(info) == 'number' then return MOCK.items[info], info end
+  local id = tonumber(tostring(info):match('item:(%d+)'))
+  return MOCK.items[id], id
+end
+function MOCK.link(id) return '|cffa335ee|Hitem:' .. id .. '::::::::60:::::|h[' .. MOCK.items[id].name .. ']|h|r' end
+ItemRefTooltip = newObject('GameTooltip', 'ItemRefTooltip')
+ItemRefTooltip.shown = false
+TooltipUtil = { GetDisplayedItem = function(tt) if MOCK.refItem then return MOCK.items[MOCK.refItem].name, MOCK.link(MOCK.refItem), MOCK.refItem end end }
+function GetInventoryItemLink(_, slot) local id = MOCK.equipped[slot]; return id and MOCK.link(id) or nil end
+function GetInventoryItemID(_, slot) return MOCK.equipped[slot] end
+C_Item.GetItemInfoInstant = function(info) local it, id = mockItem(info); if not it then return nil end; return id, 'Type', 'Sub', it.loc, 1, it.class, it.sub end
+C_Item.GetItemStats = function(link) local it = mockItem(link); return it and it.api end
+C_Item.GetItemNameByID = function(info) local it = mockItem(info); return it and it.name end
+C_TooltipInfo = { GetHyperlink = function(link)
+  local it = mockItem(link); if not it then return nil end
+  local lines = {}
+  for i, t in ipairs(it.lines) do lines[i] = { leftText = t, type = t:find('^Enchanted') and 15 or 0 } end
+  return { lines = lines }
+end }
+Enum = { TooltipDataLineType = { ItemEnchantmentPermanent = 15, GemSocket = 3 } }
+function GetCombatRatingBonusForCombatRatingValue(id, v) return v / 14 end
+ITEM_MOD_INTELLECT, ITEM_MOD_SPIRIT, ITEM_MOD_STAMINA, ITEM_MOD_AGILITY = '%c%s Intellect', '%c%s Spirit', '%c%s Stamina', '%c%s Agility'
+ITEM_MOD_SPELL_POWER, ITEM_MOD_HIT_SPELL_RATING, ITEM_MOD_CRIT_SPELL_RATING = 'Increases spell power by %s.', 'Improves spell hit by %s.', 'Improves spell critical strike by %s.'
+ITEM_SPELL_TRIGGER_ONEQUIP, ITEM_SPELL_TRIGGER_ONUSE, ITEM_SPELL_TRIGGER_ONPROC, ENCHANTED_TOOLTIP_LINE = 'Equip:', 'Use:', 'Chance on hit:', 'Enchanted: %s'

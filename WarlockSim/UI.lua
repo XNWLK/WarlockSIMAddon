@@ -422,6 +422,9 @@ local function buildFightPage(p)
     result.status:SetText('Fight, buffs and consumables are back to the sim\'s defaults.')
   end, 'Puts everything on the Fight and Buffs tabs back to what the website starts with. Your character stays as read.')
   p.reset:SetPoint('BOTTOMLEFT', 0, 0)
+  local ib = keep(Check(p, 'Sim button under item links', function() return o().itemButton ~= false end, function(v) o().itemButton = v end,
+    'Click an item link in chat: under the window that opens, a small button sims your character with that item in place of the one you wear in its slot.'))
+  ib:SetPoint('BOTTOMLEFT', 214, 0)
 end
 
 local function buildBuffsPage(p)
@@ -662,13 +665,18 @@ function WL.refresh()
   WL.saveSettings()
 end
 WL.onJobEnd = function(res, err)
-  if res then
+  if res and res.kind == 'item' then
+    if WL.onItemResult then WL.onItemResult(res) end
+  elseif res then
     WL.lastResult = res
     if main then
       WL.showResult(res)
       result.status:SetText(string.format('|cffaaaaaa%d fights in %s s (%s ms of sim time a fight).|r', res.fights, fmt(res.seconds, 1), fmt(res.fights > 0 and 1000 * res.cpuSeconds / res.fights or 0, 1)))
     end
-  elseif main then result.status:SetText('|cffff6060' .. tostring(err) .. '|r') end
+  else
+    if WL.onItemResult then WL.onItemResult(nil, err) end
+    if main then result.status:SetText('|cffff6060' .. tostring(err) .. '|r') end
+  end
   WL.refresh()
 end
 function WL.toggleWindow()

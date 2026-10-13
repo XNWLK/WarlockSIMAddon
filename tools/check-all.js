@@ -3,7 +3,7 @@
 //   node tools/check-all.js full     4 fights per scene (several minutes)
 const cp = require('child_process'), path = require('path');
 const full = process.argv[2] === 'full';
-const runs = [['check-api.js'], ['check-limits.js'], ['check-codes.js'], ['check-character.js'], ['check-ui.js'], ['check-engine.js', full ? '4' : '1']];
+const runs = [['check-api.js'], ['check-limits.js'], ['check-codes.js'], ['check-character.js'], ['check-items.js'], ['check-ui.js'], ['check-engine.js', full ? '4' : '1']];
 let bad = 0;
 runs.forEach(r => {
   const out = cp.spawnSync(process.execPath, [path.join(__dirname, r[0])].concat(r.slice(1)), { encoding: 'utf8' });

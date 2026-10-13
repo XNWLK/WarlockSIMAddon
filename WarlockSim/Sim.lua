@@ -1489,6 +1489,7 @@ function WL.simulate(build, raceKey, cfg, opt)
              petOomSecAvg = petOomFights > 0 and petOomSec / petOomFights or 0, idleSecAvg = idleSec / n, oomAvg = oom / n },
     build = build, race = raceKey, stats = stats, table = tbl, iterations = n,
     dps = mean, dpsMedian = median, dpsSd = sd, dpsMin = sorted[1], dpsMax = sorted[n],
+    dpsList = dpsList,                                  -- every fight's DPS in order (item comparisons pair them up)
     dpsErr = 1.96 * sd / math.sqrt(n),
     dpsPre = preTime ~= 0 and preDmg / preTime or nil, dpsExec = exTime ~= 0 and exDmg / exTime or nil,
     execPct = cfg.fight.executePct,

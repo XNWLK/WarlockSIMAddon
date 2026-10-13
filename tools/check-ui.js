@@ -63,6 +63,25 @@ step('settings widgets write through', `MOCK.click("Nothing"); for k, b in pairs
   MOCK.click("The sim's defaults"); assert(WLX.cfg.buffs.arcaneIntellect.on)
   MOCK.click("Back to the sim's settings"); MOCK.click("Forget loaded builds"); assert(#WLX.imported == 0)`);
 step('stop a running sim', 'WLX.db.options.fights = 5000; MOCK.click("Sim!"); MOCK.frame(); assert(WLX.jobRunning()); MOCK.click("Stop"); assert(not WLX.jobRunning()); WLX.db.options.fights = 10');
+const frames = 'for i = 1, 16 do MOCK.frame() end';
+step('item link window: a ring against both rings', `MOCK.refItem = 1001; ItemRefTooltip.shown = true; ${frames}
+  assert(WarlockSimItemPanel and WarlockSimItemPanel:IsShown(), "no panel under the item window"); MOCK.click("Sim this item"); assert(WLX.jobRunning(), "no item sim started"); ${pump}; ${frames}
+  local t = WarlockSimItemPanel.text.text
+  assert(t:find("Instead of Old Band", 1, true) and t:find("Instead of Plain Loop", 1, true), "both rings: " .. t)
+  assert(t:find("Change: +8 spell power, +1% hit, +10 Intellect, -8 Stamina", 1, true), "difference to Old Band: " .. t)
+  assert(t:find("Change: +20 spell power, +1% hit, +10 Intellect, -3 Spirit", 1, true), "difference to Plain Loop: " .. t)
+  assert(WLX.db.lastItem.against[2].unknown[1]:find("Summons a cat") and t:find("Not counted on Plain Loop: Use: Summons a cat", 1, true), "the Use line is noted as not counted: " .. t)
+  return (t:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("%c", " / "))`);
+step('item link window: second click reuses the run as you are', `MOCK.refItem = 1003; ${frames}; MOCK.click("Sim this item"); local _, total = WLX.jobProgress(); assert(total == 150, "fights planned: " .. tostring(total)); ${pump}; ${frames}
+  assert(WarlockSimItemPanel.text.text:find("Instead of Old Band", 1, true)); assert(WarlockSimItemPanel.text.text:find("You wear one of these already", 1, true))`);
+step('item link window: two-hand weapon, off-hand, worn item, not wearable, switched off', `MOCK.refItem = 1004; ${frames}; MOCK.click("Sim this item"); ${pump}; ${frames}
+  assert(WarlockSimItemPanel.text.text:find("Instead of Short Blade and Orb", 1, true), WarlockSimItemPanel.text.text)
+  assert(WarlockSimItemPanel.text.text:find("+15 spell power, +1% crit", 1, true), WarlockSimItemPanel.text.text)
+  MOCK.equipped[16] = 1004; MOCK.equipped[17] = nil; MOCK.refItem = 1006; ${frames}; MOCK.click("Sim this item"); assert(not WLX.jobRunning()); assert(WarlockSimItemPanel.text.text:find("two-hand weapon", 1, true))
+  MOCK.refItem = 1004; ${frames}; WLX.db.lastItem = nil; MOCK.click("Sim this item"); assert(not WLX.jobRunning()); assert(WarlockSimItemPanel.text.text:find("You are wearing this item", 1, true), WarlockSimItemPanel.text.text)
+  MOCK.refItem = 1007; ${frames}; assert(not WarlockSimItemPanel:IsShown(), "bread gets no button")
+  MOCK.refItem = 1001; ${frames}; assert(WarlockSimItemPanel:IsShown()); WLX.db.options.itemButton = false; ${frames}; assert(not WarlockSimItemPanel:IsShown()); WLX.db.options.itemButton = true
+  ItemRefTooltip.shown = false; ${frames}; assert(not WarlockSimItemPanel:IsShown()); MOCK.equipped[16] = 1005; MOCK.equipped[17] = 1006`);
 step('/wsim test', 'SlashCmdList.WARLOCKSIM("test"); local t = WLX.db.selfTest; assert(t and t.ok, "self-test failed: " .. table.concat(t and t.lines or {}, " | ")); return t.fights .. " fights match"');
 step('/wsim dump, read, help, close', 'SlashCmdList.WARLOCKSIM("dump"); assert(WLX.db.dump.character.raw.nodeCount == #WLX.TALENTS); SlashCmdList.WARLOCKSIM("read"); SlashCmdList.WARLOCKSIM("help"); SlashCmdList.WARLOCKSIM(""); assert(not WarlockSimFrame:IsShown()); MOCK.fire("PLAYER_LOGOUT"); assert(WLX.db.settings.v == 1)');
 step('a second session starts from the saved settings', 'local saved = WarlockSimDB; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db == saved and WLX.cfg.fight.duration == 120)');
