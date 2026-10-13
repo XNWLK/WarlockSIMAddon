@@ -247,10 +247,13 @@ end
 local events = CreateFrame('Frame')
 events:RegisterEvent('ADDON_LOADED')
 events:RegisterEvent('PLAYER_LOGOUT')
+events:RegisterEvent('PLAYER_LOGIN')
 events:SetScript('OnEvent', function(_, event, name)
   if event == 'ADDON_LOADED' and name == ADDON then
     initDB()
     if #WL.ACTIONS_MISSING > 0 then WL.print('This copy does not know these priority actions of the sim yet: ' .. table.concat(WL.ACTIONS_MISSING, ', ')) end
+  elseif event == 'PLAYER_LOGIN' then
+    if WL.db and WL.db.options.minimapHint then WL.print('v' .. WL.VERSION .. ' loaded. Type /wsim to open it.') end
   elseif event == 'PLAYER_LOGOUT' then
     if WL.db then WL.saveSettings() end
   end

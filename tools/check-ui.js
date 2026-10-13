@@ -21,7 +21,7 @@ const step = (name, code) => { const r = lua('local ok, e = xpcall(function() ' 
 const pump = 'local n = 0; while WLX.jobRunning() do MOCK.frame(); n = n + 1; if n > 2000000 then error("the job never ends") end end';
 const build = WL.BUILDS[2];                                  // Demo Pact Fire Imp
 
-step('start-up', 'MOCK.talents = ' + toLua(build.talents) + '; MOCK.fire("ADDON_LOADED", "SomethingElse"); MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db and WLX.cfg); WLX.db.options.fights = 10');
+step('start-up', 'MOCK.talents = ' + toLua(build.talents) + '; MOCK.fire("ADDON_LOADED", "SomethingElse"); MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db and WLX.cfg); MOCK.fire("PLAYER_LOGIN"); assert(#MOCK.chat == 1, "no hello line"); WLX.db.options.fights = 10');
 step('open the window', 'SlashCmdList.WARLOCKSIM(""); assert(WarlockSimFrame and WarlockSimFrame:IsShown()); return MOCK.find("FontString", "No result yet") and "empty result shown"');
 step('sim without a character says so', 'MOCK.click("Sim!"); assert(not WLX.jobRunning())');
 step('read in combat is refused', 'MOCK.combat = true; MOCK.click("Read my character"); MOCK.combat = false; assert(WLX.char == nil)');
