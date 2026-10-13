@@ -422,8 +422,8 @@ local function buildFightPage(p)
     result.status:SetText('Fight, buffs and consumables are back to the sim\'s defaults.')
   end, 'Puts everything on the Fight and Buffs tabs back to what the website starts with. Your character stays as read.')
   p.reset:SetPoint('BOTTOMLEFT', 0, 0)
-  local ib = keep(Check(p, 'Sim button under item links', function() return o().itemButton ~= false end, function(v) o().itemButton = v end,
-    'Click an item link in chat: under the window that opens, a small button sims your character with that item in place of the one you wear in its slot.'))
+  local ib = keep(Check(p, 'Item sims (Alt+click an item)', function() return o().itemButton ~= false end, function(v) o().itemButton = v end,
+    'Alt+click an item in your bags, on your character sheet, at a vendor or in a loot window: a small panel opens and sims your character with that item in place of the one you wear in its slot. An item you are wearing is simmed against an empty slot: what it is worth to you.\n\nA clicked item link in chat gets a "Sim this item" button under its window.'))
   ib:SetPoint('BOTTOMLEFT', 214, 0)
 end
 

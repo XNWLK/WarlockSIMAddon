@@ -1,6 +1,10 @@
--- A small "Sim this item" button under the item link window (the one that opens when you click an item link in chat).
--- It plays your character as it is, and again with that one item in place of the one you wear in its slot.
--- The panel is the addon's own frame, only anchored to the game's window: nothing of the game's is changed or hooked.
+-- Sim an item: your character as it is against your character with one item changed.
+--   * A small "Sim this item" button under the item link window (the one that opens when you click an item link in chat).
+--   * Alt+click on an item in your bags, on your character sheet, at a vendor, in a loot or quest window: a small panel
+--     opens at the mouse and the sim starts at once. An item you are wearing is simmed against an empty slot: what it is
+--     worth to you.
+-- The panel is the addon's own frame, parented to the screen. Nothing of the game's is changed; the Alt+click comes in
+-- through a post-hook on the game's own handler for modified item clicks (hooksecurefunc: runs after it, cannot block it).
 local ADDON, WL = ...
 local copy = WL.copy
 
@@ -56,11 +60,17 @@ local function equipped(slot)
 end
 local function itemID(link) return link and tonumber(link:match('item:(%d+)')) end
 
--- The swaps an item stands for: one per slot it could go into. Returns a list of { label, olds = { stats, ... }, isSword }
--- or nil and a plain sentence.
-local function alternatives(item)
+-- An item you wear against an empty slot: what it is worth.
+local function worth(item)
+  local main = try(GetInventoryItemLink, 'player', 16)
+  return { { worth = true, label = item.name, olds = { item.stats }, items = {}, mainHand = type(main) == 'string' and itemID(main) == itemID(item.link) } }
+end
+-- The swaps an item stands for: one per slot it could go into. `worn` = the item was clicked on the character sheet.
+-- Returns a list of { label, olds = { stats, ... }, ... } or nil and a plain sentence.
+local function alternatives(item, worn)
   local slots = WL.ITEM_SLOTS[item.equipLoc or '']
   if not slots then return nil, 'This is not something you can wear.' end
+  if worn then return worth(item) end
   local list = {}
   local main = equipped(16)
   local mainIs2H = main and main.equipLoc == 'INVTYPE_2HWEAPON'
@@ -69,8 +79,8 @@ local function alternatives(item)
     local olds, names = {}, {}
     if main then olds[#olds + 1] = main.stats; names[#names + 1] = main.name end
     if off then olds[#olds + 1] = off.stats; names[#names + 1] = off.name end
-    if main and itemID(main.link) == itemID(item.link) then return nil, 'You are wearing this item.' end
-    list[1] = { label = #names > 0 and table.concat(names, ' and ') or 'empty hands', olds = olds, isSword = item.isSword, items = { main, off } }
+    if main and itemID(main.link) == itemID(item.link) then return worth(item) end
+    list[1] = { label = #names > 0 and table.concat(names, ' and ') or 'empty hands', olds = olds, mainHand = true, items = { main, off } }
     return list
   end
   if slots[1] == 17 and mainIs2H then return nil, 'You hold a two-hand weapon: an off-hand item cannot be compared on its own.' end
@@ -79,11 +89,10 @@ local function alternatives(item)
     local old = equipped(slots[i])
     if old and itemID(old.link) == itemID(item.link) then same = same + 1
     else
-      list[#list + 1] = { label = old and old.name or 'the empty slot', olds = old and { old.stats } or {}, items = { old },
-                          isSword = slots[i] == 16 and item.isSword or nil, mainHand = slots[i] == 16 }
+      list[#list + 1] = { label = old and old.name or 'the empty slot', olds = old and { old.stats } or {}, items = { old }, mainHand = slots[i] == 16 }
     end
   end
-  if #list == 0 then return nil, 'You are wearing this item.' end
+  if #list == 0 then return worth(item) end
   if same > 0 and #list == 1 then list[1].note = 'You wear one of these already; this is it in your other slot.' end
   return list
 end
@@ -92,12 +101,13 @@ end
 -- the sim
 -- ---------------------------------------------------------------------------------------------------------------------
 local baseCache                                           -- the last "as you are" run, reused while nothing changed
-local results = {}                                        -- item id -> the text shown for it
+local results = {}                                        -- what was shown for an item: results[key], key = link (+ "|worn")
 
 local function itemFights() return math.max(20, math.min(2000, math.floor(tonumber(WL.db.options.itemFights) or 150))) end
 
+-- worn = the item was clicked on the character sheet (sim it against an empty slot).
 -- Returns true when a sim was started, or false and a plain sentence.
-function WL.simItem(link)
+function WL.simItem(link, worn)
   if WL.jobRunning() then return false, 'A sim is running. Wait for it, or type /wsim stop.' end
   if not (InCombatLockdown and InCombatLockdown()) then
     local ch, err = WL.doReadCharacter()
@@ -106,7 +116,7 @@ function WL.simItem(link)
     return false, 'You are in combat and your character has not been read yet. Try again after the fight.'
   end
   local item = readItem(link)
-  local alts, why = alternatives(item)
+  local alts, why = alternatives(item, worn)
   if not alts then return false, why end
   local build, notes = WL.characterBuildNow()
   if not build then return false, notes[1] end
@@ -116,11 +126,12 @@ function WL.simItem(link)
   local key = n .. race .. WL.encodeBuild(build) .. WL.jsonEncode(WL.settingsSnapshot(cfg))
   local cached = baseCache and baseCache.key == key and baseCache.res or nil
   for i = 1, #alts do
-    alts[i].gear, alts[i].delta = WL.gearWithSwap(cfg.gear, item.stats, alts[i].olds, cfg)
-    if alts[i].mainHand or item.equipLoc == 'INVTYPE_2HWEAPON' then alts[i].gear.weaponIsSword = item.isSword and true or false end
+    local a = alts[i]
+    a.gear, a.delta = WL.gearWithSwap(cfg.gear, a.worth and {} or item.stats, a.olds, cfg)
+    if a.mainHand then a.gear.weaponIsSword = (not a.worth and item.isSword) and true or false end
   end
   -- kept for /wsim dump: what the game returned for the items of the last comparison
-  WL.db.lastItem = { link = link, name = item.name, equipLoc = item.equipLoc, stats = item.stats, unknown = item.unknown, raw = item.raw, against = {} }
+  WL.db.lastItem = { link = link, name = item.name, equipLoc = item.equipLoc, stats = item.stats, unknown = item.unknown, raw = item.raw, worn = worn or nil, against = {} }
   for i = 1, #alts do
     for _, old in pairs(alts[i].items or {}) do
       WL.db.lastItem.against[#WL.db.lastItem.against + 1] = { link = old.link, name = old.name, stats = old.stats, unknown = old.unknown, raw = old.raw }
@@ -141,7 +152,7 @@ function WL.simItem(link)
       alts[i].dps, alts[i].diff = r.dps, mean
       alts[i].err = 1.96 * math.sqrt(math.max(0, sq / n - mean * mean) / math.max(1, n - 1))
     end
-    j.result.kind, j.result.link, j.result.item, j.result.alts, j.result.base, j.result.n = 'item', link, item, alts, base, n
+    j.result.kind, j.result.link, j.result.worn, j.result.item, j.result.alts, j.result.base, j.result.n = 'item', link, worn, item, alts, base, n
   end)
 end
 
@@ -150,12 +161,18 @@ local function resultText(res)
   for i = 1, #res.alts do
     local a = res.alts[i]
     local pct = res.base.dps > 0 and 100 * a.diff / res.base.dps or 0
-    local verdict
-    if math.abs(a.diff) <= a.err then verdict = string.format('|cffcccccc%+.1f DPS: about the same|r', a.diff)
-    elseif a.diff > 0 then verdict = string.format('|cff40ff40%+.1f DPS|r (%+.1f%%)', a.diff, pct)
-    else verdict = string.format('|cffff5050%+.1f DPS|r (%+.1f%%)', a.diff, pct) end
-    lines[#lines + 1] = string.format('Instead of %s:\n%s  |cff999999+-%.1f|r', a.label, verdict, a.err)
-    lines[#lines + 1] = '|cffaaaaaaChange: ' .. WL.describeStats(a.delta, true) .. '|r'
+    if a.worth then
+      -- an item you wear, against an empty slot: the loss without it is what it is worth
+      lines[#lines + 1] = string.format('You are wearing this. It is worth:\n|cff40ff40%.1f DPS|r (%.1f%% of your damage)  |cff999999+-%.1f|r', -a.diff, -pct, a.err)
+      lines[#lines + 1] = '|cffaaaaaaIt gives: ' .. WL.describeStats(res.item.stats, false) .. '|r'
+    else
+      local verdict
+      if math.abs(a.diff) <= a.err then verdict = string.format('|cffcccccc%+.1f DPS: about the same|r', a.diff)
+      elseif a.diff > 0 then verdict = string.format('|cff40ff40%+.1f DPS|r (%+.1f%%)', a.diff, pct)
+      else verdict = string.format('|cffff5050%+.1f DPS|r (%+.1f%%)', a.diff, pct) end
+      lines[#lines + 1] = string.format('Instead of %s:\n%s  |cff999999+-%.1f|r', a.label, verdict, a.err)
+      lines[#lines + 1] = '|cffaaaaaaChange: ' .. WL.describeStats(a.delta, true) .. '|r'
+    end
     if a.note then lines[#lines + 1] = '|cffaaaaaa' .. a.note .. '|r' end
   end
   -- effects the sim does not know (use effects, procs, odd equip lines): on the new item and on what it would replace
@@ -177,43 +194,84 @@ local function resultText(res)
 end
 
 -- ---------------------------------------------------------------------------------------------------------------------
--- the panel under the item link window
+-- the panel: under the item link window, or pinned at the mouse after an Alt+click
 -- ---------------------------------------------------------------------------------------------------------------------
-local panel, shownLink, runningLink
-local function setText(text)
+local panel
+local shown                                               -- what the panel is showing: { link, worn, pinned, name }
+local running                                             -- the key of the item whose sim is running
+local lastRefLink                                         -- the item the item link window showed last time we looked
+local WAIT = '|cffaaaaaaPlaying the fights...|r'
+local function keyOf(link, worn) return link .. (worn and '|worn' or '') end
+
+local function layout(text)
+  local head = (shown and shown.pinned) and 18 or 0
+  panel.title:SetShown(head > 0); panel.close:SetShown(head > 0)
+  panel.button:ClearAllPoints(); panel.button:SetPoint('TOPLEFT', 6, -5 - head)
+  panel.text:ClearAllPoints(); panel.text:SetPoint('TOPLEFT', 8, -28 - head)
   panel.text:SetText(text or '')
   local h = (text and text ~= '') and ((panel.text.GetStringHeight and panel.text:GetStringHeight() or 40) + 8) or 0
-  panel:SetHeight(30 + h)
+  panel:SetHeight(30 + head + h)
+end
+local function start()
+  if not shown then return end
+  local ok, err = WL.simItem(shown.link, shown.worn)
+  if ok then running = keyOf(shown.link, shown.worn); layout(WAIT)
+  else layout('|cffffb060' .. tostring(err) .. '|r') end
+  if WL.refresh then WL.refresh() end
 end
 local function create()
   panel = CreateFrame('Frame', 'WarlockSimItemPanel', UIParent, BackdropTemplateMixin and 'BackdropTemplate' or nil)
   panel:SetFrameStrata('TOOLTIP')
   panel:SetSize(260, 30)
+  panel:SetClampedToScreen(true); panel:EnableMouse(true)
   if panel.SetBackdrop then
     panel:SetBackdrop({ bgFile = 'Interface\\Buttons\\WHITE8X8', edgeFile = 'Interface\\Tooltips\\UI-Tooltip-Border', edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
     panel:SetBackdropColor(0.05, 0.04, 0.08, 0.95); panel:SetBackdropBorderColor(0.58, 0.51, 0.79, 1)
   end
-  panel.button = CreateFrame('Button', nil, panel, 'UIPanelButtonTemplate')
-  panel.button:SetSize(120, 20); panel.button:SetPoint('TOPLEFT', 6, -5)
-  panel.button:SetText('Sim this item')
-  panel.button:SetScript('OnClick', function()
-    if not shownLink then return end
-    local ok, err = WL.simItem(shownLink)
-    if ok then runningLink = shownLink; setText('|cffaaaaaaPlaying the fights...|r')
-    else setText('|cffffb060' .. tostring(err) .. '|r') end
-    if WL.refresh then WL.refresh() end
+  panel.title = panel:CreateFontString(nil, 'ARTWORK', 'GameFontNormalSmall')
+  panel.title:SetPoint('TOPLEFT', 8, -7); panel.title:SetWidth(220); panel.title:SetJustifyH('LEFT')
+  if panel.title.SetWordWrap then panel.title:SetWordWrap(false) end
+  panel.close = CreateFrame('Button', nil, panel, 'UIPanelCloseButton')
+  panel.close:SetSize(22, 22); panel.close:SetPoint('TOPRIGHT', 1, 1)
+  panel.close:SetScript('OnClick', function()
+    shown = nil; panel:Hide()
+    lastRefLink = nil                                     -- if the item link window is still open, its own panel comes back
   end)
+  panel.button = CreateFrame('Button', nil, panel, 'UIPanelButtonTemplate')
+  panel.button:SetSize(120, 20)
+  panel.button:SetText('Sim this item')
+  panel.button:SetScript('OnClick', start)
   panel.progress = panel:CreateFontString(nil, 'ARTWORK', 'GameFontDisableSmall')
   panel.progress:SetPoint('LEFT', panel.button, 'RIGHT', 8, 0)
   panel.text = panel:CreateFontString(nil, 'ARTWORK', 'GameFontHighlightSmall')
-  panel.text:SetPoint('TOPLEFT', 8, -28); panel.text:SetWidth(244)
+  panel.text:SetWidth(244)
   panel.text:SetJustifyH('LEFT'); panel.text:SetJustifyV('TOP')
   if panel.text.SetSpacing then panel.text:SetSpacing(2) end
   panel:Hide()
 end
+-- Shows the panel for an item. anchor = nil: at the mouse (pinned, with the item's name and a close button).
+local function show(link, worn, underRef)
+  if not panel then create() end
+  local name = link:match('%[(.-)%]') or 'Item'
+  shown = { link = link, worn = worn, pinned = not underRef, name = name }
+  panel.title:SetText(name)
+  panel.button:SetText(worn and 'Sim its worth' or 'Sim this item')
+  panel:ClearAllPoints()
+  if underRef then
+    panel:SetPoint('TOPLEFT', ItemRefTooltip, 'BOTTOMLEFT', 0, 2)
+  else
+    local x, y = GetCursorPosition()
+    local scale = UIParent:GetEffectiveScale()
+    if type(scale) ~= 'number' or scale <= 0 then scale = 1 end
+    panel:SetPoint('TOPLEFT', UIParent, 'BOTTOMLEFT', (x or 0) / scale + 18, (y or 0) / scale - 6)
+  end
+  local key = keyOf(link, worn)
+  layout(results[key] or (running == key and WAIT) or '')
+  panel:Show()
+end
 
 -- The item shown in the item link window right now, if it is one you can wear.
-local function currentLink()
+local function refLink()
   local tt = ItemRefTooltip
   if not tt or not tt.IsShown or not tt:IsShown() then return nil end
   local link
@@ -230,40 +288,51 @@ local function currentLink()
   if not WL.ITEM_SLOTS[equipLoc or ''] then return nil end
   return link
 end
+local function enabled() return WL.db ~= nil and WL.db.options.itemButton ~= false end
 
 local watcher, since = CreateFrame('Frame'), 0
 watcher:SetScript('OnUpdate', function(_, elapsed)
   since = since + (elapsed or 0)
   if since < 0.2 then return end
   since = 0
-  if not WL.db or WL.db.options.itemButton == false then
+  if not enabled() then
     if panel and panel:IsShown() then panel:Hide() end
+    shown = nil
     return
   end
-  local link = currentLink()
-  if not link then
-    if panel and panel:IsShown() then panel:Hide() end
-    shownLink = nil
-    return
+  -- the item link window: its panel follows it; a newly opened link takes the panel over from a pinned item
+  local link = refLink()
+  if link ~= lastRefLink then
+    lastRefLink = link
+    if link then show(link, nil, true)
+    elseif shown and not shown.pinned then shown = nil; panel:Hide() end
   end
-  if not panel then create() end
-  if link ~= shownLink then
-    shownLink = link
-    panel:ClearAllPoints()
-    panel:SetPoint('TOPLEFT', ItemRefTooltip, 'BOTTOMLEFT', 0, 2)
-    setText(results[link] or (runningLink == link and '|cffaaaaaaPlaying the fights...|r') or '')
-    panel:Show()
-  end
+  if not shown or not panel then return end
   local done, total = WL.jobProgress()
-  panel.progress:SetText((done and runningLink == link) and string.format('%d%%', math.floor(total > 0 and 100 * done / total or 0)) or '')
+  panel.progress:SetText((done and running == keyOf(shown.link, shown.worn)) and string.format('%d%%', math.floor(total > 0 and 100 * done / total or 0)) or '')
   if panel.button.SetEnabled then panel.button:SetEnabled(not WL.jobRunning()) end
 end)
 
+-- Alt+click on an item (bags, character sheet, vendor, loot, quest reward: everything the game sends through its handler
+-- for modified item clicks). Alt alone: with Shift or Ctrl the click keeps its usual meaning only.
+local function onModifiedItemClick(link, itemLocation)
+  if not enabled() or type(link) ~= 'string' or isSecret(link) then return end
+  if not (IsAltKeyDown and IsAltKeyDown()) or (IsShiftKeyDown and IsShiftKeyDown()) or (IsControlKeyDown and IsControlKeyDown()) then return end
+  if not link:find('item:', 1, true) then return end
+  local _, _, _, equipLoc = try(C_Item.GetItemInfoInstant, link)
+  if not WL.ITEM_SLOTS[equipLoc or ''] then return end
+  local worn = false
+  if type(itemLocation) == 'table' and itemLocation.IsEquipmentSlot then worn = try(itemLocation.IsEquipmentSlot, itemLocation) and true or false end
+  show(link, worn, false)
+  start()
+end
+if hooksecurefunc and HandleModifiedItemClick then hooksecurefunc('HandleModifiedItemClick', function(link, itemLocation) pcall(onModifiedItemClick, link, itemLocation) end) end
+
 -- called by the window's code when a job ends
 function WL.onItemResult(res, err)
-  local link = (res and res.link) or runningLink
-  runningLink = nil
-  if not link then return end
-  results[link] = res and resultText(res) or ('|cffffb060' .. tostring(err) .. '|r')
-  if panel and shownLink == link then setText(results[link]) end
+  local key = (res and keyOf(res.link, res.worn)) or running
+  running = nil
+  if not key then return end
+  results[key] = res and resultText(res) or ('|cffffb060' .. tostring(err) .. '|r')
+  if panel and shown and keyOf(shown.link, shown.worn) == key then layout(results[key]) end
 end

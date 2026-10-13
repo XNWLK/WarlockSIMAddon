@@ -169,3 +169,18 @@ function GetCombatRatingBonusForCombatRatingValue(id, v) return v / 14 end
 ITEM_MOD_INTELLECT, ITEM_MOD_SPIRIT, ITEM_MOD_STAMINA, ITEM_MOD_AGILITY = '%c%s Intellect', '%c%s Spirit', '%c%s Stamina', '%c%s Agility'
 ITEM_MOD_SPELL_POWER, ITEM_MOD_HIT_SPELL_RATING, ITEM_MOD_CRIT_SPELL_RATING = 'Increases spell power by %s.', 'Improves spell hit by %s.', 'Improves spell critical strike by %s.'
 ITEM_SPELL_TRIGGER_ONEQUIP, ITEM_SPELL_TRIGGER_ONUSE, ITEM_SPELL_TRIGGER_ONPROC, ENCHANTED_TOOLTIP_LINE = 'Equip:', 'Use:', 'Chance on hit:', 'Enchanted: %s'
+
+-- modified clicks on items (the game's own handler, hooked by the addon after the fact), modifier keys, the mouse
+function HandleModifiedItemClick(link, itemLocation) return false end
+function hooksecurefunc(name, hook)
+  local original = _G[name]
+  _G[name] = function(...) local a, b, c = original(...); hook(...); return a, b, c end
+end
+MOCK.keys = {}
+function IsAltKeyDown() return MOCK.keys.alt or false end
+function IsShiftKeyDown() return MOCK.keys.shift or false end
+function IsControlKeyDown() return MOCK.keys.ctrl or false end
+function GetCursorPosition() return 640, 360 end
+-- where an item is: a bag slot or an equipment slot (like the game's ItemLocation objects)
+function MOCK.bagLocation() return { IsEquipmentSlot = function() return false end } end
+function MOCK.wornLocation(slot) return { IsEquipmentSlot = function() return true end, GetEquipmentSlot = function() return slot end } end

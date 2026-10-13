@@ -39,15 +39,19 @@ Copy the `WarlockSim` folder into `World of Warcraft\_classic_beta_\Interface\Ad
 The result shows DPS with its margin, a bar per spell (hover for casts, crits and misses), the stat weights in spell
 power, Life Taps, lowest mana and threat.
 
-### Sim an item from its link
+### Sim an item
 
-Click an item link in chat. Under the window that opens there is a small **Sim this item** button: it plays your
-character as it is, and again with that one item in place of the one you wear in its slot, and tells you the difference
-in DPS — for a ring or a trinket against each of the two you wear. The same fights are played on both sides, so even
-small differences show. It also lists what changed ("+14 spell power, -1% hit") so you can see what was counted.
+**Alt+click an item** — in your bags, on your character sheet, at a vendor, in a loot or quest window. A small panel
+opens at the mouse and plays your character as it is, and again with that one item in place of the one you wear in its
+slot, and tells you the difference in DPS — for a ring or a trinket against each of the two you wear. The same fights
+are played on both sides, so even small differences show. It also lists what changed ("+14 spell power, -1% hit") so
+you can see what was counted.
+
+- **An item you are wearing** is simmed against an empty slot: the panel says what the item is worth to you.
+- **An item link in chat:** click it, and under the window that opens there is a **Sim this item** button.
 
 Enchants and set bonuses are left out on both sides, and "Use:" and "Chance on hit:" effects are not simulated (the
-panel names them). The button can be switched off on the Fight tab.
+panel names them). Both can be switched off on the Fight tab.
 
 | Command | |
 |---|---|

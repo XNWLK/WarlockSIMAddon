@@ -78,10 +78,24 @@ step('item link window: two-hand weapon, off-hand, worn item, not wearable, swit
   assert(WarlockSimItemPanel.text.text:find("Instead of Short Blade and Orb", 1, true), WarlockSimItemPanel.text.text)
   assert(WarlockSimItemPanel.text.text:find("+15 spell power, +1% crit", 1, true), WarlockSimItemPanel.text.text)
   MOCK.equipped[16] = 1004; MOCK.equipped[17] = nil; MOCK.refItem = 1006; ${frames}; MOCK.click("Sim this item"); assert(not WLX.jobRunning()); assert(WarlockSimItemPanel.text.text:find("two-hand weapon", 1, true))
-  MOCK.refItem = 1004; ${frames}; WLX.db.lastItem = nil; MOCK.click("Sim this item"); assert(not WLX.jobRunning()); assert(WarlockSimItemPanel.text.text:find("You are wearing this item", 1, true), WarlockSimItemPanel.text.text)
+  MOCK.refItem = 1004; ${frames}; MOCK.click("Sim this item"); assert(WLX.jobRunning(), "a worn item is simmed against an empty slot"); ${pump}; ${frames}
+  assert(WarlockSimItemPanel.text.text:find("You are wearing this. It is worth", 1, true) and WarlockSimItemPanel.text.text:find("It gives: 60 spell power, 1% crit", 1, true), WarlockSimItemPanel.text.text)
   MOCK.refItem = 1007; ${frames}; assert(not WarlockSimItemPanel:IsShown(), "bread gets no button")
   MOCK.refItem = 1001; ${frames}; assert(WarlockSimItemPanel:IsShown()); WLX.db.options.itemButton = false; ${frames}; assert(not WarlockSimItemPanel:IsShown()); WLX.db.options.itemButton = true
-  ItemRefTooltip.shown = false; ${frames}; assert(not WarlockSimItemPanel:IsShown()); MOCK.equipped[16] = 1005; MOCK.equipped[17] = 1006`);
+  ItemRefTooltip.shown = false; MOCK.refItem = nil; ${frames}; assert(not WarlockSimItemPanel:IsShown()); MOCK.equipped[16] = 1005; MOCK.equipped[17] = 1006`);
+step('Alt+click an item in a bag: the panel opens at the mouse and the sim starts', `MOCK.keys = { alt = true }; HandleModifiedItemClick(MOCK.link(1001), MOCK.bagLocation()); MOCK.keys = {}
+  assert(WarlockSimItemPanel:IsShown() and WLX.jobRunning(), "no panel or no sim after Alt+click"); assert(WarlockSimItemPanel.title.text == "Ring of Tests" and WarlockSimItemPanel.title:IsShown(), "title")
+  ${pump}; ${frames}; assert(WarlockSimItemPanel.text.text:find("Instead of Old Band", 1, true) and WarlockSimItemPanel.text.text:find("Instead of Plain Loop", 1, true), WarlockSimItemPanel.text.text)
+  WarlockSimItemPanel.close.scripts.OnClick(WarlockSimItemPanel.close); assert(not WarlockSimItemPanel:IsShown(), "the close button hides it")`);
+step('Alt+click a worn item: what it is worth', `MOCK.keys = { alt = true }; HandleModifiedItemClick(MOCK.link(1002), MOCK.wornLocation(11)); MOCK.keys = {}; assert(WLX.jobRunning()); ${pump}; ${frames}
+  assert(WarlockSimItemPanel.text.text:find("You are wearing this. It is worth", 1, true) and WarlockSimItemPanel.text.text:find("It gives: 12 spell power, 8 Stamina", 1, true), WarlockSimItemPanel.text.text)
+  local worth = tonumber((WarlockSimItemPanel.text.text:gsub("|c%x%x%x%x%x%x%x%x", ""):match("worth:%c([%d%.]+) DPS"))); assert(worth and worth > 0, "worth is a positive number: " .. WarlockSimItemPanel.text.text); return worth .. " DPS"`);
+step('other clicks are left alone', `WarlockSimItemPanel:Hide()
+  MOCK.keys = { alt = true, shift = true }; HandleModifiedItemClick(MOCK.link(1001), MOCK.bagLocation()); assert(not WarlockSimItemPanel:IsShown() and not WLX.jobRunning(), "Shift+Alt")
+  MOCK.keys = { shift = true }; HandleModifiedItemClick(MOCK.link(1001), MOCK.bagLocation()); assert(not WarlockSimItemPanel:IsShown(), "Shift")
+  MOCK.keys = { alt = true }; HandleModifiedItemClick(MOCK.link(1007), MOCK.bagLocation()); assert(not WarlockSimItemPanel:IsShown(), "bread")
+  HandleModifiedItemClick(nil, nil); WLX.db.options.itemButton = false; HandleModifiedItemClick(MOCK.link(1001), MOCK.bagLocation()); assert(not WarlockSimItemPanel:IsShown(), "switched off")
+  WLX.db.options.itemButton = true; MOCK.keys = {}`);
 step('/wsim test', 'SlashCmdList.WARLOCKSIM("test"); local t = WLX.db.selfTest; assert(t and t.ok, "self-test failed: " .. table.concat(t and t.lines or {}, " | ")); return t.fights .. " fights match"');
 step('/wsim dump, read, help, close', 'SlashCmdList.WARLOCKSIM("dump"); assert(WLX.db.dump.character.raw.nodeCount == #WLX.TALENTS); SlashCmdList.WARLOCKSIM("read"); SlashCmdList.WARLOCKSIM("help"); SlashCmdList.WARLOCKSIM(""); assert(not WarlockSimFrame:IsShown()); MOCK.fire("PLAYER_LOGOUT"); assert(WLX.db.settings.v == 1)');
 step('a second session starts from the saved settings', 'local saved = WarlockSimDB; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db == saved and WLX.cfg.fight.duration == 120)');
