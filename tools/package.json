@@ -2,7 +2,7 @@
   "name": "warlock-sim-addon-tools",
   "version": "1.0.0",
   "private": true,
-  "description": "Maintainer tools for the Warlock Sim addon: data generator and checks. Not part of the addon.",
+  "description": "Maintainer tools for the addon Xn's Warlock Sim: data generator and checks. Not part of the addon.",
   "scripts": {
     "sync": "node gen-data.js && node gen-expected.js",
     "check": "node check-all.js"

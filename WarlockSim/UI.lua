@@ -580,7 +580,7 @@ local function create()
     local a, _, b, x, y = main:GetPoint(1)
     WL.db.pos = { a, b, x, y }
   end)
-  local title = Text(main, 'GameFontNormalLarge', 'Warlock Sim'); title:SetPoint('TOPLEFT', PAD, -9)
+  local title = Text(main, 'GameFontNormalLarge', "Xn's Warlock Sim"); title:SetPoint('TOPLEFT', PAD, -9)
   local ver = Text(main, 'GameFontDisableSmall', 'v' .. WL.VERSION .. '  -  /wsim'); ver:SetPoint('LEFT', title, 'RIGHT', 8, -1)
   local close = CreateFrame('Button', nil, main, 'UIPanelCloseButton')
   close:SetPoint('TOPRIGHT', 0, 0)

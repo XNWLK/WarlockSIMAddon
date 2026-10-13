@@ -33,7 +33,7 @@ fs.readdirSync(ADDON).filter(f => f.endsWith('.lua') && f !== 'Data.lua' && f !=
     if (m) { checked.templates++; if (!templates.has(m[1])) say(file, 'frame template "' + m[1] + '" is not in the Forever client'); }
   });
   (raw.match(/RegisterEvent\('([A-Z_]+)'\)/g) || []).forEach(c => { const e = c.match(/'([A-Z_]+)'/)[1]; checked.events++; if (!events.has(e)) say(file, 'event ' + e + ' is not in the Forever client'); });
-  const code = raw.replace(/'(?:\\.|[^'\\\n])*'/g, "''").replace(/"(?:\\.|[^"\\\n])*"/g, '""');
+  const code = raw.replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"/g, "''");   // one pass, so an apostrophe inside "..." is not taken for the start of a text
   // names made local somewhere in the file
   const locals = new Set(['self', 'WL', 'ADDON', '_']);
   (code.match(/\blocal\s+function\s+([A-Za-z_]\w*)/g) || []).forEach(m => locals.add(m.split(/\s+/)[2]));

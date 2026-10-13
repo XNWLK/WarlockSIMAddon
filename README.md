@@ -1,20 +1,30 @@
-# Warlock Sim (addon)
+# Xn's Warlock Sim
 
 A Warlock DPS simulator **inside the game**, for World of Warcraft: Forever. It reads your character — talents, race,
 demon and the spell numbers on your character sheet — plays a few hundred fights in the background and shows your DPS,
 what each spell contributes and what each stat is worth to you.
 
-It is the in-game companion of [Xn's Forever Warlock Sim](https://xnwlk.github.io/WarlockSIM/)
-([source](https://github.com/XNWLK/WarlockSIM)) and uses the same data and the same rules: every fight the addon plays
-gives the same damage, to the last digit, as the website's engine with the same settings. How the rules work is
-described in the website's [rule book](https://github.com/XNWLK/WarlockSIM/blob/main/MECHANICS.md).
-
 > First version. Built for the WoW: Forever beta client (interface 16001).
+
+## One of three
+
+| | |
+|---|---|
+| **Xn's Warlock Sim** (this addon) | The simulator in the game, with your own character. |
+| [Xn's Forever Warlock Sim](https://xnwlk.github.io/WarlockSIM/) ([source](https://github.com/XNWLK/WarlockSIM)) | The simulator as a website: every setting, the build editor, charts, comparisons, the fight log, and how each number is calculated. |
+| [Forever Warlocking](https://xnwlk.github.io/ForeverWarlocking/) ([source](https://github.com/XNWLK/ForeverWarlocking)) | A 3D practice room in the browser: you press the buttons yourself against training dummies and are measured against the simulator. |
+
+All three use the same data and the same rules. Every fight the addon plays gives the same damage, to the last digit,
+as the website's engine with the same settings. The rules themselves are described in the website's
+[rule book](https://github.com/XNWLK/WarlockSIM/blob/main/MECHANICS.md).
+
+A way to use them together: sim your character here, take the build to the website with a code to look closer, then
+practise its priority list in Forever Warlocking — it reads the same build and settings codes.
 
 ## Install
 
 Copy the `WarlockSim` folder into `World of Warcraft\_classic_beta_\Interface\AddOns`, restart the game and tick
-**Warlock Sim** in the AddOns list. Type `/wsim` to open the window.
+**Xn's Warlock Sim** in the AddOns list. Type `/wsim` to open the window.
 
 ## What it does
 
@@ -24,13 +34,18 @@ Copy the `WarlockSim` folder into `World of Warcraft\_classic_beta_\Interface\Ad
 | **Builds** | Plays every ready build of the website with **your** numbers and ranks them — which build is best for your gear. |
 | **Fight** | Number of fights, fight length, 1–3 targets, when cooldowns are used, precast, movement, hits taken, latency, stat weights on or off. |
 | **Buffs** | Raid buffs, debuffs on the boss and consumables, as on the website. |
-| **Codes** | Paste a settings code or a build code from the website, or make one from your character to open on the website (for its charts, comparisons and "show the maths"). |
+| **Codes** | Paste a settings code or a build code from the website, or make one from your character to open there. |
 
 The result shows DPS with its margin, a bar per spell (hover for casts, crits and misses), the stat weights in spell
 power, Life Taps, lowest mana and threat.
 
-Commands: `/wsim` (window) · `/wsim read` · `/wsim test` (plays 14 fights and compares them with the website's engine)
-· `/wsim dump` (saves what the game returned, for bug reports) · `/wsim stop`.
+| Command | |
+|---|---|
+| `/wsim` | Opens or closes the window (`/warlocksim` works too). |
+| `/wsim read` | Reads your character. |
+| `/wsim test` | Plays 14 fights and compares them with the website's engine: the maths check. |
+| `/wsim dump` | Saves what the game returned when your character was read (for bug reports). |
+| `/wsim stop` | Stops a running sim. |
 
 ## Good to know
 
@@ -43,8 +58,8 @@ Commands: `/wsim` (window) · `/wsim read` · `/wsim test` (plays 14 fights and 
 - **Speed.** The game gives addons one processor core and no background threads. Fights are played a few milliseconds
   per frame so the game stays smooth; a sim of 300 fights takes a while, a ranking of all builds several times as long.
   Fewer fights are quicker and less exact (the "+-" behind the DPS says how exact).
-- **Not in the addon** (use the website): the build editor, charts, comparing runs, the fight timeline and log, share
-  links (settings codes and build codes work).
+- **On the website, not in the addon:** the build editor, charts, comparing runs, the fight timeline and log, share
+  links (settings codes and build codes do work here).
 
 ## For maintainers
 

@@ -2,11 +2,11 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.1.0'
+WL.VERSION = '0.1.1'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
-  local text = '|cff9482c9Warlock Sim:|r ' .. tostring(msg)
+  local text = "|cff9482c9Xn's Warlock Sim:|r " .. tostring(msg)
   if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then DEFAULT_CHAT_FRAME:AddMessage(text) else print(text) end
 end
 
