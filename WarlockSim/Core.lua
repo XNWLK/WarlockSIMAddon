@@ -2,7 +2,7 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.4.0'
+WL.VERSION = '0.4.1'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -17,10 +17,10 @@ end
 -- WL.cfg       the settings the sim runs with (the sim's defaults + what you changed)
 -- WL.char      the character read from the game (nil until "Read my character")
 local DEFAULT_OPTIONS = { fights = 300, weights = true, speed = 'smooth', template = nil, stone = 'sheet', race = nil, pet = 'auto', sacrifice = 'auto', minimapHint = true,
-                          itemClick = 'alt-right', itemFights = 150 }
+                          itemClick = 'shift-right', itemClickDefault = 2, itemFights = 150 }
 -- The click that sims an item (options.itemClick). 'off' also hides the button under the item link window.
 WL.ITEM_CLICKS = {
-  { value = 'alt-right', label = 'Alt + right-click' }, { value = 'alt-left', label = 'Alt + left-click' },
+  { value = 'shift-right', label = 'Shift + right-click' }, { value = 'alt-right', label = 'Alt + right-click' }, { value = 'alt-left', label = 'Alt + left-click' },
   { value = 'ctrl-alt-right', label = 'Ctrl + Alt + right-click' }, { value = 'shift-alt-right', label = 'Shift + Alt + right-click' },
   { value = 'off', label = 'Off' },
 }
@@ -42,6 +42,9 @@ local function initDB()
   db.options = type(db.options) == 'table' and db.options or {}
   if db.options.itemButton == false and db.options.itemClick == nil then db.options.itemClick = 'off' end   -- the check box of v0.2 / v0.3
   db.options.itemButton = nil
+  -- v0.4.0's default click was Alt + right-click; the default is Shift + right-click now. Moved over once; a click picked by hand afterwards stays.
+  if db.options.itemClick == 'alt-right' and db.options.itemClickDefault ~= 2 then db.options.itemClick = 'shift-right' end
+  db.options.itemClickDefault = 2
   for k, v in pairs(DEFAULT_OPTIONS) do if db.options[k] == nil then db.options[k] = v end end
   db.builds = type(db.builds) == 'table' and db.builds or {}        -- imported build codes: { { code = 'WFB1:...' }, ... }
   db.chars = type(db.chars) == 'table' and db.chars or {}

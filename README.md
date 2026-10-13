@@ -41,7 +41,7 @@ power, Life Taps, lowest mana and threat.
 
 ### Sim an item
 
-**Alt + right-click an item** — in your bags, on your character sheet, at a vendor, in a loot or quest window. A small panel
+**Shift + right-click an item** — in your bags, on your character sheet, at a vendor, in a loot or quest window. A small panel
 opens at the mouse and plays your character as it is, and again with that one item in place of the one you wear in its
 slot, and tells you the difference in DPS — for a ring or a trinket against each of the two you wear. The same fights
 are played on both sides, so even small differences show. It also lists what changed ("+14 spell power, -1% hit") so
@@ -53,8 +53,8 @@ you can see what was counted.
 Enchants and set bonuses are left out on both sides, and "Use:" and "Chance on hit:" effects are not simulated (the
 panel names them).
 
-The click can be changed on the Fight tab ("Sim an item with": Alt + left-click, with Ctrl or Shift, or off) if another
-addon uses Alt + right-click.
+The click can be changed on the Fight tab ("Sim an item with": Alt + right-click, Alt + left-click and others, or off) if
+Shift + right-click is taken by another addon or gets in your way.
 
 | Command | |
 |---|---|

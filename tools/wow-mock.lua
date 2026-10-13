@@ -177,6 +177,11 @@ function hooksecurefunc(name, hook)
   _G[name] = function(...) local a, b, c = original(...); hook(...); return a, b, c end
 end
 MOCK.keys = {}
+function PaperDollItemSlotButton_OnModifiedClick(slot, button)
+  if MOCK.keys.shift and not MOCK.keys.alt and not MOCK.keys.ctrl and MOCK.button == 'RightButton' then return end   -- the game's "socket this item" click ends here
+  HandleModifiedItemClick(GetInventoryItemLink('player', slot:GetID()), MOCK.wornLocation(slot:GetID()))
+end
+function MOCK.slot(id) return { GetID = function() return id end } end
 function IsAltKeyDown() return MOCK.keys.alt or false end
 function IsShiftKeyDown() return MOCK.keys.shift or false end
 function IsControlKeyDown() return MOCK.keys.ctrl or false end

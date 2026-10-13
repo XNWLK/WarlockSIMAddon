@@ -1,6 +1,6 @@
 -- Sim an item: your character as it is against your character with one item changed.
 --   * A small "Sim this item" button under the item link window (the one that opens when you click an item link in chat).
---   * Alt+right-click (the click can be chosen: options.itemClick) on an item in your bags, on your character sheet, at a vendor, in a loot or quest window: a small panel
+--   * Shift+right-click (the click can be chosen: options.itemClick) on an item in your bags, on your character sheet, at a vendor, in a loot or quest window: a small panel
 --     opens at the mouse and the sim starts at once. An item you are wearing is simmed against an empty slot: what it is
 --     worth to you.
 -- The panel is the addon's own frame, parented to the screen. Nothing of the game's is changed; the Alt+click comes in
@@ -289,15 +289,16 @@ local function refLink()
   return link
 end
 local function enabled() return WL.db ~= nil and WL.db.options.itemClick ~= 'off' end
--- Is the click that is happening right now the one chosen for item sims ("alt-right", "shift-alt-right", ...)?
+-- Is the click that is happening right now the one chosen for item sims ("shift-right", "alt-right", ...)?
+-- The mouse button and each of Shift, Ctrl and Alt must be exactly as the choice names them.
 local function clickMatches()
-  local bind = WL.db.options.itemClick or 'alt-right'
+  local bind = WL.db.options.itemClick or 'shift-right'
   local button = GetMouseButtonClicked and GetMouseButtonClicked()
   if type(button) == 'string' and (button == 'RightButton') ~= (bind:find('right', 1, true) ~= nil) then return false end
   local alt = IsAltKeyDown and IsAltKeyDown() and true or false
   local shift = IsShiftKeyDown and IsShiftKeyDown() and true or false
   local ctrl = IsControlKeyDown and IsControlKeyDown() and true or false
-  return alt and shift == (bind:find('shift', 1, true) ~= nil) and ctrl == (bind:find('ctrl', 1, true) ~= nil)
+  return alt == (bind:find('alt', 1, true) ~= nil) and shift == (bind:find('shift', 1, true) ~= nil) and ctrl == (bind:find('ctrl', 1, true) ~= nil)
 end
 
 local watcher, since = CreateFrame('Frame'), 0
@@ -331,12 +332,42 @@ local function onModifiedItemClick(link, itemLocation)
   if not link:find('item:', 1, true) then return end
   local _, _, _, equipLoc = try(C_Item.GetItemInfoInstant, link)
   if not WL.ITEM_SLOTS[equipLoc or ''] then return end
-  local worn = false
-  if type(itemLocation) == 'table' and itemLocation.IsEquipmentSlot then worn = try(itemLocation.IsEquipmentSlot, itemLocation) and true or false end
-  show(link, worn, false)
+  -- items on the character sheet are handled by the other hook below (the game does not send every click on them here)
+  if type(itemLocation) == 'table' and itemLocation.IsEquipmentSlot and try(itemLocation.IsEquipmentSlot, itemLocation) then return end
+  show(link, false, false)
   start()
 end
-if hooksecurefunc and HandleModifiedItemClick then hooksecurefunc('HandleModifiedItemClick', function(link, itemLocation) pcall(onModifiedItemClick, link, itemLocation) end) end
+-- The chosen click on a slot of the character sheet: the item you wear there, against an empty slot. Its own hook,
+-- because the game ends some clicks on a slot (Shift + right-click, its "socket this item" click) before they reach the
+-- general handler above.
+local function onCharacterSlotClick(slot)
+  if not enabled() or not clickMatches() then return end
+  local id = type(slot) == 'table' and slot.GetID and try(slot.GetID, slot)
+  if type(id) ~= 'number' then return end
+  local link = try(GetInventoryItemLink, 'player', id)
+  if type(link) ~= 'string' or not link:find('item:', 1, true) then return end
+  local _, _, _, equipLoc = try(C_Item.GetItemInfoInstant, link)
+  if not WL.ITEM_SLOTS[equipLoc or ''] then return end
+  show(link, true, false)
+  start()
+end
+-- Post-hooks (hooksecurefunc): they run after the game's own function and cannot change or block what it does.
+local hooked = {}
+local function hookClicks()
+  if not hooksecurefunc then return end
+  if not hooked.items and HandleModifiedItemClick then
+    hooked.items = true
+    hooksecurefunc('HandleModifiedItemClick', function(link, itemLocation) pcall(onModifiedItemClick, link, itemLocation) end)
+  end
+  if not hooked.slots and PaperDollItemSlotButton_OnModifiedClick then
+    hooked.slots = true
+    hooksecurefunc('PaperDollItemSlotButton_OnModifiedClick', function(slot) pcall(onCharacterSlotClick, slot) end)
+  end
+end
+hookClicks()
+local late = CreateFrame('Frame')                           -- once more at login, in case the game made its functions after this file was read
+late:RegisterEvent('PLAYER_LOGIN')
+late:SetScript('OnEvent', hookClicks)
 
 -- called by the window's code when a job ends
 function WL.onItemResult(res, err)

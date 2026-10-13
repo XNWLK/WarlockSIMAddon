@@ -428,7 +428,7 @@ local function buildFightPage(p)
   p.reset:SetPoint('BOTTOMLEFT', 0, 0)
   local il = Text(p, 'GameFontNormalSmall', 'Sim an item with'); il:SetPoint('BOTTOMLEFT', 198, 5)
   local ic = keep(Dropdown(p, 122, function() return WL.ITEM_CLICKS end, function() return o().itemClick end, function(v) o().itemClick = v end,
-    'This click on an item - in your bags, on your character sheet, at a vendor, in a loot window - opens a small panel and sims your character with that item in place of the one you wear in its slot. An item you are wearing is simmed against an empty slot: what it is worth to you.\n\nPick another click if this one is taken by another addon. With Shift or Ctrl in it, the game may also do what it usually does for that click. "Off" also hides the button under item links from chat.'))
+    'This click on an item - in your bags, on your character sheet, at a vendor, in a loot window - opens a small panel and sims your character with that item in place of the one you wear in its slot. An item you are wearing is simmed against an empty slot: what it is worth to you.\n\nPick another click if this one is taken by another addon or gets in your way; the game may also do what it usually does for that click. "Off" also hides the button under item links from chat.'))
   ic:SetPoint('BOTTOMLEFT', 284, 1)
 end
 
