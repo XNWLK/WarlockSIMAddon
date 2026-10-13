@@ -25,7 +25,7 @@ local function newObject(kind, name)
     GetHeight = function(self) return self.height end,
     GetStringWidth = function(self) return #self.text * 6 end,
     GetPoint = function() return 'CENTER', nil, 'CENTER', 0, 0 end,
-    SetPoint = function(self, p) assert(type(p) == 'string', 'SetPoint needs a point name') end,
+    SetPoint = function(self, p, rel) assert(type(p) == 'string', 'SetPoint needs a point name'); if type(rel) == 'table' then self.anchor = rel end end,
     HasFocus = function() return false end,
     RegisterEvent = function(self, e) self.events[e] = true end,
     CreateFontString = function(self) return newObject('FontString') end,
@@ -190,3 +190,23 @@ function GetMouseButtonClicked() return MOCK.button or 'LeftButton' end
 -- where an item is: a bag slot or an equipment slot (like the game's ItemLocation objects)
 function MOCK.bagLocation() return { IsEquipmentSlot = function() return false end } end
 function MOCK.wornLocation(slot) return { IsEquipmentSlot = function() return true end, GetEquipmentSlot = function() return slot end } end
+
+-- the character sheet: the frame, the model, and the item slots with their inventory slot numbers
+PaperDollFrame = newObject('Frame', 'PaperDollFrame'); PaperDollFrame.shown = false
+PaperDollItemsFrame = newObject('Frame', 'PaperDollItemsFrame')
+CharacterModelScene = newObject('ModelScene', 'CharacterModelScene')
+for name, id in pairs({ Head = 1, Neck = 2, Shoulder = 3, Back = 15, Chest = 5, Wrist = 9, Hands = 10, Waist = 6, Legs = 7, Feet = 8, Finger0 = 11, Finger1 = 12,
+                        Trinket0 = 13, Trinket1 = 14, MainHand = 16, SecondaryHand = 17, Ranged = 18 }) do
+  local b = newObject('Button', 'Character' .. name .. 'Slot')
+  b.GetID = function() return id end
+  _G['Character' .. name .. 'Slot'] = b
+end
+-- the text the addon put over a slot (color codes taken off)
+function MOCK.sheetText(id)
+  for _, f in ipairs(MOCK.frames) do
+    if f.__kind == 'FontString' and f.anchor == _G[MOCK.slotName(id)] then return (f.text:gsub('|c%x%x%x%x%x%x%x%x', ''):gsub('|r', '')) end
+  end
+  return nil
+end
+function MOCK.slotName(id) for _, n in ipairs({ 'Head', 'Neck', 'Shoulder', 'Back', 'Chest', 'Wrist', 'Hands', 'Waist', 'Legs', 'Feet', 'Finger0', 'Finger1', 'Trinket0', 'Trinket1', 'MainHand', 'SecondaryHand', 'Ranged' }) do
+  if _G['Character' .. n .. 'Slot']:GetID() == id then return 'Character' .. n .. 'Slot' end end end

@@ -112,6 +112,25 @@ step('a saved Alt + right-click from the version before moves to the new default
   o.itemClick = "alt-right"; o.itemClickDefault = nil; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db.options.itemClick == "shift-right", "moved over")
   WLX.db.options.itemClick = "alt-right"; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db.options.itemClick == "alt-right", "a choice made afterwards stays"); WLX.db.options.itemClick = "shift-right"`);
 step('my character stands out in the list of builds', `WLX.showResult(WLX.lastRank); local row = MOCK.findLike("FontString", "%(you%)"); assert(row and row.text:find("|cffffd100", 1, true), "no gold row for the character")`);
+const bg = 'local n = 0; repeat MOCK.frame(); n = n + 1 until (n > 40 and not WLX.backgroundRunning() and not WLX.jobRunning()) or n > 3000000; for i = 1, 25 do MOCK.frame() end';
+step('character sheet: a number over every worn item, the total over the character', `WLX.db.options.itemFights = 40; PaperDollFrame.shown = true; ${bg}
+  local ring, loop, blade, orb = tonumber(MOCK.sheetText(11)), tonumber(MOCK.sheetText(12)), tonumber(MOCK.sheetText(16)), tonumber(MOCK.sheetText(17))
+  assert(ring and loop and blade and orb, "a number on each worn item: " .. tostring(MOCK.sheetText(11)) .. " / " .. tostring(MOCK.sheetText(12)) .. " / " .. tostring(MOCK.sheetText(16)) .. " / " .. tostring(MOCK.sheetText(17)))
+  assert(blade > orb and orb > 0, "30 spell power is worth more than 15: " .. blade .. " against " .. orb)
+  assert(MOCK.sheetText(1) == "", "an empty slot has no number")
+  local t = MOCK.findLike("FontString", "%d DPS|r$"); assert(t, "no total over the character"); local s = WLX.sheetState(); assert(s.base > 500 and s.n == 40)
+  return "ring " .. ring .. ", loop " .. loop .. ", main hand " .. blade .. ", off-hand " .. orb .. " of " .. string.format("%.0f", s.base) .. " DPS"`);
+step('character sheet: nothing is simmed again while nothing changes', `local before = WLX.sheetState().base; for i = 1, 60 do MOCK.frame() end; assert(not WLX.backgroundRunning() and WLX.sheetState().base == before)`);
+step('character sheet: a new item starts the work again; a sim of yours goes first', `MOCK.equipped[11] = 1001; for i = 1, 25 do MOCK.frame() end
+  assert(WLX.backgroundRunning(), "the background work did not start for the new item"); assert(not WLX.jobRunning(), "background work does not count as a sim of yours")
+  MOCK.click("Sim!"); assert(WLX.jobRunning() and not WLX.backgroundRunning(), "your own sim takes over")
+  ${pump}; ${bg}
+  local ring = tonumber(MOCK.sheetText(11)); assert(ring and ring > 0, "the new ring has its number after the work was taken up again: " .. tostring(MOCK.sheetText(11)))
+  assert(WLX.sheetState().worth[11].link == MOCK.link(1001)); MOCK.equipped[11] = 1002`);
+step('character sheet: switched off and on; not while fighting', `WLX.db.options.sheetNumbers = false; for i = 1, 25 do MOCK.frame() end; assert(not WLX.backgroundRunning(), "off: no work")
+  WLX.db.options.sheetNumbers = true; MOCK.combat = true; for i = 1, 25 do MOCK.frame() end; assert(not WLX.backgroundRunning(), "no work is started in combat")
+  MOCK.combat = false; ${bg}; assert(tonumber(MOCK.sheetText(11)), "numbers are back after the fight")
+  PaperDollFrame.shown = false; WLX.db.options.itemFights = 150`);
 step('/wsim test', 'SlashCmdList.WARLOCKSIM("test"); local t = WLX.db.selfTest; assert(t and t.ok, "self-test failed: " .. table.concat(t and t.lines or {}, " | ")); return t.fights .. " fights match"');
 step('/wsim dump, read, help, close', 'SlashCmdList.WARLOCKSIM("dump"); assert(WLX.db.dump.character.raw.nodeCount == #WLX.TALENTS); SlashCmdList.WARLOCKSIM("read"); SlashCmdList.WARLOCKSIM("help"); SlashCmdList.WARLOCKSIM(""); assert(not WarlockSimFrame:IsShown()); MOCK.fire("PLAYER_LOGOUT"); assert(WLX.db.settings.v == 1)');
 step('a second session starts from the saved settings', 'local saved = WarlockSimDB; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db == saved and WLX.cfg.fight.duration == 120)');

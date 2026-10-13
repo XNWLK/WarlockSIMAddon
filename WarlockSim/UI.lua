@@ -313,6 +313,9 @@ local function buildCharacterPage(p)
     WL.refresh()
   end, 'Takes your talents, race, demon and the spell numbers from your character sheet as they are right now. Raid buffs the addon recognises on you are taken off again, so that the Buffs tab decides which buffs the sim uses. Not possible in combat.')
   p.read:SetPoint('BOTTOMLEFT', 0, 0)
+  local sheet = keep(Check(p, 'Sheet numbers', function() return WL.db.options.sheetNumbers ~= false end, function(v) WL.db.options.sheetNumbers = v end,
+    'Shows numbers on your character sheet: over every item you wear, the DPS that item is worth to you (your character as it is against the same character with that slot empty), and over your character the DPS it sims at.\n\nThey are worked out in the background when you open the character sheet, one item after the other, and again when your items, talents or the sim\'s settings change. A sim you start yourself always goes first.'))
+  sheet:SetPoint('BOTTOMLEFT', 158, 0)
   p.sim = Button(p, 'Sim!', 110, function() startSim(WL.simCharacter) end, 'Plays the fights with your character and shows your DPS, the share of each spell and (if switched on) what each stat is worth.')
   p.sim:SetPoint('BOTTOMRIGHT', 0, 0)
 

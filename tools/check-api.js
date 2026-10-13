@@ -24,6 +24,8 @@ const GUARDED = {
   issecretvalue: 'tested before use', debugprofilestop: 'tested before use',
   CR_CRIT_SPELL: 'constant, numbered fallback', CR_HASTE_SPELL: 'constant, numbered fallback', Enum: 'the game\'s table of constants, tested before use',
   WarlockSimItemPanel: 'the addon\'s panel under the item link window',
+  // frames of the game's character sheet: named in its layout file (not top-level, so not on the frame list); tested before use
+  PaperDollFrame: 'character sheet, tested before use', PaperDollItemsFrame: 'character sheet, tested before use', CharacterModelScene: 'character sheet, tested before use',
 };
 const strip = src => src.replace(/--\[(=*)\[[\s\S]*?\]\1\]/g, ' ').replace(/--[^\n]*/g, ' ')
   .replace(/\[(=*)\[[\s\S]*?\]\1\]/g, m => '"' + ' '.repeat(Math.max(0, m.length - 2)) + '"');

@@ -39,6 +39,17 @@ Copy the `WarlockSim` folder into `World of Warcraft\_classic_beta_\Interface\Ad
 The result shows DPS with its margin, a bar per spell (hover for casts, crits and misses), the stat weights in spell
 power, Life Taps, lowest mana and threat.
 
+### Numbers on your character sheet
+
+Open your character sheet: over every item you wear there is a small number, the **DPS that item is worth to you** —
+your character as it is against the same character with that slot empty — and at your character's feet the **DPS your
+character sims at**. One glance shows which pieces carry you and which slot is weak.
+
+The numbers are worked out in the background when you open the sheet, one item after the other (a few seconds each
+round), and again when your items, talents or the sim's settings change. A sim you start yourself always goes first.
+Green is a real contribution; grey means the item gives nothing the sim counts, or less than the run can tell apart.
+"Sheet numbers" on the Character tab switches them off.
+
 ### Sim an item
 
 **Shift + right-click an item** — in your bags, on your character sheet, at a vendor, in a loot or quest window. A small panel

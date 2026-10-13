@@ -104,6 +104,7 @@ local baseCache                                           -- the last "as you ar
 local results = {}                                        -- what was shown for an item: results[key], key = link (+ "|worn")
 
 local function itemFights() return math.max(20, math.min(2000, math.floor(tonumber(WL.db.options.itemFights) or 150))) end
+WL.readItemInfo, WL.itemFights = readItem, itemFights     -- also used by the numbers on the character sheet (SheetUI.lua)
 
 -- worn = the item was clicked on the character sheet (sim it against an empty slot).
 -- Returns true when a sim was started, or false and a plain sentence.

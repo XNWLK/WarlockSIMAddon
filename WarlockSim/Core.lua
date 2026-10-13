@@ -2,7 +2,7 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.4.1'
+WL.VERSION = '0.5.0'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -17,7 +17,7 @@ end
 -- WL.cfg       the settings the sim runs with (the sim's defaults + what you changed)
 -- WL.char      the character read from the game (nil until "Read my character")
 local DEFAULT_OPTIONS = { fights = 300, weights = true, speed = 'smooth', template = nil, stone = 'sheet', race = nil, pet = 'auto', sacrifice = 'auto', minimapHint = true,
-                          itemClick = 'shift-right', itemClickDefault = 2, itemFights = 150 }
+                          itemClick = 'shift-right', itemClickDefault = 2, itemFights = 150, sheetNumbers = true }
 -- The click that sims an item (options.itemClick). 'off' also hides the button under the item link window.
 WL.ITEM_CLICKS = {
   { value = 'shift-right', label = 'Shift + right-click' }, { value = 'alt-right', label = 'Alt + right-click' }, { value = 'alt-left', label = 'Alt + left-click' },
@@ -129,21 +129,30 @@ driver:Hide()
 WL.onTick = function()
   if job and now() > deadline then coroutine.yield() end
 end
-function WL.jobRunning() return job ~= nil end
+-- A job is either one you started (a sim from the window, an item sim) or background work (the numbers on the character
+-- sheet). Background work never shows in the window, always runs at the gentle speed, and gives way at once when you
+-- start something yourself.
+function WL.jobRunning() return job ~= nil and not job.background end
+function WL.backgroundRunning() return job ~= nil and job.background == true end
 function WL.jobProgress()
-  if not job then return nil end
+  if not job or job.background then return nil end
   return job.done, job.total, job.label, (now() - job.started) / 1000
 end
 function WL.cancelJob()
-  if not job then return end
+  if not job or job.background then return end
   job = nil
   driver:Hide()
   if WL.onJobEnd then WL.onJobEnd(nil, 'Stopped.') end
 end
+function WL.cancelBackground()
+  if not job or not job.background then return end
+  job = nil
+  driver:Hide()
+end
 driver:SetScript('OnUpdate', function()
   if not job then driver:Hide(); return end
   local j = job
-  deadline = now() + (BUDGET[WL.db.options.speed] or BUDGET.smooth)
+  deadline = now() + (j.background and BUDGET.smooth or BUDGET[WL.db.options.speed] or BUDGET.smooth)
   local t0 = now()
   local ok, err = coroutine.resume(j.co)
   j.cpu = j.cpu + (now() - t0)
@@ -151,9 +160,15 @@ driver:SetScript('OnUpdate', function()
   if not ok then
     job = nil; driver:Hide()
     WL.lastError = tostring(err)
-    if WL.onJobEnd then WL.onJobEnd(nil, 'The sim stopped with an error: ' .. tostring(err)) end
+    if j.background then
+      if WL.onBackgroundEnd then WL.onBackgroundEnd(false, tostring(err)) end
+    elseif WL.onJobEnd then WL.onJobEnd(nil, 'The sim stopped with an error: ' .. tostring(err)) end
   elseif coroutine.status(j.co) == 'dead' then
     job = nil; driver:Hide()
+    if j.background then
+      if WL.onBackgroundEnd then WL.onBackgroundEnd(true) end
+      return
+    end
     j.result.cpuSeconds = j.cpu / 1000
     j.result.seconds = (now() - j.started) / 1000
     j.result.fights = j.done
@@ -162,9 +177,13 @@ driver:SetScript('OnUpdate', function()
   end
 end)
 -- fn(job) runs in the coroutine; it adds to job.done as fights finish and fills job.result.
-local function startJob(label, total, fn)
-  if job then return false end
-  local j = { label = label, total = total, done = 0, started = now(), cpu = 0, result = {} }
+-- background = true: see above. Returns false when another job is in the way.
+local function startJob(label, total, fn, background)
+  if job then
+    if job.background and not background then job = nil     -- the background work gives way; it is taken up again later
+    else return false end
+  end
+  local j = { label = label, total = total, done = 0, started = now(), cpu = 0, result = {}, background = background and true or false }
   j.co = coroutine.create(function() fn(j) end)
   job = j
   driver:Show()
@@ -228,6 +247,7 @@ end
 function WL.selfTest()
   local exp = WL.EXPECTED
   if not exp then return false, 'No expected values in this copy.' end
+  if job and job.background then job = nil; driver:Hide() end   -- background work gives way
   if job then return false, 'A sim is running - wait for it or type /wsim stop first.' end
   local bad, lines, t0 = 0, {}, now()
   for i = 1, #exp.fights do
@@ -258,6 +278,7 @@ function WL.dump()
                     talents = ch.talents, buffsOnYou = ch.buffsOnYou, otherAuras = ch.otherAuras, notes = ch.notes, isSword = ch.isSword, weaponEffect = ch.weaponEffect, raw = ch.raw }
   end
   d.lastTiming, d.selfTest, d.lastError = WL.db.lastTiming, WL.db.selfTest, WL.lastError
+  d.sheet = WL.sheetState and WL.sheetState() or nil      -- the numbers on the character sheet
   d.lastItem = WL.db.lastItem                              -- what the game returned for the items of the last item comparison
   WL.db.dump = d
   return d
