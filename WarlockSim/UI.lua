@@ -2,7 +2,7 @@
 -- It is the addon's own frame: nothing is registered in Blizzard's settings and no Blizzard frame is touched.
 local ADDON, WL = ...
 
-local W, H = 430, 640
+local W, H = 430, 658
 local PAD = 12
 local main, tabs, pages, result = nil, {}, {}, {}
 local current                                             -- the result on screen
@@ -180,6 +180,8 @@ local function setRows(rows)                             -- rows: { { label, val
     if d then
       r.label:SetText(d.label); r.right:SetText(d.right or '')
       r.bar:SetValue(math.max(0, math.min(1, d.share or 0)))
+      local c = d.color
+      r.bar:SetStatusBarColor(c and c[1] or 0.58, c and c[2] or 0.51, c and c[3] or 0.79, c and c[4] or 0.55)
       if d.icon then r.icon:SetTexture(d.icon); r.icon:Show() else r.icon:Hide() end
       r.tipText, r.onClick = d.tip, d.onClick
       r:Show()
@@ -227,13 +229,15 @@ end
 
 local function showRank(r)
   local best = r.rows[1]
-  result.head:SetText(string.format('Best: %s', best.build.short or best.build.key))
+  result.head:SetText(string.format('Best with your gear: %s', best.build.short or best.build.key))
   local race = WL.RACES[r.race] and WL.RACES[r.race].name or r.race
-  result.sub:SetText(string.format('%d builds with your numbers - %s - %d fights each. Click a build for its spells.', #r.rows, race, best.res.iterations))
+  result.sub:SetText(string.format('%d builds with your gear - %s - %d fights each. Click a build for its spells.', #r.rows, race, best.res.iterations))
   local rows = {}
   for i = 1, math.min(#r.rows, ROWS) do
     local row = r.rows[i]
-    rows[i] = { label = i .. '  ' .. (row.build.short or row.build.key), share = row.res.dps / best.res.dps, right = fmt(row.res.dps, 1),
+    local mine = row.build.key == 'character'              -- your own character among the sim's builds: gold, so it stands out
+    rows[i] = { label = (mine and '|cffffd100' or '') .. i .. '  ' .. (row.build.short or row.build.key) .. (mine and '  (you)|r' or ''), share = row.res.dps / best.res.dps,
+      right = (mine and '|cffffd100' or '') .. fmt(row.res.dps, 1) .. (mine and '|r' or ''), color = mine and { 1, 0.82, 0, 0.6 } or nil,
       tip = string.format('%s\n%s DPS (+- %s)\n%s%% behind the best\n%s', row.build.name or row.build.short or '', fmt(row.res.dps, 1), fmt(row.res.dpsErr, 1), fmt(100 * (1 - row.res.dps / best.res.dps), 1), row.build.notes or ''),
       onClick = function() current = { kind = 'single', res = row.res, build = row.build, race = r.race, back = r }; WL.showResult(current) end }
   end
@@ -349,7 +353,7 @@ local function buildCharacterPage(p)
 end
 
 local function buildBuildsPage(p)
-  local t = Text(p, 'GameFontHighlightSmall', 'Plays every ready build of the sim (and builds you loaded on the Codes tab) with your numbers and puts them in order, so you see which build is best for your gear. With a character read, it is in the list too.')
+  local t = Text(p, 'GameFontHighlightSmall', 'Plays every build of the sim (and builds you loaded on the Codes tab) with the gear numbers of your character and puts them in order, so you see which build is best for your gear. Your own character, with the talents you have now, is in the list in gold.')
   t:SetPoint('TOPLEFT', 0, 0); t:SetWidth(W - 2 * PAD)
   local lab = Text(p, 'GameFontNormalSmall', 'Race'); lab:SetPoint('TOPLEFT', 0, -62)
   p.race = keep(Dropdown(p, 180, function()
@@ -360,7 +364,7 @@ local function buildBuildsPage(p)
   end, function() return WL.raceKey() end, function(v) if not WL.char then WL.db.options.race = v end end, 'Without a character read, the builds are played as this race, with the gear numbers of the sim\'s settings (or of a settings code you loaded).'))
   p.race:SetPoint('TOPLEFT', 86, -58)
   p.gear = Text(p, 'GameFontDisableSmall'); p.gear:SetPoint('TOPLEFT', 0, -88); p.gear:SetWidth(W - 2 * PAD)
-  p.rank = Button(p, 'Rank the builds', 150, function() startSim(WL.simRanking) end, 'Seven or more sims in a row: this takes a while. Fewer fights (Fight tab) make it quicker and less exact.')
+  p.rank = Button(p, 'Sim builds with your gear', 200, function() startSim(WL.simRanking) end, 'Reads your character again (out of combat), then plays every build of the sim with your gear numbers: seven or more sims in a row. Fewer fights (Fight tab) make it quicker and less exact.')
   p.rank:SetPoint('BOTTOMLEFT', 0, 0)
   p.sync = function()
     local g = WL.characterConfig().gear
@@ -415,16 +419,17 @@ local function buildFightPage(p)
   label('Latency (ms)', 0)
   place(keep(Edit(p, 50, function() return f().latencyMs end, function(v) f().latencyMs = math.max(0, math.min(2000, v)) end, 'Your reaction delay after each cast.')), 92)
   label('While simming', 190)
-  place(keep(Dropdown(p, 110, function() return { { value = 'smooth', label = 'Stay smooth' }, { value = 'fast', label = 'Sim faster' } } end,
-    function() return o().speed end, function(v) o().speed = v end, '"Stay smooth" keeps the game running nearly as usual while fights are played. "Sim faster" takes more of each frame: quicker, but the game stutters meanwhile.')), 284)
+  place(keep(Dropdown(p, 110, function() return { { value = 'smooth', label = 'Stay smooth' }, { value = 'fast', label = 'Sim faster' }, { value = 'fastest', label = 'Fastest' } } end,
+    function() return o().speed end, function(v) o().speed = v end, 'The game gives addons one processor core, shared with the game itself. "Stay smooth" sims for 8 ms of every frame: the game runs nearly as usual. "Sim faster" takes 30 ms: about twice as quick, the game stutters a little. "Fastest" takes 100 ms: the sim gets nearly the whole core, the game drops to about 10 frames a second until it is done.')), 284)
   p.reset = Button(p, 'Back to the sim\'s settings', 190, function()
     WL.cfg = WL.newConfig(); WL.saveSettings(); WL.refresh()
     result.status:SetText('Fight, buffs and consumables are back to the sim\'s defaults.')
   end, 'Puts everything on the Fight and Buffs tabs back to what the website starts with. Your character stays as read.')
   p.reset:SetPoint('BOTTOMLEFT', 0, 0)
-  local ib = keep(Check(p, 'Item sims (Alt+click an item)', function() return o().itemButton ~= false end, function(v) o().itemButton = v end,
-    'Alt+click an item in your bags, on your character sheet, at a vendor or in a loot window: a small panel opens and sims your character with that item in place of the one you wear in its slot. An item you are wearing is simmed against an empty slot: what it is worth to you.\n\nA clicked item link in chat gets a "Sim this item" button under its window.'))
-  ib:SetPoint('BOTTOMLEFT', 214, 0)
+  local il = Text(p, 'GameFontNormalSmall', 'Sim an item with'); il:SetPoint('BOTTOMLEFT', 198, 5)
+  local ic = keep(Dropdown(p, 122, function() return WL.ITEM_CLICKS end, function() return o().itemClick end, function(v) o().itemClick = v end,
+    'This click on an item - in your bags, on your character sheet, at a vendor, in a loot window - opens a small panel and sims your character with that item in place of the one you wear in its slot. An item you are wearing is simmed against an empty slot: what it is worth to you.\n\nPick another click if this one is taken by another addon. With Shift or Ctrl in it, the game may also do what it usually does for that click. "Off" also hides the button under item links from chat.'))
+  ic:SetPoint('BOTTOMLEFT', 284, 1)
 end
 
 local function buildBuffsPage(p)
@@ -549,8 +554,8 @@ end
 -- ---------------------------------------------------------------------------------------------------------------------
 -- the window
 -- ---------------------------------------------------------------------------------------------------------------------
-local TAB_NAMES = { 'Character', 'Builds', 'Fight', 'Buffs', 'Codes' }
-local BUILDERS = { buildCharacterPage, buildBuildsPage, buildFightPage, buildBuffsPage, buildCodesPage }
+local TAB_NAMES = { 'Character', 'Builds', 'Buffs', 'Fight', 'Codes' }
+local BUILDERS = { buildCharacterPage, buildBuildsPage, buildBuffsPage, buildFightPage, buildCodesPage }
 local PAGE_H = 248
 
 local function selectTab(i)
@@ -636,14 +641,16 @@ local function create()
   if result.info.SetSpacing then result.info:SetSpacing(2) end
 
   result.progress = CreateFrame('StatusBar', nil, main)
-  result.progress:SetPoint('BOTTOMLEFT', PAD, 10); result.progress:SetSize(W - 2 * PAD - 70, 16)
+  result.progress:SetPoint('BOTTOMLEFT', PAD, 28); result.progress:SetSize(W - 2 * PAD - 70, 16)
   result.progress:SetStatusBarTexture('Interface\\Buttons\\WHITE8X8'); result.progress:SetStatusBarColor(0.3, 0.75, 0.35, 0.8)
   result.progress:SetMinMaxValues(0, 1)
   local pbg = result.progress:CreateTexture(nil, 'BACKGROUND'); pbg:SetAllPoints(); pbg:SetColorTexture(0, 0, 0, 0.5)
   result.progressText = Text(result.progress, 'GameFontHighlightSmall'); result.progressText:SetPoint('LEFT', 4, 0)
   result.stop = Button(main, 'Stop', 62, function() WL.cancelJob() end)
-  result.stop:SetPoint('BOTTOMRIGHT', -PAD, 7)
-  result.status = Text(main, 'GameFontHighlightSmall'); result.status:SetPoint('BOTTOMLEFT', PAD, 10); result.status:SetWidth(W - 2 * PAD)
+  result.stop:SetPoint('BOTTOMRIGHT', -PAD, 25)
+  result.status = Text(main, 'GameFontHighlightSmall'); result.status:SetPoint('BOTTOMLEFT', PAD, 28); result.status:SetWidth(W - 2 * PAD)
+  result.tip = Text(main, 'GameFontDisableSmall'); result.tip:SetPoint('BOTTOMLEFT', PAD, 9); result.tip:SetWidth(W - 2 * PAD)
+  if result.tip.SetWordWrap then result.tip:SetWordWrap(false) end
   result.status:SetJustifyV('BOTTOM')
 
   main:SetScript('OnUpdate', function()
@@ -662,6 +669,9 @@ function WL.refresh()
   for i = 1, #syncers do if syncers[i].sync then syncers[i].sync() end end
   local running = WL.jobRunning()
   result.progress:SetShown(running); result.stop:SetShown(running); result.status:SetShown(not running)
+  local click = WL.itemClickText()
+  result.tip:SetText(click and ('|cff9482c9Tip:|r ' .. click .. ' any item (bags, character sheet, vendor) to sim what it is worth to you.')
+    or 'Item sims are switched off (Fight tab, "Sim an item with").')
   WL.saveSettings()
 end
 WL.onJobEnd = function(res, err)

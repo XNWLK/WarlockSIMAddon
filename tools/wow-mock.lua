@@ -181,6 +181,7 @@ function IsAltKeyDown() return MOCK.keys.alt or false end
 function IsShiftKeyDown() return MOCK.keys.shift or false end
 function IsControlKeyDown() return MOCK.keys.ctrl or false end
 function GetCursorPosition() return 640, 360 end
+function GetMouseButtonClicked() return MOCK.button or 'LeftButton' end
 -- where an item is: a bag slot or an equipment slot (like the game's ItemLocation objects)
 function MOCK.bagLocation() return { IsEquipmentSlot = function() return false end } end
 function MOCK.wornLocation(slot) return { IsEquipmentSlot = function() return true end, GetEquipmentSlot = function() return slot end } end

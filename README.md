@@ -31,9 +31,9 @@ Copy the `WarlockSim` folder into `World of Warcraft\_classic_beta_\Interface\Ad
 | Tab | |
 |---|---|
 | **Character** | *Read my character* takes your talents, race, demon, sacrificed demon and your spell power, hit, crit, haste, Intellect, Spirit, Stamina, mana per 5 s and Spell Pierce from the game. *Sim!* plays the fights. The order of your spells (the priority list) is taken from the ready build closest to your talents, or from one you pick. |
-| **Builds** | Plays every ready build of the website with **your** numbers and ranks them — which build is best for your gear. |
-| **Fight** | Number of fights, fight length, 1–3 targets, when cooldowns are used, precast, movement, hits taken, latency, stat weights on or off. |
+| **Builds** | *Sim builds with your gear* plays every build of the website with **your** gear numbers and puts them in order — which build is best for your gear. Your own character, with the talents you have now, is in the list in gold. |
 | **Buffs** | Raid buffs, debuffs on the boss and consumables, as on the website. |
+| **Fight** | Number of fights, fight length, 1–3 targets, when cooldowns are used, precast, movement, hits taken, latency, stat weights on or off, how much of each frame the sim may take, and the click that sims an item. |
 | **Codes** | Paste a settings code or a build code from the website, or make one from your character to open there. |
 
 The result shows DPS with its margin, a bar per spell (hover for casts, crits and misses), the stat weights in spell
@@ -41,7 +41,7 @@ power, Life Taps, lowest mana and threat.
 
 ### Sim an item
 
-**Alt+click an item** — in your bags, on your character sheet, at a vendor, in a loot or quest window. A small panel
+**Alt + right-click an item** — in your bags, on your character sheet, at a vendor, in a loot or quest window. A small panel
 opens at the mouse and plays your character as it is, and again with that one item in place of the one you wear in its
 slot, and tells you the difference in DPS — for a ring or a trinket against each of the two you wear. The same fights
 are played on both sides, so even small differences show. It also lists what changed ("+14 spell power, -1% hit") so
@@ -51,7 +51,10 @@ you can see what was counted.
 - **An item link in chat:** click it, and under the window that opens there is a **Sim this item** button.
 
 Enchants and set bonuses are left out on both sides, and "Use:" and "Chance on hit:" effects are not simulated (the
-panel names them). Both can be switched off on the Fight tab.
+panel names them).
+
+The click can be changed on the Fight tab ("Sim an item with": Alt + left-click, with Ctrl or Shift, or off) if another
+addon uses Alt + right-click.
 
 | Command | |
 |---|---|
@@ -69,9 +72,10 @@ panel names them). Both can be switched off on the Fight tab.
   tab alone decides which buffs the sim uses. Anything else that is on you while reading — a flask, food, a weapon stone
   or oil — stays inside your numbers and counts as gear. The Character tab lists what it found.
 - **Level 60.** The sim plays level-60 spells against a level-63 boss. Below level 60 the DPS shown is not what you do.
-- **Speed.** The game gives addons one processor core and no background threads. Fights are played a few milliseconds
-  per frame so the game stays smooth; a sim of 300 fights takes a while, a ranking of all builds several times as long.
-  Fewer fights are quicker and less exact (the "+-" behind the DPS says how exact).
+- **Speed.** The game gives addons one processor core, shared with the game itself, and no background threads — an addon
+  cannot use more cores. Fights are played a few milliseconds per frame so the game stays smooth; on the Fight tab
+  "While simming" lets the sim take more of each frame ("Sim faster", "Fastest") at the price of a stuttering game
+  while it runs. Fewer fights are quicker and less exact (the "+-" behind the DPS says how exact).
 - **On the website, not in the addon:** the build editor, charts, comparing runs, the fight timeline and log, share
   links (settings codes and build codes do work here).
 

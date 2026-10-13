@@ -1,6 +1,6 @@
 -- Sim an item: your character as it is against your character with one item changed.
 --   * A small "Sim this item" button under the item link window (the one that opens when you click an item link in chat).
---   * Alt+click on an item in your bags, on your character sheet, at a vendor, in a loot or quest window: a small panel
+--   * Alt+right-click (the click can be chosen: options.itemClick) on an item in your bags, on your character sheet, at a vendor, in a loot or quest window: a small panel
 --     opens at the mouse and the sim starts at once. An item you are wearing is simmed against an empty slot: what it is
 --     worth to you.
 -- The panel is the addon's own frame, parented to the screen. Nothing of the game's is changed; the Alt+click comes in
@@ -288,7 +288,17 @@ local function refLink()
   if not WL.ITEM_SLOTS[equipLoc or ''] then return nil end
   return link
 end
-local function enabled() return WL.db ~= nil and WL.db.options.itemButton ~= false end
+local function enabled() return WL.db ~= nil and WL.db.options.itemClick ~= 'off' end
+-- Is the click that is happening right now the one chosen for item sims ("alt-right", "shift-alt-right", ...)?
+local function clickMatches()
+  local bind = WL.db.options.itemClick or 'alt-right'
+  local button = GetMouseButtonClicked and GetMouseButtonClicked()
+  if type(button) == 'string' and (button == 'RightButton') ~= (bind:find('right', 1, true) ~= nil) then return false end
+  local alt = IsAltKeyDown and IsAltKeyDown() and true or false
+  local shift = IsShiftKeyDown and IsShiftKeyDown() and true or false
+  local ctrl = IsControlKeyDown and IsControlKeyDown() and true or false
+  return alt and shift == (bind:find('shift', 1, true) ~= nil) and ctrl == (bind:find('ctrl', 1, true) ~= nil)
+end
 
 local watcher, since = CreateFrame('Frame'), 0
 watcher:SetScript('OnUpdate', function(_, elapsed)
@@ -313,11 +323,11 @@ watcher:SetScript('OnUpdate', function(_, elapsed)
   if panel.button.SetEnabled then panel.button:SetEnabled(not WL.jobRunning()) end
 end)
 
--- Alt+click on an item (bags, character sheet, vendor, loot, quest reward: everything the game sends through its handler
--- for modified item clicks). Alt alone: with Shift or Ctrl the click keeps its usual meaning only.
+-- The chosen click on an item (bags, character sheet, vendor, loot, quest reward: everything the game sends through its
+-- handler for modified item clicks). Any other click keeps its usual meaning only.
 local function onModifiedItemClick(link, itemLocation)
   if not enabled() or type(link) ~= 'string' or isSecret(link) then return end
-  if not (IsAltKeyDown and IsAltKeyDown()) or (IsShiftKeyDown and IsShiftKeyDown()) or (IsControlKeyDown and IsControlKeyDown()) then return end
+  if not clickMatches() then return end
   if not link:find('item:', 1, true) then return end
   local _, _, _, equipLoc = try(C_Item.GetItemInfoInstant, link)
   if not WL.ITEM_SLOTS[equipLoc or ''] then return end

@@ -37,14 +37,21 @@ local function imul(a, b)
   local bh, bl = floor(b / 65536), b % 65536
   return (((ah * bl + al * bh) % 65536) * 65536 + al * bl) % TWO32
 end
+-- Written out in full (the two 32-bit multiplications, see imul above, and the shifts as divisions): it is called a few
+-- hundred times a fight and every function call counts.
 function WL.makeRng(seed)
   local a = floor(seed) % TWO32
   return function()
     a = (a + 0x6D2B79F5) % TWO32
-    local t = a
-    t = imul(bxor(t, floor(t / 32768)) % TWO32, bor(t, 1) % TWO32)
-    t = bxor(t, (t + imul(bxor(t, floor(t / 128)) % TWO32, bor(t, 61) % TWO32)) % TWO32) % TWO32
-    return (bxor(t, floor(t / 16384)) % TWO32) / TWO32
+    local x = bxor(a, (a - a % 32768) / 32768) % TWO32
+    local y = bor(a, 1) % TWO32
+    local xl, yl = x % 65536, y % 65536
+    local t = ((((x - xl) / 65536 * yl + xl * ((y - yl) / 65536)) % 65536) * 65536 + xl * yl) % TWO32
+    x = bxor(t, (t - t % 128) / 128) % TWO32
+    y = bor(t, 61) % TWO32
+    xl, yl = x % 65536, y % 65536
+    t = bxor(t, (t + ((((x - xl) / 65536 * yl + xl * ((y - yl) / 65536)) % 65536) * 65536 + xl * yl) % TWO32) % TWO32) % TWO32
+    return (bxor(t, (t - t % 16384) / 16384) % TWO32) / TWO32
   end
 end
 function WL.xorSeed(a, b) return bxor(a % TWO32, b) % TWO32 end

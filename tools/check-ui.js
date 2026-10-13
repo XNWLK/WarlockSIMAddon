@@ -44,11 +44,11 @@ step('every tab, every tooltip', `for _, name in ipairs({ "Builds", "Fight", "Bu
   local tips = 0
   for _, f in ipairs(MOCK.frames) do if f.scripts.OnEnter then f.scripts.OnEnter(f); tips = tips + 1; if f.scripts.OnLeave then f.scripts.OnLeave(f) end end end
   return tips .. " tooltips"`);
-step('rank the builds', 'WLX.db.options.weights = false; MOCK.click("Rank the builds"); ' + pump + '; local r = WLX.lastResult; assert(r.kind == "rank" and #r.rows == 8, "rows " .. tostring(r.rows and #r.rows)); return r.rows[1].build.short .. " first with " .. string.format("%.1f", r.rows[1].res.dps) .. ", my character at place " .. (function() for i = 1, #r.rows do if r.rows[i].build.key == "character" then return i end end end)()');
+step('sim builds with your gear', 'WLX.db.options.weights = false; MOCK.click("Sim builds with your gear"); ' + pump + '; local r = WLX.lastResult; WLX.lastRank = r; assert(r.kind == "rank" and #r.rows == 8, "rows " .. tostring(r.rows and #r.rows)); return r.rows[1].build.short .. " first with " .. string.format("%.1f", r.rows[1].res.dps) .. ", my character at place " .. (function() for i = 1, #r.rows do if r.rows[i].build.key == "character" then return i end end end)()');
 step('click a ranking row and go back', `local row; for _, f in ipairs(MOCK.frames) do if f.__kind == "Button" and f.onClick and f.shown then row = f; break end end
   assert(row, "no clickable row"); row.scripts.OnClick(row); assert(MOCK.findLike("FontString", "back to the ranking"), "no way back shown")
   local sub; for _, f in ipairs(MOCK.frames) do if f.__kind == "Button" and f.scripts.OnClick and f.width == 406 and f.height == 14 then sub = f end end
-  assert(sub, "no back button"); sub.scripts.OnClick(sub); assert(MOCK.findLike("FontString", "^Best: "), "ranking not shown again")`);
+  assert(sub, "no back button"); sub.scripts.OnClick(sub); assert(MOCK.findLike("FontString", "^Best with your gear: "), "ranking not shown again")`);
 const settingsCode = 'WFS1:' + Buffer.from(JSON.stringify(JSON.parse(JSON.stringify(WL.settingsSnapshot(Object.assign(JSON.parse(JSON.stringify(WL.DEFAULT_CONFIG)), {})))))).toString('base64');
 const b2 = JSON.parse(JSON.stringify(WL.BUILDS[5]));
 const buildCode = 'WFB1:' + Buffer.from(JSON.stringify({ v: 1, short: 'My web build', talents: b2.talents, pet: b2.pet, sacrifice: b2.sacrifice || null, oil: b2.oil, rotation: b2.rotation, p: b2.params })).toString('base64');
@@ -81,21 +81,31 @@ step('item link window: two-hand weapon, off-hand, worn item, not wearable, swit
   MOCK.refItem = 1004; ${frames}; MOCK.click("Sim this item"); assert(WLX.jobRunning(), "a worn item is simmed against an empty slot"); ${pump}; ${frames}
   assert(WarlockSimItemPanel.text.text:find("You are wearing this. It is worth", 1, true) and WarlockSimItemPanel.text.text:find("It gives: 60 spell power, 1% crit", 1, true), WarlockSimItemPanel.text.text)
   MOCK.refItem = 1007; ${frames}; assert(not WarlockSimItemPanel:IsShown(), "bread gets no button")
-  MOCK.refItem = 1001; ${frames}; assert(WarlockSimItemPanel:IsShown()); WLX.db.options.itemButton = false; ${frames}; assert(not WarlockSimItemPanel:IsShown()); WLX.db.options.itemButton = true
+  MOCK.refItem = 1001; ${frames}; assert(WarlockSimItemPanel:IsShown()); WLX.db.options.itemClick = "off"; ${frames}; assert(not WarlockSimItemPanel:IsShown()); WLX.db.options.itemClick = "alt-right"
   ItemRefTooltip.shown = false; MOCK.refItem = nil; ${frames}; assert(not WarlockSimItemPanel:IsShown()); MOCK.equipped[16] = 1005; MOCK.equipped[17] = 1006`);
-step('Alt+click an item in a bag: the panel opens at the mouse and the sim starts', `MOCK.keys = { alt = true }; HandleModifiedItemClick(MOCK.link(1001), MOCK.bagLocation()); MOCK.keys = {}
+step('Alt+right-click an item in a bag: the panel opens at the mouse and the sim starts', `MOCK.keys = { alt = true }; MOCK.button = "RightButton"; HandleModifiedItemClick(MOCK.link(1001), MOCK.bagLocation()); MOCK.keys = {}
   assert(WarlockSimItemPanel:IsShown() and WLX.jobRunning(), "no panel or no sim after Alt+click"); assert(WarlockSimItemPanel.title.text == "Ring of Tests" and WarlockSimItemPanel.title:IsShown(), "title")
   ${pump}; ${frames}; assert(WarlockSimItemPanel.text.text:find("Instead of Old Band", 1, true) and WarlockSimItemPanel.text.text:find("Instead of Plain Loop", 1, true), WarlockSimItemPanel.text.text)
   WarlockSimItemPanel.close.scripts.OnClick(WarlockSimItemPanel.close); assert(not WarlockSimItemPanel:IsShown(), "the close button hides it")`);
-step('Alt+click a worn item: what it is worth', `MOCK.keys = { alt = true }; HandleModifiedItemClick(MOCK.link(1002), MOCK.wornLocation(11)); MOCK.keys = {}; assert(WLX.jobRunning()); ${pump}; ${frames}
+step('Alt+right-click a worn item: what it is worth', `MOCK.keys = { alt = true }; MOCK.button = "RightButton"; HandleModifiedItemClick(MOCK.link(1002), MOCK.wornLocation(11)); MOCK.keys = {}; assert(WLX.jobRunning()); ${pump}; ${frames}
   assert(WarlockSimItemPanel.text.text:find("You are wearing this. It is worth", 1, true) and WarlockSimItemPanel.text.text:find("It gives: 12 spell power, 8 Stamina", 1, true), WarlockSimItemPanel.text.text)
   local worth = tonumber((WarlockSimItemPanel.text.text:gsub("|c%x%x%x%x%x%x%x%x", ""):match("worth:%c([%d%.]+) DPS"))); assert(worth and worth > 0, "worth is a positive number: " .. WarlockSimItemPanel.text.text); return worth .. " DPS"`);
-step('other clicks are left alone', `WarlockSimItemPanel:Hide()
+step('other clicks are left alone', `WarlockSimItemPanel:Hide(); MOCK.button = "RightButton"
   MOCK.keys = { alt = true, shift = true }; HandleModifiedItemClick(MOCK.link(1001), MOCK.bagLocation()); assert(not WarlockSimItemPanel:IsShown() and not WLX.jobRunning(), "Shift+Alt")
   MOCK.keys = { shift = true }; HandleModifiedItemClick(MOCK.link(1001), MOCK.bagLocation()); assert(not WarlockSimItemPanel:IsShown(), "Shift")
   MOCK.keys = { alt = true }; HandleModifiedItemClick(MOCK.link(1007), MOCK.bagLocation()); assert(not WarlockSimItemPanel:IsShown(), "bread")
-  HandleModifiedItemClick(nil, nil); WLX.db.options.itemButton = false; HandleModifiedItemClick(MOCK.link(1001), MOCK.bagLocation()); assert(not WarlockSimItemPanel:IsShown(), "switched off")
-  WLX.db.options.itemButton = true; MOCK.keys = {}`);
+  HandleModifiedItemClick(nil, nil); WLX.db.options.itemClick = "off"; HandleModifiedItemClick(MOCK.link(1001), MOCK.bagLocation()); assert(not WarlockSimItemPanel:IsShown(), "switched off")
+  WLX.db.options.itemClick = "alt-right"; MOCK.keys = {}`);
+step('the click can be chosen; the tip names it', `local bag = MOCK.bagLocation()
+  MOCK.keys = { alt = true }; MOCK.button = "LeftButton"; HandleModifiedItemClick(MOCK.link(1001), bag); assert(not WarlockSimItemPanel:IsShown() and not WLX.jobRunning(), "Alt+left does nothing by default")
+  assert(MOCK.findLike("FontString", "Alt %+ right%-click any item"), "the tip line names Alt + right-click")
+  WLX.db.options.itemClick = "alt-left"; WLX.refresh(); assert(MOCK.findLike("FontString", "Alt %+ left%-click any item"), "the tip follows the choice")
+  HandleModifiedItemClick(MOCK.link(1001), bag); assert(WarlockSimItemPanel:IsShown(), "Alt+left works once chosen")
+  WarlockSimItemPanel:Hide(); MOCK.button = "RightButton"; HandleModifiedItemClick(MOCK.link(1003), bag); assert(not WarlockSimItemPanel:IsShown(), "and Alt+right no longer")
+  WLX.db.options.itemClick = "shift-alt-right"; MOCK.keys = { alt = true, shift = true }; HandleModifiedItemClick(MOCK.link(1003), bag); assert(WarlockSimItemPanel:IsShown(), "Shift+Alt+right once chosen")
+  WLX.db.options.itemClick = "off"; WLX.refresh(); assert(MOCK.findLike("FontString", "Item sims are switched off"), "the tip says when it is off")
+  WLX.db.options.itemClick = "alt-right"; MOCK.keys = {}; MOCK.button = nil; WarlockSimItemPanel:Hide(); WLX.refresh(); WLX.cancelJob()`);
+step('my character stands out in the list of builds', `WLX.showResult(WLX.lastRank); local row = MOCK.findLike("FontString", "%(you%)"); assert(row and row.text:find("|cffffd100", 1, true), "no gold row for the character")`);
 step('/wsim test', 'SlashCmdList.WARLOCKSIM("test"); local t = WLX.db.selfTest; assert(t and t.ok, "self-test failed: " .. table.concat(t and t.lines or {}, " | ")); return t.fights .. " fights match"');
 step('/wsim dump, read, help, close', 'SlashCmdList.WARLOCKSIM("dump"); assert(WLX.db.dump.character.raw.nodeCount == #WLX.TALENTS); SlashCmdList.WARLOCKSIM("read"); SlashCmdList.WARLOCKSIM("help"); SlashCmdList.WARLOCKSIM(""); assert(not WarlockSimFrame:IsShown()); MOCK.fire("PLAYER_LOGOUT"); assert(WLX.db.settings.v == 1)');
 step('a second session starts from the saved settings', 'local saved = WarlockSimDB; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db == saved and WLX.cfg.fight.duration == 120)');

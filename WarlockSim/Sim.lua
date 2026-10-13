@@ -15,13 +15,8 @@ local TWO32 = 4294967296
 
 local function round(x) return floor(x + 0.5) end
 
--- event order in the heap
-local function less(x, y)
-  local d = x.t - y.t
-  if d < -1e-9 then return true end
-  if d > 1e-9 then return false end
-  return x.o < y.o or (x.o == y.o and x.seq < y.seq)
-end
+-- Event order in the heap, "x before y": x.t earlier (by more than 1e-9), or the same time and a lower order number o,
+-- or the same order and pushed earlier (seq). Written out inside push and pop below: it is the most called piece of a fight.
 
 -- caches over all fights: is this damage row a pet's; a row's spell without its "x2:" target prefix
 local ISPET, BASEK, XKEY = {}, {}, { [2] = {}, [3] = {} }
@@ -108,28 +103,44 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- ---------- tiny binary heap ----------
   local HA, HN, HSEQ = {}, 0, 0
   local function push(ev)
-    ev.seq = HSEQ; HSEQ = HSEQ + 1
-    HN = HN + 1; HA[HN] = ev
-    local i = HN
-    while i > 1 do
-      local p = floor(i / 2)
-      if less(HA[i], HA[p]) then local x = HA[i]; HA[i] = HA[p]; HA[p] = x; i = p else break end
+    local seq = HSEQ
+    ev.seq = seq; HSEQ = seq + 1
+    local i = HN + 1
+    HN = i
+    local t, o = ev.t, ev.o
+    while i > 1 do                                         -- the new event moves up while it comes before its parent
+      local p = (i - i % 2) / 2
+      local y = HA[p]
+      local d = t - y.t
+      if d < -1e-9 or (d <= 1e-9 and (o < y.o or (o == y.o and seq < y.seq))) then HA[i] = y; i = p else break end
     end
+    HA[i] = ev
   end
   local function pop()
     local top, last = HA[1], HA[HN]
-    HA[HN] = nil; HN = HN - 1
-    if HN > 0 then
-      HA[1] = last
+    HA[HN] = nil
+    local n = HN - 1
+    HN = n
+    if n > 0 then                                          -- the last event moves down from the top: below the earlier of its children
       local i = 1
+      local lt, lo, lseq = last.t, last.o, last.seq
       while true do
-        local l, m = 2 * i, i
-        local r = l + 1
-        if l <= HN and less(HA[l], HA[m]) then m = l end
-        if r <= HN and less(HA[r], HA[m]) then m = r end
-        if m == i then break end
-        local x = HA[i]; HA[i] = HA[m]; HA[m] = x; i = m
+        local l = 2 * i
+        if l > n then break end
+        local m
+        local c = HA[l]
+        local mt, mo, mseq = lt, lo, lseq
+        local d = c.t - lt
+        if d < -1e-9 or (d <= 1e-9 and (c.o < lo or (c.o == lo and c.seq < lseq))) then m = l; mt, mo, mseq = c.t, c.o, c.seq end
+        if l < n then
+          local e = HA[l + 1]
+          d = e.t - mt
+          if d < -1e-9 or (d <= 1e-9 and (e.o < mo or (e.o == mo and e.seq < mseq))) then m = l + 1 end
+        end
+        if not m then break end
+        HA[i] = HA[m]; i = m
       end
+      HA[i] = last
     end
     return top
   end
@@ -165,7 +176,12 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function ready(k) local c = cds[k]; return not c or c <= S.t + EPS end
   local function buff(n) local e = buffs[n]; return e ~= nil and e > S.t + EPS end
   local function dotLeft(k) local d = dots[k]; return (d and d.expires > S.t + EPS) and d.expires - S.t or 0 end
-  local function hasteFactor() return (1 + stats.hastePct / 100) * (buff('berserking') and 1 + racialCd.hastePct / 100 or 1) end
+  local hasteBase = 1 + stats.hastePct / 100
+  local BERSERK = racialCd and racialCd.hastePct                -- Berserking's haste %, nil for every race but the Troll
+  local function hasteFactor()
+    if not BERSERK then return hasteBase end
+    return hasteBase * (buff('berserking') and 1 + BERSERK / 100 or 1)
+  end
   local function castTime(k)
     local c = tbl[k].cast
     if k == 'soulFire' and buff('decimation') then c = c * (1 - tv('decimation', 'sfCastRedPct') / 100) end
@@ -225,13 +241,23 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if b.tide or b.innervate then manaBuffs[#manaBuffs + 1] = { b = b, used = false } end
   end
   local coePct = SPELLS.curseOfElements.dmgTakenPct
+  local EUREKA = racialCd and racialCd.charges                  -- nil for every race but the Gnome
   local function liveMult(key, periodic)
-    local s, m = SPELLS[key], eurekaMult(key, periodic)
-    if buff('coe') then m = m * (1 + coePct / 100) end
+    local s = SPELLS[key]
+    local m = EUREKA and eurekaMult(key, periodic) or 1
+    local now = S.t + EPS
+    local e = buffs.coe
+    if e ~= nil and e > now then m = m * (1 + coePct / 100) end
     if PI and buff('powerInfusion') then m = m * (1 + PI.spellDmgPct / 100) end
-    if s.school == 'shadow' and buff('isb') then m = m * (1 + tv('improvedShadowBolt', 'debuffPct') / 100) end
-    if s.school == 'shadow' and buff('snfShadow') then m = m * (1 + tv('shadowAndFlame', 'schoolPct') / 100) end
-    if s.school == 'fire' and buff('snfFire') then m = m * (1 + tv('shadowAndFlame', 'schoolPct') / 100) end
+    if s.school == 'shadow' then
+      e = buffs.isb
+      if e ~= nil and e > now then m = m * (1 + tv('improvedShadowBolt', 'debuffPct') / 100) end
+      e = buffs.snfShadow
+      if e ~= nil and e > now then m = m * (1 + tv('shadowAndFlame', 'schoolPct') / 100) end
+    elseif s.school == 'fire' then
+      e = buffs.snfFire
+      if e ~= nil and e > now then m = m * (1 + tv('shadowAndFlame', 'schoolPct') / 100) end
+    end
     if periodic and S.channel and S.channel.key == 'wrack' and WRACK_SET[key] then m = m * (1 + SPELLS.wrack.debuffPct / 100) end
     if s.drain and tv('soulSiphon') ~= 0 then
       local n = 0
@@ -286,10 +312,12 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     for i = 1, #groups do m = m * (1 - best[groups[i]] / 100) end
     THREAT_ALL = (1 - tv('suppression', 'threatPct') / 100) * m
   end
+  local THREAT = {}                                            -- per spell, worked out at its first hit of the fight
   local function threatMult(bk)
     local s = SPELLS[bk]
     local m = THREAT_ALL * ((s and s.threatMult) or 1)
     if bk == 'searingPain' then m = m * (1 - tv('demonicBrand', 'threatRedPct') / 100) end
+    THREAT[bk] = m
     return m
   end
   local function manaBuffCheck()
@@ -452,17 +480,26 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     end
   end
   -- Your spell power right now for this spell: sheet + school + Spellblasting potion, x Blood Fury.
-  spNow = function(e) return (e.sp + potSp()) * (buff('bloodFury') and 1 + racialCd.spPct / 100 or 1) end
+  local FURY = racialCd and racialCd.spPct                      -- Blood Fury's spell power %, nil for every race but the Orc
+  spNow = function(e)
+    local sp = e.sp + ((spPot and buff('spPotion')) and spPot.spPotion.sp or 0)
+    if FURY and buff('bloodFury') then return sp * (1 + FURY / 100) end
+    return sp
+  end
 
   -- Resistance / Spell Pierce roll for one Warlock damage event. ti > 1 = an extra target with its own curse.
-  local resCache = {}
+  local resCache = { [true] = {}, [false] = {} }            -- [curse up?][school]
   local xDotLeft, xDebLeft                                -- defined below
   local function resProfile(school, ti)
     local coe
-    if (ti or 0) > 1 then coe = xDebLeft(ti, 'coe') > 0 else coe = buff('coe') end
-    local key = school .. (coe and '1' or '0')
-    local pr = resCache[key]
-    if not pr then pr = WL.resistProfile(cfg, stats.pierce, school, coe); resCache[key] = pr end
+    if (ti or 0) > 1 then coe = xDebLeft(ti, 'coe') > 0
+    else
+      local e = buffs.coe
+      coe = e ~= nil and e > S.t + EPS
+    end
+    local c = resCache[coe]
+    local pr = c[school]
+    if not pr then pr = WL.resistProfile(cfg, stats.pierce, school, coe); c[school] = pr end
     return pr
   end
   local function vulnMult(school, ti)
@@ -510,7 +547,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   S.xDotLeft, S.xDebLeft = xDotLeft, xDebLeft
 
   local function deal(key, amount, crit, isTick, target)
-    local r = row(key)
+    local r = bySpell[key] or row(key)
     r.dmg = r.dmg + amount; res.total = res.total + amount
     if isTick then
       r.ticks = r.ticks + 1
@@ -533,7 +570,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
         bk = (sub(key, 1, 1) == 'x' and sub(key, 3, 3) == ':') and sub(key, 4) or key
         BASEK[key] = bk
       end
-      local th = (amount + copied) * threatMult(bk)
+      local th = (amount + copied) * (THREAT[bk] or threatMult(bk))
       r.threat = r.threat + th; res.threat = res.threat + th
       local lz = bk == 'touchOfTheGrave' and 1 or ((SPELLS[bk] and SPELLS[bk].leech) or 0)
       if lz ~= 0 then gainHealth(amount * lz, 'leech') end
@@ -623,7 +660,8 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
 
   -- ---------- extra targets (multi-DoT; per-target Curse of the Elements / Improved Shadow Bolt) ----------
   local function liveMultX(key, ti, periodic)
-    local s, m = SPELLS[key], eurekaMult(key, periodic)
+    local s = SPELLS[key]
+    local m = EUREKA and eurekaMult(key, periodic) or 1
     if xDebLeft(ti, 'coe') > 0 then m = m * (1 + coePct / 100) end
     if s.school == 'shadow' and xDebLeft(ti, 'isb') > 0 then m = m * (1 + tv('improvedShadowBolt', 'debuffPct') / 100) end
     if PI and buff('powerInfusion') then m = m * (1 + PI.spellDmgPct / 100) end
@@ -714,7 +752,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- Direct-damage landing (cast finished or instant). Returns true if it hit.
   local function land(key, eureka, baseMult, target)
     if (target or 0) > 1 then return landExtra(key, eureka, baseMult, target) end
-    local s, e, r = SPELLS[key], tbl[key], row(key)
+    local s, e, r = SPELLS[key], tbl[key], bySpell[key] or row(key)
     if Rhit() * 100 >= stats.hitPct then r.misses = r.misses + 1; return false end
     r.landed = r.landed + 1
     if s.kind == 'utility' then
@@ -860,7 +898,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if instantTrance then buffs.shadowTrance = nil end
     -- A cooldown starts when the cast is COMPLETE, not when it begins.
     if e.cd ~= 0 then cds[key] = S.t + castT + e.cd end
-    local rr = row(rk); rr.casts = rr.casts + 1
+    local rr = bySpell[rk] or row(rk); rr.casts = rr.casts + 1
     minManaCheck()
 
     S.cast = nil
@@ -947,7 +985,11 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if school ~= 'physical' and buff('coe') then m = m * (1 + coePct / 100) end
     return m
   end
-  local function warlockSpNow() return (stats.sp + potSp()) * (buff('bloodFury') and 1 + racialCd.spPct / 100 or 1) end
+  local function warlockSpNow()
+    local sp = stats.sp + ((spPot and buff('spPotion')) and spPot.spPotion.sp or 0)
+    if FURY and buff('bloodFury') then return sp * (1 + FURY / 100) end
+    return sp
+  end
   local function petSp() return warlockSpNow() * (cfg.petSpPct ~= nil and cfg.petSpPct or 100) / 100 + (stats.dkSp or 0) end
   -- Demonic Brand: a landed pet attack on a branded target spends a charge and adds bonus damage.
   local function brandProc()
@@ -960,8 +1002,9 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local r = row('pet:brand'); r.casts = r.casts + 1
   end
   petSpellHit = function(sp)
-    local key = 'pet:' .. sp.key
-    local r = row(key)
+    local key = sp.rowKey
+    if not key then key = 'pet:' .. sp.key; sp.rowKey = key end
+    local r = bySpell[key] or row(key)
     r.casts = r.casts + 1
     if Rpet() * 100 >= stats.hitPct then r.misses = r.misses + 1; return end
     r.landed = r.landed + 1
@@ -1007,7 +1050,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     deal('pet:flametongue', amt, crit, false)
   end
   local function petMeleeAttack(rk, roll, extraAp)       -- one swing; true if it landed
-    local m, r, tb = P.c.melee, row(rk), cb.petMelee
+    local m, r, tb = P.c.melee, bySpell[rk] or row(rk), cb.petMelee
     r.casts = r.casts + 1
     local hitBonus = max(0, stats.hitPct - cb.baseHitPct - tb.hitSuppressionPct)
     local miss = max(0, tb.missPct - hitBonus)
@@ -1060,6 +1103,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function rebuild(b)
     build = b; S.build = b
     stats = WL.computeStats(b, raceKey, cfg); tbl = WL.buildSpellTable(b, stats, cfg)
+    hasteBase = 1 + stats.hastePct / 100
     S.maxMana = stats.maxMana; S.mana = min(S.mana, stats.maxMana)
   end
   finishSummon = function(to)

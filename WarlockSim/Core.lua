@@ -2,7 +2,7 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.3.0'
+WL.VERSION = '0.4.0'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -17,7 +17,18 @@ end
 -- WL.cfg       the settings the sim runs with (the sim's defaults + what you changed)
 -- WL.char      the character read from the game (nil until "Read my character")
 local DEFAULT_OPTIONS = { fights = 300, weights = true, speed = 'smooth', template = nil, stone = 'sheet', race = nil, pet = 'auto', sacrifice = 'auto', minimapHint = true,
-                          itemButton = true, itemFights = 150 }
+                          itemClick = 'alt-right', itemFights = 150 }
+-- The click that sims an item (options.itemClick). 'off' also hides the button under the item link window.
+WL.ITEM_CLICKS = {
+  { value = 'alt-right', label = 'Alt + right-click' }, { value = 'alt-left', label = 'Alt + left-click' },
+  { value = 'ctrl-alt-right', label = 'Ctrl + Alt + right-click' }, { value = 'shift-alt-right', label = 'Shift + Alt + right-click' },
+  { value = 'off', label = 'Off' },
+}
+function WL.itemClickText()
+  local v = WL.db and WL.db.options.itemClick
+  for i = 1, #WL.ITEM_CLICKS do if WL.ITEM_CLICKS[i].value == v and v ~= 'off' then return WL.ITEM_CLICKS[i].label end end
+  return nil
+end
 
 function WL.newConfig()
   local cfg = copy(WL.DEFAULT_CONFIG)
@@ -29,6 +40,8 @@ local function initDB()
   WarlockSimDB = type(WarlockSimDB) == 'table' and WarlockSimDB or {}
   local db = WarlockSimDB
   db.options = type(db.options) == 'table' and db.options or {}
+  if db.options.itemButton == false and db.options.itemClick == nil then db.options.itemClick = 'off' end   -- the check box of v0.2 / v0.3
+  db.options.itemButton = nil
   for k, v in pairs(DEFAULT_OPTIONS) do if db.options[k] == nil then db.options[k] = v end end
   db.builds = type(db.builds) == 'table' and db.builds or {}        -- imported build codes: { { code = 'WFB1:...' }, ... }
   db.chars = type(db.chars) == 'table' and db.chars or {}
@@ -105,7 +118,7 @@ end
 -- ---------------------------------------------------------------------------------------------------------------------
 -- jobs: fights are played inside a coroutine that hands the game back every few milliseconds
 -- ---------------------------------------------------------------------------------------------------------------------
-local BUDGET = { smooth = 8, fast = 30 }                    -- milliseconds of simulating per frame
+local BUDGET = { smooth = 8, fast = 30, fastest = 100 }     -- milliseconds of simulating per frame
 local job, deadline
 local driver = CreateFrame('Frame')
 driver:Hide()
@@ -186,16 +199,18 @@ function WL.simCharacter()
 end
 -- Every ready build (and your character, if read) with your numbers: result = { kind = 'rank', rows = { { build, res }, ... } }.
 function WL.simRanking()
+  -- your gear as it is right now (not possible in combat, and not for another class: then what was read last, or the settings' numbers)
+  if not (InCombatLockdown and InCombatLockdown()) then WL.doReadCharacter() end
   local n, race, cfg = fights(), WL.raceKey(), WL.characterConfig()
   local list = {}
   local mine = WL.char and WL.characterBuildNow()
   if mine and #WL.validateBuild(mine, true) == 0 then list[#list + 1] = mine end
   local tpls = WL.templates()
   for i = 1, #tpls do list[#list + 1] = tpls[i] end
-  return startJob('Ranking ' .. #list .. ' builds', n * #list, function(j)
+  return startJob(#list .. ' builds', n * #list, function(j)
     local rows = {}
     for i = 1, #list do
-      j.label = 'Ranking: ' .. (list[i].short or list[i].key)
+      j.label = 'Builds: ' .. (list[i].short or list[i].key)
       local res = WL.simulate(list[i], race, cfg, { iterations = n, onFight = function() j.done = j.done + 1 end })
       rows[#rows + 1] = { build = list[i], res = res }
     end
@@ -257,7 +272,7 @@ events:SetScript('OnEvent', function(_, event, name)
     initDB()
     if #WL.ACTIONS_MISSING > 0 then WL.print('This copy does not know these priority actions of the sim yet: ' .. table.concat(WL.ACTIONS_MISSING, ', ')) end
   elseif event == 'PLAYER_LOGIN' then
-    if WL.db and WL.db.options.minimapHint then WL.print('v' .. WL.VERSION .. ' loaded. Type /wsim to open it.') end
+    if WL.db and WL.db.options.minimapHint then WL.print('v' .. WL.VERSION .. ' loaded. Type /wsim to open it.' .. (WL.itemClickText() and (' ' .. WL.itemClickText() .. ' an item to sim what it is worth to you.') or '')) end
   elseif event == 'PLAYER_LOGOUT' then
     if WL.db then WL.saveSettings() end
   end
