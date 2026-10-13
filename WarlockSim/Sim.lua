@@ -184,11 +184,15 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   end
   local function castTime(k)
     local c = tbl[k].cast
-    if k == 'soulFire' and buff('decimation') then c = c * (1 - tv('decimation', 'sfCastRedPct') / 100) end
-    if k == 'shadowBolt' and buff('shadowTrance') then c = 0 end
-    return c / hasteFactor()
+    if k == 'soulFire' then
+      if buff('decimation') then c = c * (1 - tv('decimation', 'sfCastRedPct') / 100) end
+    elseif k == 'shadowBolt' then
+      local e = buffs.shadowTrance
+      if e ~= nil and e > S.t + EPS then c = 0 end
+    end
+    return c / (BERSERK and hasteFactor() or hasteBase)
   end
-  local function gcd() return max(cb.minGcd, cb.gcd / hasteFactor()) end
+  local function gcd() return max(cb.minGcd, cb.gcd / (BERSERK and hasteFactor() or hasteBase)) end
   S.has, S.ready, S.buff, S.dotLeft, S.hasteFactor, S.castTime, S.gcd = has, ready, buff, dotLeft, hasteFactor, castTime, gcd
 
   local function eurekaUp() return S.eurekaCharges > 0 or S.eurekaPending > 0 end
@@ -214,7 +218,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       if S.spendAt ~= nil and S.spendAt <= t + EPS then
         local mid = min(t, max(S.lastRegen, S.spendAt))
         spiritRegen(S.lastRegen, mid); S.lastSpend = S.spendAt; S.spendAt = nil; spiritRegen(mid, t)
-      else spiritRegen(S.lastRegen, t) end
+      elseif S.lastSpend ~= -huge and not S.channel and t > S.lastSpend + FSR then spiritRegen(S.lastRegen, t) end
     end
     S.lastRegen = t
   end
@@ -977,12 +981,14 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   S.maxMana = stats.maxMana
   local petAct, petSpellHit, petSwing
   do
+  local UNHOLY, MASTER = 1 + tv('unholyPower', 'petDmgPct') / 100, 1 + tv('masterDemonologist', 'schoolPct') / 100
   local function petMult(school)
-    local m = (1 + tv('unholyPower', 'petDmgPct') / 100) * stats.mult.all
-    if (build.pet == 'succubus' and school == 'shadow') or (build.pet == 'imp' and school == 'fire') then
-      m = m * (1 + tv('masterDemonologist', 'schoolPct') / 100)
+    local m = UNHOLY * stats.mult.all
+    if (build.pet == 'succubus' and school == 'shadow') or (build.pet == 'imp' and school == 'fire') then m = m * MASTER end
+    if school ~= 'physical' then
+      local e = buffs.coe
+      if e ~= nil and e > S.t + EPS then m = m * (1 + coePct / 100) end
     end
-    if school ~= 'physical' and buff('coe') then m = m * (1 + coePct / 100) end
     return m
   end
   local function warlockSpNow()

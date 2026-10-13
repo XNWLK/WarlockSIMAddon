@@ -131,6 +131,23 @@ step('character sheet: switched off and on; not while fighting', `WLX.db.options
   WLX.db.options.sheetNumbers = true; MOCK.combat = true; for i = 1, 25 do MOCK.frame() end; assert(not WLX.backgroundRunning(), "no work is started in combat")
   MOCK.combat = false; ${bg}; assert(tonumber(MOCK.sheetText(11)), "numbers are back after the fight")
   PaperDollFrame.shown = false; WLX.db.options.itemFights = 150`);
+step('Sim!: the DPS is on screen before the stat weights are done', `WLX.db.options.weights = true; WLX.db.options.fights = 12; MOCK.click("Sim!"); assert(WLX.jobRunning(), "no sim started")
+  local seen = false; local n = 0
+  while WLX.jobRunning() do MOCK.frame(); n = n + 1; if not seen and MOCK.findLike("FontString", "Stat weights: still simming") then seen = true; assert(MOCK.findLike("FontString", "^%d+%.%d DPS"), "DPS shown with the note") end; if n > 3000000 then error("never ends") end end
+  assert(seen, "the DPS was not shown before the stat weights"); assert(not MOCK.findLike("FontString", "Stat weights: still simming"), "the note is gone at the end")
+  assert(MOCK.findLike("FontString", "Worth in spell power"), "stat weights shown at the end")`);
+step('Sim! again with nothing changed: the result is there at once', `local before = WLX.lastResult.res.dps; MOCK.click("Sim!"); assert(not WLX.jobRunning(), "it simmed again")
+  assert(WLX.lastResult.remembered and WLX.lastResult.res.dps == before, "not the remembered result"); assert(MOCK.findLike("FontString", "Nothing has changed since this was simmed"), "no word about it")
+  WLX.db.options.fights = 13; MOCK.click("Sim!"); assert(WLX.jobRunning(), "another number of fights is another sim"); WLX.cancelJob(); WLX.db.options.fights = 10; WLX.db.options.weights = false`);
+step('the builds appear one by one; asked again, they are there at once', `WLX.db.options.fights = 11; MOCK.click("Sim builds with your gear"); assert(WLX.jobRunning(), "another number of fights: a new sim"); local seen = false; local n = 0
+  while WLX.jobRunning() do MOCK.frame(); n = n + 1; if not seen and MOCK.findLike("FontString", "more to come") then seen = true end; if n > 3000000 then error("never ends") end end
+  assert(seen, "no list before the last build was done"); assert(not MOCK.findLike("FontString", "more to come"), "the note is gone at the end")
+  MOCK.click("Sim builds with your gear"); assert(not WLX.jobRunning() and WLX.lastResult.remembered and WLX.lastResult.kind == "rank", "the list was not remembered"); WLX.db.options.fights = 10`);
+step('the speed: automatic by default, a saved "stay smooth" of the version before moves over once', `assert(WLX.db.options.speed == "auto", "default speed: " .. tostring(WLX.db.options.speed))
+  local o = WarlockSimDB.options; o.speed = "smooth"; o.speedDefault = nil; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db.options.speed == "auto", "moved over")
+  WLX.db.options.speed = "smooth"; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db.options.speed == "smooth", "a choice made afterwards stays"); WLX.db.options.speed = "auto"`);
+step('the tip fits on one line', `WLX.refresh(); local t = MOCK.findLike("FontString", "^|cff9482c9Tip:|r "); assert(t, "no tip"); local plain = t.text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+  assert(#plain <= 60, "the tip is " .. #plain .. " characters: " .. plain); return plain`);
 step('/wsim test', 'SlashCmdList.WARLOCKSIM("test"); local t = WLX.db.selfTest; assert(t and t.ok, "self-test failed: " .. table.concat(t and t.lines or {}, " | ")); return t.fights .. " fights match"');
 step('/wsim dump, read, help, close', 'SlashCmdList.WARLOCKSIM("dump"); assert(WLX.db.dump.character.raw.nodeCount == #WLX.TALENTS); SlashCmdList.WARLOCKSIM("read"); SlashCmdList.WARLOCKSIM("help"); SlashCmdList.WARLOCKSIM(""); assert(not WarlockSimFrame:IsShown()); MOCK.fire("PLAYER_LOGOUT"); assert(WLX.db.settings.v == 1)');
 step('a second session starts from the saved settings', 'local saved = WarlockSimDB; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db == saved and WLX.cfg.fight.duration == 120)');

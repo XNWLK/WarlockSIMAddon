@@ -220,6 +220,8 @@ local function showSingle(res, build, raceKey, weights, notes, fromRank)
     lines[#lines + 1] = string.format('10 Intellect = %s   10 Spell Pierce = %s   |cffaaaaaa(1 spell power = %s DPS)|r', eq('int', 10), eq('pierce', 10), fmt(weights.sp, 2))
   elseif weights then
     lines[#lines + 1] = 'Stat weights: spell power gave no gain in this run (try more fights).'
+  elseif current and current.weightsPending then
+    lines[#lines + 1] = '|cffaaaaaaStat weights: still simming...|r'
   end
   lines[#lines + 1] = string.format('|cffaaaaaaLife Taps a fight: %s   lowest mana: %s   threat: %s a second%s|r', fmt(res.lifeTaps, 1), fmt(res.minMana, 0), fmt(res.tps, 0),
     res.mana.oomAvg > 0 and '   |cffff6060out of mana at times|r' or '')
@@ -242,7 +244,7 @@ local function showRank(r)
       onClick = function() current = { kind = 'single', res = row.res, build = row.build, race = r.race, back = r }; WL.showResult(current) end }
   end
   setRows(rows)
-  result.info:SetText('|cffaaaaaaDifferences smaller than the +- of two builds are noise. Run more fights (Fight tab) to tell close builds apart.|r')
+  result.info:SetText((r.pending and ('|cffaaaaaa' .. r.pending .. ' more to come...|r\n') or '') .. '|cffaaaaaaDifferences smaller than the +- of two builds are noise. Run more fights (Fight tab) to tell close builds apart.|r')
 end
 
 function WL.showResult(r)
@@ -422,8 +424,8 @@ local function buildFightPage(p)
   label('Latency (ms)', 0)
   place(keep(Edit(p, 50, function() return f().latencyMs end, function(v) f().latencyMs = math.max(0, math.min(2000, v)) end, 'Your reaction delay after each cast.')), 92)
   label('While simming', 190)
-  place(keep(Dropdown(p, 110, function() return { { value = 'smooth', label = 'Stay smooth' }, { value = 'fast', label = 'Sim faster' }, { value = 'fastest', label = 'Fastest' } } end,
-    function() return o().speed end, function(v) o().speed = v end, 'The game gives addons one processor core, shared with the game itself. "Stay smooth" sims for 8 ms of every frame: the game runs nearly as usual. "Sim faster" takes 30 ms: about twice as quick, the game stutters a little. "Fastest" takes 100 ms: the sim gets nearly the whole core, the game drops to about 10 frames a second until it is done.')), 284)
+  place(keep(Dropdown(p, 110, function() return { { value = 'auto', label = 'Automatic' }, { value = 'smooth', label = 'Stay smooth' }, { value = 'fast', label = 'Sim faster' }, { value = 'fastest', label = 'Fastest' } } end,
+    function() return o().speed end, function(v) o().speed = v end, 'The game gives addons one processor core, shared with the game itself. "Automatic" sims faster while you are out of combat and stays smooth while you fight. "Stay smooth" sims for 8 ms of every frame: the game runs nearly as usual. "Sim faster" takes 30 ms: about twice as quick, the game stutters a little. "Fastest" takes 100 ms: the sim gets nearly the whole core, the game drops to about 10 frames a second until it is done.')), 284)
   p.reset = Button(p, 'Back to the sim\'s settings', 190, function()
     WL.cfg = WL.newConfig(); WL.saveSettings(); WL.refresh()
     result.status:SetText('Fight, buffs and consumables are back to the sim\'s defaults.')
@@ -673,7 +675,7 @@ function WL.refresh()
   local running = WL.jobRunning()
   result.progress:SetShown(running); result.stop:SetShown(running); result.status:SetShown(not running)
   local click = WL.itemClickText()
-  result.tip:SetText(click and ('|cff9482c9Tip:|r ' .. click .. ' any item (bags, character sheet, vendor) to sim what it is worth to you.')
+  result.tip:SetText(click and ('|cff9482c9Tip:|r ' .. click .. ' any item to sim what it is worth.')
     or 'Item sims are switched off (Fight tab, "Sim an item with").')
   WL.saveSettings()
 end
@@ -684,13 +686,19 @@ WL.onJobEnd = function(res, err)
     WL.lastResult = res
     if main then
       WL.showResult(res)
-      result.status:SetText(string.format('|cffaaaaaa%d fights in %s s (%s ms of sim time a fight).|r', res.fights, fmt(res.seconds, 1), fmt(res.fights > 0 and 1000 * res.cpuSeconds / res.fights or 0, 1)))
+      if res.remembered then result.status:SetText('|cffaaaaaaNothing has changed since this was simmed: the result is the same.|r')
+      else result.status:SetText(string.format('|cffaaaaaa%d fights in %s s (%s ms of sim time a fight).|r', res.fights, fmt(res.seconds, 1), fmt(res.fights > 0 and 1000 * res.cpuSeconds / res.fights or 0, 1))) end
     end
   else
     if WL.onItemResult then WL.onItemResult(nil, err) end
     if main then result.status:SetText('|cffff6060' .. tostring(err) .. '|r') end
   end
   WL.refresh()
+end
+-- a part of the result is ready (the DPS before the stat weights, the builds one by one): show it while the rest is simmed
+WL.onJobPartial = function(res)
+  WL.lastResult = res
+  if main then WL.showResult(res) end
 end
 function WL.toggleWindow()
   if not WL.db then return end

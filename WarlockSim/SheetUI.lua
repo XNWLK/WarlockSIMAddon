@@ -45,10 +45,11 @@ local function create()
       slots[#slots + 1] = { id = id, button = button }
     end
   end
-  local anchor = CharacterModelScene or PaperDollFrame
-  -- at the feet of your character (the top of the model belongs to the game's own turn / zoom buttons)
+  -- right above the weapon slots (the middle one of the row), under your character
+  local weapon = _G.CharacterSecondaryHandSlot or _G.CharacterMainHandSlot
   sub = overlay:CreateFontString(nil, 'OVERLAY', 'GameFontDisableSmall')
-  sub:SetPoint('BOTTOM', anchor, 'BOTTOM', 0, 6)
+  if weapon then sub:SetPoint('BOTTOM', weapon, 'TOP', 0, 5)
+  else sub:SetPoint('BOTTOM', CharacterModelScene or PaperDollFrame, 'BOTTOM', 0, 6) end
   total = overlay:CreateFontString(nil, 'OVERLAY', 'GameFontNormalLarge')
   total:SetPoint('BOTTOM', sub, 'TOP', 0, 1)
   return true

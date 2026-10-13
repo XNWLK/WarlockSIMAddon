@@ -42,7 +42,7 @@ power, Life Taps, lowest mana and threat.
 ### Numbers on your character sheet
 
 Open your character sheet: over every item you wear there is a small number, the **DPS that item is worth to you** —
-your character as it is against the same character with that slot empty — and at your character's feet the **DPS your
+your character as it is against the same character with that slot empty — and above the weapon slots the **DPS your
 character sims at**. One glance shows which pieces carry you and which slot is weak.
 
 The numbers are worked out in the background when you open the sheet, one item after the other (a few seconds each
@@ -84,9 +84,10 @@ Shift + right-click is taken by another addon or gets in your way.
   or oil — stays inside your numbers and counts as gear. The Character tab lists what it found.
 - **Level 60.** The sim plays level-60 spells against a level-63 boss. Below level 60 the DPS shown is not what you do.
 - **Speed.** The game gives addons one processor core, shared with the game itself, and no background threads — an addon
-  cannot use more cores. Fights are played a few milliseconds per frame so the game stays smooth; on the Fight tab
-  "While simming" lets the sim take more of each frame ("Sim faster", "Fastest") at the price of a stuttering game
-  while it runs. Fewer fights are quicker and less exact (the "+-" behind the DPS says how exact).
+  cannot use more cores. Fights are played a few milliseconds per frame. "While simming" on the Fight tab decides how
+  many: "Automatic" (quick while you are out of combat, gentle while you fight), "Stay smooth", "Sim faster" or
+  "Fastest". The DPS is shown as soon as it is known, the stat weights follow; and a sim asked for again with nothing
+  changed is answered at once. Fewer fights are quicker and less exact (the "+-" behind the DPS says how exact).
 - **On the website, not in the addon:** the build editor, charts, comparing runs, the fight timeline and log, share
   links (settings codes and build codes do work here).
 

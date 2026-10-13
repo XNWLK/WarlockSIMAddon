@@ -2,7 +2,7 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.5.0'
+WL.VERSION = '0.5.1'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -16,7 +16,7 @@ end
 -- WL.db        saved between sessions (WarlockSimDB): settings snapshot, options, imported builds, the last character read
 -- WL.cfg       the settings the sim runs with (the sim's defaults + what you changed)
 -- WL.char      the character read from the game (nil until "Read my character")
-local DEFAULT_OPTIONS = { fights = 300, weights = true, speed = 'smooth', template = nil, stone = 'sheet', race = nil, pet = 'auto', sacrifice = 'auto', minimapHint = true,
+local DEFAULT_OPTIONS = { fights = 300, weights = true, speed = 'auto', speedDefault = 2, template = nil, stone = 'sheet', race = nil, pet = 'auto', sacrifice = 'auto', minimapHint = true,
                           itemClick = 'shift-right', itemClickDefault = 2, itemFights = 150, sheetNumbers = true }
 -- The click that sims an item (options.itemClick). 'off' also hides the button under the item link window.
 WL.ITEM_CLICKS = {
@@ -45,6 +45,9 @@ local function initDB()
   -- v0.4.0's default click was Alt + right-click; the default is Shift + right-click now. Moved over once; a click picked by hand afterwards stays.
   if db.options.itemClick == 'alt-right' and db.options.itemClickDefault ~= 2 then db.options.itemClick = 'shift-right' end
   db.options.itemClickDefault = 2
+  -- The speed's default was "stay smooth"; it is "automatic" now. Moved over once; a speed picked by hand afterwards stays.
+  if db.options.speed == 'smooth' and db.options.speedDefault ~= 2 then db.options.speed = 'auto' end
+  db.options.speedDefault = 2
   for k, v in pairs(DEFAULT_OPTIONS) do if db.options[k] == nil then db.options[k] = v end end
   db.builds = type(db.builds) == 'table' and db.builds or {}        -- imported build codes: { { code = 'WFB1:...' }, ... }
   db.chars = type(db.chars) == 'table' and db.chars or {}
@@ -122,6 +125,12 @@ end
 -- jobs: fights are played inside a coroutine that hands the game back every few milliseconds
 -- ---------------------------------------------------------------------------------------------------------------------
 local BUDGET = { smooth = 8, fast = 30, fastest = 100 }     -- milliseconds of simulating per frame
+-- 'auto': quick while you are out of combat (you are waiting for the result), gentle while you fight
+local function budget()
+  local s = WL.db.options.speed
+  if s == 'auto' or not BUDGET[s] then return (InCombatLockdown and InCombatLockdown()) and BUDGET.smooth or BUDGET.fast end
+  return BUDGET[s]
+end
 local job, deadline
 local driver = CreateFrame('Frame')
 driver:Hide()
@@ -152,7 +161,7 @@ end
 driver:SetScript('OnUpdate', function()
   if not job then driver:Hide(); return end
   local j = job
-  deadline = now() + (j.background and BUDGET.smooth or BUDGET[WL.db.options.speed] or BUDGET.smooth)
+  deadline = now() + (j.background and BUDGET.smooth or budget())
   local t0 = now()
   local ok, err = coroutine.resume(j.co)
   j.cpu = j.cpu + (now() - t0)
@@ -195,21 +204,47 @@ WL.startJob = startJob
 local function fights() return math.max(10, math.min(20000, math.floor(tonumber(WL.db.options.fights) or 300))) end
 
 -- One build with stat weights (optional): result = { kind = 'single', res, weights, notes, build }.
+-- Results of the last sims, by everything that decides them: asking for the same thing again costs nothing.
+local remembered, REMEMBER = {}, 6
+local function recall(key)
+  for i = 1, #remembered do if remembered[i].key == key then return remembered[i].result end end
+  return nil
+end
+local function remember(key, result)
+  table.insert(remembered, 1, { key = key, result = result })
+  remembered[REMEMBER + 1] = nil
+end
+local function answerFromMemory(result)
+  if job and not job.background then return false end      -- a sim of yours is running; background work does not matter here
+  local r = {}
+  for k, v in pairs(result) do r[k] = v end
+  r.remembered = true
+  if WL.onJobEnd then WL.onJobEnd(r) end
+  return true
+end
 function WL.simBuild(build, raceKey, cfg, label, notes)
   local n, weights = fights(), WL.db.options.weights
   local keys = WL.STAT_WEIGHT_KEYS
+  local key = 'single|' .. n .. '|' .. raceKey .. '|' .. tostring(weights) .. '|' .. WL.encodeBuild(build) .. WL.jsonEncode(WL.settingsSnapshot(cfg))
+  local known = recall(key)
+  if known then return answerFromMemory(known) end
   return startJob(label, n * (weights and (1 + #keys) or 1), function(j)
     local function onFight() j.done = j.done + 1 end
     local res = WL.simulate(build, raceKey, cfg, { iterations = n, onFight = onFight })
     j.result.kind, j.result.res, j.result.build, j.result.notes, j.result.race = 'single', res, build, notes, raceKey
     if weights then
+      -- the DPS and the spells are on screen now; the stat weights follow
+      j.result.weightsPending = true
+      if WL.onJobPartial then WL.onJobPartial(j.result) end
       local by = {}
       for i = 1, #keys do
         j.label = label .. ' - stat weights'
         by[keys[i]] = WL.statWeightRun(build, raceKey, cfg, n, keys[i], onFight)
       end
       j.result.weights = WL.combineWeights(cfg, res.dps, by)
+      j.result.weightsPending = nil
     end
+    remember(key, j.result)
   end)
 end
 function WL.simCharacter()
@@ -229,15 +264,23 @@ function WL.simRanking()
   if mine and #WL.validateBuild(mine, true) == 0 then list[#list + 1] = mine end
   local tpls = WL.templates()
   for i = 1, #tpls do list[#list + 1] = tpls[i] end
+  local key = 'rank|' .. n .. '|' .. race .. '|' .. WL.jsonEncode(WL.settingsSnapshot(cfg))
+  for i = 1, #list do key = key .. '|' .. WL.encodeBuild(list[i]) end
+  local known = recall(key)
+  if known then return answerFromMemory(known) end
   return startJob(#list .. ' builds', n * #list, function(j)
     local rows = {}
+    j.result.kind, j.result.rows, j.result.race = 'rank', rows, race
     for i = 1, #list do
       j.label = 'Builds: ' .. (list[i].short or list[i].key)
       local res = WL.simulate(list[i], race, cfg, { iterations = n, onFight = function() j.done = j.done + 1 end })
       rows[#rows + 1] = { build = list[i], res = res }
+      table.sort(rows, function(a, b) return a.res.dps > b.res.dps end)
+      -- the list grows on screen build by build
+      if i < #list then j.result.pending = #list - i; if WL.onJobPartial then WL.onJobPartial(j.result) end end
     end
-    table.sort(rows, function(a, b) return a.res.dps > b.res.dps end)
-    j.result.kind, j.result.rows, j.result.race = 'rank', rows, race
+    j.result.pending = nil
+    remember(key, j.result)
   end)
 end
 
