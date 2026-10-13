@@ -1,0 +1,679 @@
+-- The window: five tabs on top (Character, Builds, Fight, Buffs, Codes), the result underneath.
+-- It is the addon's own frame: nothing is registered in Blizzard's settings and no Blizzard frame is touched.
+local ADDON, WL = ...
+
+local W, H = 430, 640
+local PAD = 12
+local main, tabs, pages, result = nil, {}, {}, {}
+local current                                             -- the result on screen
+local floor = math.floor
+
+local function fmt(x, d)
+  if x == nil then return '?' end
+  return string.format('%.' .. (d or 0) .. 'f', x)
+end
+local function pctText(x) return fmt(x, x == floor(x) and 0 or 1) .. '%' end
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- small widget helpers
+-- ---------------------------------------------------------------------------------------------------------------------
+local function Text(parent, font, text)
+  local fs = parent:CreateFontString(nil, 'ARTWORK', font or 'GameFontHighlightSmall')
+  fs:SetJustifyH('LEFT'); fs:SetJustifyV('TOP')
+  if text then fs:SetText(text) end
+  return fs
+end
+local function tip(frame, getText)
+  frame:SetScript('OnEnter', function(self)
+    local t = getText
+    if type(t) == 'function' then t = t(self) end
+    if not t or t == '' or not GameTooltip then return end
+    GameTooltip:SetOwner(self, 'ANCHOR_RIGHT')
+    GameTooltip:SetText(t, 1, 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  frame:SetScript('OnLeave', function() if GameTooltip then GameTooltip:Hide() end end)
+end
+local function Button(parent, text, width, onClick, tooltip)
+  local b = CreateFrame('Button', nil, parent, 'UIPanelButtonTemplate')
+  b:SetSize(width, 22); b:SetText(text)
+  b:SetScript('OnClick', onClick)
+  if tooltip then tip(b, tooltip) end
+  return b
+end
+local function Check(parent, label, get, set, tooltip)
+  local cb = CreateFrame('CheckButton', nil, parent, 'UICheckButtonTemplate')
+  cb:SetSize(22, 22)
+  local own = cb.Text or cb.text
+  if type(own) == 'table' and own.SetText then own:SetText('') end
+  cb.label = Text(parent, 'GameFontHighlightSmall', label)
+  cb.label:SetPoint('LEFT', cb, 'RIGHT', 2, 0)
+  cb:SetScript('OnClick', function(self) set(self:GetChecked() and true or false); if WL.refresh then WL.refresh() end end)
+  cb.sync = function() cb:SetChecked(get() and true or false) end
+  if tooltip then tip(cb, tooltip) end
+  return cb
+end
+local function Edit(parent, width, get, set, tooltip)
+  local e = CreateFrame('EditBox', nil, parent, 'InputBoxTemplate')
+  e:SetSize(width, 20); e:SetAutoFocus(false)
+  if e.SetMaxLetters then e:SetMaxLetters(8) end
+  local function apply(self)
+    local v = tonumber(((self:GetText() or ''):gsub(',', '.')))
+    if v then set(v) end
+    self:ClearFocus()
+    if WL.refresh then WL.refresh() end
+  end
+  e:SetScript('OnEnterPressed', apply)
+  e:SetScript('OnEscapePressed', function(self) self:ClearFocus(); if WL.refresh then WL.refresh() end end)
+  e:SetScript('OnEditFocusLost', function(self)
+    local v = tonumber(((self:GetText() or ''):gsub(',', '.')))
+    if v then set(v) end
+  end)
+  e.sync = function() if not e:HasFocus() then e:SetText(tostring(get())) end end
+  if tooltip then tip(e, tooltip) end
+  return e
+end
+
+-- one shared pop-up list for all dropdowns
+local menu, menuCatcher, menuButtons = nil, nil, {}
+local function hideMenu() if menu then menu:Hide() end; if menuCatcher then menuCatcher:Hide() end end
+local function showMenu(anchor, items, onPick)
+  if not menu then
+    menuCatcher = CreateFrame('Button', nil, UIParent)
+    menuCatcher:SetAllPoints(UIParent); menuCatcher:SetFrameStrata('FULLSCREEN')
+    menuCatcher:SetScript('OnClick', hideMenu)
+    menu = CreateFrame('Frame', 'WarlockSimMenu', UIParent, BackdropTemplateMixin and 'BackdropTemplate' or nil)
+    menu:SetFrameStrata('FULLSCREEN_DIALOG')
+    if menu.SetBackdrop then
+      menu:SetBackdrop({ bgFile = 'Interface\\Buttons\\WHITE8X8', edgeFile = 'Interface\\Tooltips\\UI-Tooltip-Border', edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+      menu:SetBackdropColor(0.06, 0.05, 0.09, 0.98); menu:SetBackdropBorderColor(0.58, 0.51, 0.79, 1)
+    end
+  end
+  local width = math.max(anchor:GetWidth(), 120)
+  for i = 1, #items do
+    local b = menuButtons[i]
+    if not b then
+      b = CreateFrame('Button', nil, menu)
+      b:SetHeight(18)
+      b.text = Text(b, 'GameFontHighlightSmall'); b.text:SetPoint('LEFT', 6, 0); b.text:SetJustifyV('MIDDLE')
+      local hl = b:CreateTexture(nil, 'HIGHLIGHT'); hl:SetAllPoints(); hl:SetColorTexture(0.58, 0.51, 0.79, 0.35)
+      menuButtons[i] = b
+    end
+    b.text:SetText(items[i].label)
+    local need = (b.text.GetStringWidth and b.text:GetStringWidth() or 100) + 16
+    if need > width then width = need end
+    b:SetScript('OnClick', function() hideMenu(); onPick(items[i].value) end)
+    b:Show()
+  end
+  for i = #items + 1, #menuButtons do menuButtons[i]:Hide() end
+  for i = 1, #items do
+    menuButtons[i]:ClearAllPoints()
+    menuButtons[i]:SetPoint('TOPLEFT', menu, 'TOPLEFT', 4, -4 - (i - 1) * 18)
+    menuButtons[i]:SetWidth(width - 8)
+  end
+  menu:SetSize(width, #items * 18 + 8)
+  menu:ClearAllPoints(); menu:SetPoint('TOPLEFT', anchor, 'BOTTOMLEFT', 0, 0)
+  menuCatcher:Show(); menu:Show()
+end
+-- items() -> { { value, label }, ... }; get() -> value; set(value)
+local function Dropdown(parent, width, items, get, set, tooltip)
+  local d = CreateFrame('Button', nil, parent, BackdropTemplateMixin and 'BackdropTemplate' or nil)
+  d:SetSize(width, 20)
+  if d.SetBackdrop then
+    d:SetBackdrop({ bgFile = 'Interface\\Buttons\\WHITE8X8', edgeFile = 'Interface\\Tooltips\\UI-Tooltip-Border', edgeSize = 10, insets = { left = 2, right = 2, top = 2, bottom = 2 } })
+    d:SetBackdropColor(0.1, 0.09, 0.14, 0.9); d:SetBackdropBorderColor(0.45, 0.42, 0.55, 1)
+  end
+  d.text = Text(d, 'GameFontHighlightSmall'); d.text:SetPoint('LEFT', 6, 0); d.text:SetPoint('RIGHT', -14, 0); d.text:SetJustifyV('MIDDLE')
+  if d.text.SetWordWrap then d.text:SetWordWrap(false) end
+  local arrow = Text(d, 'GameFontHighlightSmall', 'v'); arrow:SetPoint('RIGHT', -5, 0)
+  d:SetScript('OnClick', function(self)
+    if menu and menu:IsShown() then hideMenu(); return end
+    showMenu(self, items(), function(v) set(v); if WL.refresh then WL.refresh() end end)
+  end)
+  d.sync = function()
+    local list, v, label = items(), get(), nil
+    for i = 1, #list do if list[i].value == v then label = list[i].label end end
+    d.text:SetText(label or (list[1] and list[1].label) or '')
+  end
+  if tooltip then tip(d, tooltip) end
+  return d
+end
+
+local syncers = {}
+local function keep(w) syncers[#syncers + 1] = w; return w end
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- result area
+-- ---------------------------------------------------------------------------------------------------------------------
+local ROWS = 10
+local PET_ROW = { melee = 'melee', brand = 'Demonic Brand', windfury = 'Windfury Totem', flametongue = 'Flametongue Totem' }
+local function rowInfo(key, build)
+  local target, bk = key:match('^x(%d):(.+)$')
+  bk = bk or key
+  local name, icon
+  if bk:sub(1, 4) == 'pet:' then
+    local p = bk:sub(5)
+    local pet = build and build.pet and WL.DEFAULT_CONFIG.pets[build.pet]
+    if p == 'melee' then name = (pet and pet.name or 'Demon') .. ' melee'
+    elseif PET_ROW[p] then name = PET_ROW[p]
+    else
+      for _, pc in pairs(WL.DEFAULT_CONFIG.pets) do if pc.spell and pc.spell.key == p then name = pc.spell.name .. ' (' .. pc.name .. ')'; icon = pc.spell.id end end
+    end
+  elseif bk:sub(1, 5) == 'item:' then
+    local c = WL.DEFAULT_CONFIG.consumables[bk:sub(6)]
+    name = c and c.name
+  elseif bk == 'touchOfTheGrave' then name, icon = 'Touch of the Grave', 1260201
+  elseif WL.SPELLS[bk] then name, icon = WL.SPELLS[bk].name, WL.SPELLS[bk].id end
+  name = name or bk
+  if target then name = name .. ' (target ' .. target .. ')' end
+  return name, icon
+end
+local function spellIcon(id)
+  if not id or not (C_Spell and C_Spell.GetSpellTexture) then return nil end
+  local ok, tex = pcall(C_Spell.GetSpellTexture, id)
+  return ok and tex or nil
+end
+
+local function setRows(rows)                             -- rows: { { label, value, share (0..1), right, icon, tip, onClick } }
+  for i = 1, ROWS do
+    local r, d = result.rows[i], rows[i]
+    if d then
+      r.label:SetText(d.label); r.right:SetText(d.right or '')
+      r.bar:SetValue(math.max(0, math.min(1, d.share or 0)))
+      if d.icon then r.icon:SetTexture(d.icon); r.icon:Show() else r.icon:Hide() end
+      r.tipText, r.onClick = d.tip, d.onClick
+      r:Show()
+    else r:Hide() end
+  end
+end
+
+local function showSingle(res, build, raceKey, weights, notes, fromRank)
+  local race = WL.RACES[raceKey] and WL.RACES[raceKey].name or raceKey
+  result.head:SetText(string.format('%s DPS  |cffaaaaaa+- %s|r', fmt(res.dps, 1), fmt(res.dpsErr, 1)))
+  result.sub:SetText(string.format('%s - %s - %d fights of about %d s%s', build.short or 'Build', race, res.iterations, floor(res.avgDuration + 0.5), fromRank and '   |cff9482c9(click here: back to the ranking)|r' or ''))
+  local list, total = {}, 0
+  for k, r in pairs(res.bySpell) do
+    if r.dmg > 0 then list[#list + 1] = { key = k, r = r }; total = total + r.dmg end
+  end
+  table.sort(list, function(a, b) return a.r.dmg > b.r.dmg end)
+  local rows, other = {}, 0
+  local top = list[1] and list[1].r.dmg or 1
+  for i = 1, #list do
+    local k, r = list[i].key, list[i].r
+    if i < ROWS or #list == ROWS then
+      local name, icon = rowInfo(k, build)
+      local hits = r.hits + r.ticks
+      rows[#rows + 1] = { label = name, share = r.dmg / top, right = string.format('%s%%', fmt(100 * r.dmg / total, 1)), icon = spellIcon(icon),
+        tip = string.format('%s\n%s DPS (%s%% of your damage)\n%s casts a fight%s\nCrits: %s%% of hits and ticks%s', name, fmt(r.dmg / res.avgDuration, 1), fmt(100 * r.dmg / total, 1), fmt(r.casts, 1),
+          r.misses > 0 and string.format(', %s missed', fmt(r.misses, 1)) or '', fmt(hits > 0 and 100 * (r.crits + r.tickCrits) / hits or 0, 1),
+          r.castTime > 0 and string.format('\nDamage per second of cast time: %s', fmt(r.dmg / r.castTime, 0)) or '') }
+    else other = other + r.dmg end
+  end
+  if other > 0 then rows[#rows + 1] = { label = 'Everything else', share = other / top, right = string.format('%s%%', fmt(100 * other / total, 1)) } end
+  setRows(rows)
+  local lines = {}
+  if weights and weights.sp and weights.sp > 0 then
+    local function eq(k, per) return fmt(weights[k] * per / weights.sp, 1) end
+    lines[#lines + 1] = string.format('|cffffd100Worth in spell power:|r 1%% hit = %s   1%% crit = %s   1%% haste = %s', eq('hitPct', 1), eq('critPct', 1), eq('hastePct', 1))
+    lines[#lines + 1] = string.format('10 Intellect = %s   10 Spell Pierce = %s   |cffaaaaaa(1 spell power = %s DPS)|r', eq('int', 10), eq('pierce', 10), fmt(weights.sp, 2))
+  elseif weights then
+    lines[#lines + 1] = 'Stat weights: spell power gave no gain in this run (try more fights).'
+  end
+  lines[#lines + 1] = string.format('|cffaaaaaaLife Taps a fight: %s   lowest mana: %s   threat: %s a second%s|r', fmt(res.lifeTaps, 1), fmt(res.minMana, 0), fmt(res.tps, 0),
+    res.mana.oomAvg > 0 and '   |cffff6060out of mana at times|r' or '')
+  for i = 1, #(notes or {}) do lines[#lines + 1] = '|cffffb060' .. notes[i] .. '|r' end
+  result.info:SetText(table.concat(lines, '\n'))
+end
+
+local function showRank(r)
+  local best = r.rows[1]
+  result.head:SetText(string.format('Best: %s', best.build.short or best.build.key))
+  local race = WL.RACES[r.race] and WL.RACES[r.race].name or r.race
+  result.sub:SetText(string.format('%d builds with your numbers - %s - %d fights each. Click a build for its spells.', #r.rows, race, best.res.iterations))
+  local rows = {}
+  for i = 1, math.min(#r.rows, ROWS) do
+    local row = r.rows[i]
+    rows[i] = { label = i .. '  ' .. (row.build.short or row.build.key), share = row.res.dps / best.res.dps, right = fmt(row.res.dps, 1),
+      tip = string.format('%s\n%s DPS (+- %s)\n%s%% behind the best\n%s', row.build.name or row.build.short or '', fmt(row.res.dps, 1), fmt(row.res.dpsErr, 1), fmt(100 * (1 - row.res.dps / best.res.dps), 1), row.build.notes or ''),
+      onClick = function() current = { kind = 'single', res = row.res, build = row.build, race = r.race, back = r }; WL.showResult(current) end }
+  end
+  setRows(rows)
+  result.info:SetText('|cffaaaaaaDifferences smaller than the +- of two builds are noise. Run more fights (Fight tab) to tell close builds apart.|r')
+end
+
+function WL.showResult(r)
+  current = r
+  if not r then
+    result.head:SetText('No result yet')
+    result.sub:SetText('Read your character, then press Sim!')
+    setRows({}); result.info:SetText('')
+  elseif r.kind == 'rank' then showRank(r)
+  else showSingle(r.res, r.build, r.race, r.weights, r.notes, r.back ~= nil) end
+end
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- tab pages
+-- ---------------------------------------------------------------------------------------------------------------------
+local PET_NAMES = { imp = 'Imp', succubus = 'Succubus', felhunter = 'Felhunter', voidwalker = 'Voidwalker' }
+local function startSim(fn)
+  if WL.jobRunning() then return end
+  hideMenu()
+  local ok, err = fn()
+  if ok == false and err then result.status:SetText('|cffff6060' .. err .. '|r') end
+  WL.refresh()
+end
+
+local function buildCharacterPage(p)
+  p.who = Text(p, 'GameFontNormal'); p.who:SetPoint('TOPLEFT', 0, 0); p.who:SetWidth(W - 2 * PAD)
+  p.stats = Text(p, 'GameFontHighlightSmall'); p.stats:SetPoint('TOPLEFT', 0, -18); p.stats:SetWidth(W - 2 * PAD)
+  if p.stats.SetSpacing then p.stats:SetSpacing(3) end
+  local y = -74
+  local function row(label, widget)
+    local t = Text(p, 'GameFontNormalSmall', label); t:SetPoint('TOPLEFT', 0, y - 4)
+    widget:SetPoint('TOPLEFT', 86, y)
+    y = y - 23
+    return widget
+  end
+  row('Play it like', keep(Dropdown(p, 300, function()
+    local items, list = {}, WL.templates()
+    for i = 1, #list do items[i] = { value = list[i].key, label = (list[i].short or list[i].key) .. (list[i].imported and ' (imported)' or '') } end
+    return items
+  end, function()
+    if WL.findTemplate(WL.db.options.template) then return WL.db.options.template end
+    return WL.char and WL.bestTemplate(WL.char.talents, WL.templates(), WL.char.pet) or WL.BUILDS[1].key
+  end, function(v) WL.db.options.template = v end,
+    'Your talents and demon come from your character. The order in which spells are cast (the priority list) is taken from this build. The closest ready build is picked for you; a build code from the website can be loaded on the Codes tab.')))
+  local function demonItems(auto, extra)
+    local items = { { value = 'auto', label = auto } }
+    local keys = { 'imp', 'succubus', 'felhunter', 'voidwalker' }
+    for i = 1, 4 do items[#items + 1] = { value = keys[i], label = PET_NAMES[keys[i]] } end
+    items[#items + 1] = { value = 'none', label = extra }
+    return items
+  end
+  row('Demon out', keep(Dropdown(p, 180, function()
+    return demonItems('As read: ' .. ((WL.char and WL.char.pet and PET_NAMES[WL.char.pet]) or 'none'), 'None')
+  end, function() return WL.db.options.pet end, function(v) WL.db.options.pet = v end, 'The demon that fights with you in the sim.')))
+  row('Sacrificed', keep(Dropdown(p, 180, function()
+    return demonItems('As read: ' .. ((WL.char and WL.char.sacrifice and PET_NAMES[WL.char.sacrifice]) or 'none'), 'None')
+  end, function() return WL.db.options.sacrifice end, function(v) WL.db.options.sacrifice = v end,
+    'The demon given up with Demonic Sacrifice before the fight. Read from the buff on you; pick it here if the addon did not find it.')))
+  row('Weapon stone', keep(Dropdown(p, 240, function()
+    return { { value = 'sheet', label = 'Already in my numbers (or none)' }, { value = 'spellstone', label = 'Add a Major Spellstone' }, { value = 'firestone', label = 'Add a Major Firestone' } }
+  end, function() return WL.db.options.stone end, function(v) WL.db.options.stone = v end,
+    'If a Spellstone or Firestone was active while your character was read, its bonus is inside your numbers already: leave this on the first choice. Pick a stone here only if you read your character without one.')))
+  p.notes = Text(p, 'GameFontDisableSmall'); p.notes:SetPoint('TOPLEFT', 0, y - 4); p.notes:SetWidth(W - 2 * PAD); p.notes:SetHeight(58)
+  if p.notes.SetWordWrap then p.notes:SetWordWrap(true) end
+  p.read = Button(p, 'Read my character', 150, function()
+    local ch, err = WL.doReadCharacter()
+    result.status:SetText(ch and '|cff80ff80Character read.|r' or ('|cffff6060' .. tostring(err) .. '|r'))
+    WL.refresh()
+  end, 'Takes your talents, race, demon and the spell numbers from your character sheet as they are right now. Raid buffs the addon recognises on you are taken off again, so that the Buffs tab decides which buffs the sim uses. Not possible in combat.')
+  p.read:SetPoint('BOTTOMLEFT', 0, 0)
+  p.sim = Button(p, 'Sim!', 110, function() startSim(WL.simCharacter) end, 'Plays the fights with your character and shows your DPS, the share of each spell and (if switched on) what each stat is worth.')
+  p.sim:SetPoint('BOTTOMRIGHT', 0, 0)
+
+  p.sync = function()
+    local ch = WL.char
+    if not ch then
+      p.who:SetText('No character read yet')
+      p.stats:SetText('Press "Read my character" (out of combat). The sim then uses your talents, your race,\nyour demon and the numbers on your character sheet.')
+      p.notes:SetText('')
+      if p.sim.SetEnabled then p.sim:SetEnabled(false) end
+      return
+    end
+    if p.sim.SetEnabled then p.sim:SetEnabled(not WL.jobRunning()) end
+    local split, points = WL.talentSplit(ch.talents)
+    local race = WL.RACES[ch.raceKey] and WL.RACES[ch.raceKey].name or '?'
+    p.who:SetText(string.format('%s - %s - level %s - %s', tostring(ch.name), race, tostring(ch.level or '?'), split))
+    local s, g = ch.sheet, ch.gear
+    local school = ''
+    if (g.shadowSp or 0) > 0 then school = school .. ' +' .. fmt(g.shadowSp) .. ' Shadow' end
+    if (g.fireSp or 0) > 0 then school = school .. ' +' .. fmt(g.fireSp) .. ' Fire' end
+    p.stats:SetText(string.format(
+      '|cffffd100On your sheet:|r  Spell power %s%s   Hit %s   Crit %s   Haste %s\nInt %s   Spirit %s   Stamina %s   Mana per 5 s %s   Spell Pierce %s\n|cffffd100Counted as gear:|r  SP %s   hit %s   crit %s   Int %s   Spi %s   Sta %s',
+      fmt(s.sp), school, pctText(floor((s.hit or 0) * 10 + 0.5) / 10), pctText(floor((s.crit or 0) * 10 + 0.5) / 10), pctText(floor((s.haste or 0) * 10 + 0.5) / 10),
+      fmt(s.int), fmt(s.spi), fmt(s.sta), fmt(s.mp5), fmt(s.pierce),
+      fmt(g.sp), pctText(floor(g.hitPct * 10 + 0.5) / 10), pctText(floor(g.critPct * 10 + 0.5) / 10), fmt(g.int), fmt(g.spi), fmt(g.sta)))
+    local notes = {}
+    if ch.level and ch.level < 60 then notes[#notes + 1] = '|cffffb060The sim is built for level 60 against a level 63 boss: below 60 the DPS shown is not what you really do.|r' end
+    if points ~= 51 and (ch.level or 60) >= 60 then notes[#notes + 1] = string.format('|cffffb060%d talent points found (51 expected).|r', points) end
+    for i = 1, #ch.notes do notes[#notes + 1] = '|cffffb060' .. ch.notes[i] .. '|r' end
+    local on = {}
+    for k in pairs(ch.buffsOnYou or {}) do on[#on + 1] = WL.DEFAULT_CONFIG.buffs[k].name end
+    table.sort(on)
+    if #on > 0 then notes[#notes + 1] = 'Taken off your numbers (the Buffs tab decides): ' .. table.concat(on, ', ') .. '.' end
+    if #(ch.otherAuras or {}) > 0 then notes[#notes + 1] = 'Also on you; if they give stats, they count as gear: ' .. table.concat(ch.otherAuras, ', ') .. '.' end
+    if ch.weaponEffect then notes[#notes + 1] = 'Your weapon has a temporary effect (stone or oil): its bonus is in your numbers.' end
+    p.notes:SetText(table.concat(notes, ' '))
+  end
+end
+
+local function buildBuildsPage(p)
+  local t = Text(p, 'GameFontHighlightSmall', 'Plays every ready build of the sim (and builds you loaded on the Codes tab) with your numbers and puts them in order, so you see which build is best for your gear. With a character read, it is in the list too.')
+  t:SetPoint('TOPLEFT', 0, 0); t:SetWidth(W - 2 * PAD)
+  local lab = Text(p, 'GameFontNormalSmall', 'Race'); lab:SetPoint('TOPLEFT', 0, -62)
+  p.race = keep(Dropdown(p, 180, function()
+    local items = {}
+    if WL.char then return { { value = WL.char.raceKey, label = (WL.RACES[WL.char.raceKey] and WL.RACES[WL.char.raceKey].name or '?') .. ' (your character)' } } end
+    for i = 1, #WL.RACE_KEYS do items[i] = { value = WL.RACE_KEYS[i], label = WL.RACES[WL.RACE_KEYS[i]].name } end
+    return items
+  end, function() return WL.raceKey() end, function(v) if not WL.char then WL.db.options.race = v end end, 'Without a character read, the builds are played as this race, with the gear numbers of the sim\'s settings (or of a settings code you loaded).'))
+  p.race:SetPoint('TOPLEFT', 86, -58)
+  p.gear = Text(p, 'GameFontDisableSmall'); p.gear:SetPoint('TOPLEFT', 0, -88); p.gear:SetWidth(W - 2 * PAD)
+  p.rank = Button(p, 'Rank the builds', 150, function() startSim(WL.simRanking) end, 'Seven or more sims in a row: this takes a while. Fewer fights (Fight tab) make it quicker and less exact.')
+  p.rank:SetPoint('BOTTOMLEFT', 0, 0)
+  p.sync = function()
+    local g = WL.characterConfig().gear
+    p.gear:SetText(string.format('Gear numbers used: %s spell power, %s hit, %s crit, %s haste, Int %s, Spirit %s, Stamina %s%s', fmt(g.sp), pctText(floor(g.hitPct * 10 + 0.5) / 10),
+      pctText(floor(g.critPct * 10 + 0.5) / 10), pctText(floor(g.hastePct * 10 + 0.5) / 10), fmt(g.int), fmt(g.spi), fmt(g.sta), WL.char and ' (from your character).' or ' (the sim\'s settings - read your character to use your own).'))
+    if p.rank.SetEnabled then p.rank:SetEnabled(not WL.jobRunning()) end
+  end
+end
+
+local function buildFightPage(p)
+  local y = 0
+  local function label(text, x) local t = Text(p, 'GameFontNormalSmall', text); t:SetPoint('TOPLEFT', x, y - 4); return t end
+  local function place(w, x) w:SetPoint('TOPLEFT', x, y); return w end
+  local f, o = function() return WL.cfg.fight end, function() return WL.db.options end
+  label('Fights', 0)
+  place(keep(Edit(p, 50, function() return o().fights end, function(v) o().fights = math.max(10, math.min(20000, floor(v))) end,
+    'How many fights are played and averaged. More fights = a steadier number and a longer wait. 300 is good for a quick look, 1000 and more to compare close things.')), 92)
+  label('Fight length (s)', 190)
+  place(keep(Edit(p, 50, function() return f().duration end, function(v) f().duration = math.max(10, math.min(1800, v)) end, 'Each fight lasts this long, give or take 10%.')), 300)
+  y = y - 26
+  label('Targets', 0)
+  place(keep(Dropdown(p, 60, function() return { { value = 1, label = '1' }, { value = 2, label = '2' }, { value = 3, label = '3' } } end,
+    function() return f().targets end, function(v) f().targets = v end, 'With 2 or 3 targets, Bane of Havoc (if talented) copies damage to the second one.')), 92)
+  place(keep(Check(p, 'Keep DoTs on all targets', function() return f().multiDot end, function(v) f().multiDot = v end, 'With 2 or 3 targets: your DoTs and curse are kept up on the extra targets too.')), 186)
+  y = y - 26
+  label('Pop cooldowns', 0)
+  place(keep(Dropdown(p, 200, function()
+    return { { value = 'pull', label = 'At the pull' }, { value = 'doom', label = 'When Bane of Doom explodes' }, { value = 'execute', label = 'In the execute phase' } }
+  end, function()
+    local v = WL.cfg.options.activesPolicy
+    return (v == 'pull' or v == 'doom' or v == 'execute') and v or 'doom'
+  end, function(v) WL.cfg.options.activesPolicy = v end, 'When the racial cooldown, the Spellblasting potion and Power Infusion are used for the first time. Afterwards each is used again whenever it is ready.')), 92)
+  y = y - 26
+  label('Precast', 0)
+  place(keep(Dropdown(p, 200, function()
+    local items = { { value = '', label = 'Nothing' } }
+    for i = 1, #WL.PRECAST_SPELLS do items[#items + 1] = { value = WL.PRECAST_SPELLS[i], label = WL.SPELLS[WL.PRECAST_SPELLS[i]].name } end
+    return items
+  end, function() return f().precast or '' end, function(v) f().precast = v end, 'A spell you start before the pull so that it finishes as the fight starts.')), 92)
+  y = y - 26
+  place(keep(Check(p, 'Keep Curse of the Elements up', function() return WL.cfg.options.useCurseOfElements end, function(v) WL.cfg.options.useCurseOfElements = v end)), -2)
+  place(keep(Check(p, 'Stat weights', function() return o().weights end, function(v) o().weights = v end,
+    'Also works out what hit, crit, haste, Intellect and Spell Pierce are worth in spell power for this build. Needs six more runs, so a sim takes about seven times as long.')), 216)
+  y = y - 26
+  label('Move every', 0)
+  place(keep(Edit(p, 36, function() return f().moveEvery end, function(v) f().moveEvery = math.max(0, v) end, 'Every this many seconds you have to move (0 = never). Only instants can be cast while moving.')), 92)
+  label('s for', 136)
+  place(keep(Edit(p, 36, function() return f().moveDuration end, function(v) f().moveDuration = math.max(0, v) end, 'How long each movement lasts, in seconds.')), 176)
+  label('s      Hit taken every', 218)
+  place(keep(Edit(p, 36, function() return f().hitEvery end, function(v) f().hitEvery = math.max(0, v) end, 'You take a hit every this many seconds (0 = never): casts are pushed back.')), 346)
+  y = y - 26
+  label('Latency (ms)', 0)
+  place(keep(Edit(p, 50, function() return f().latencyMs end, function(v) f().latencyMs = math.max(0, math.min(2000, v)) end, 'Your reaction delay after each cast.')), 92)
+  label('While simming', 190)
+  place(keep(Dropdown(p, 110, function() return { { value = 'smooth', label = 'Stay smooth' }, { value = 'fast', label = 'Sim faster' } } end,
+    function() return o().speed end, function(v) o().speed = v end, '"Stay smooth" keeps the game running nearly as usual while fights are played. "Sim faster" takes more of each frame: quicker, but the game stutters meanwhile.')), 284)
+  p.reset = Button(p, 'Back to the sim\'s settings', 190, function()
+    WL.cfg = WL.newConfig(); WL.saveSettings(); WL.refresh()
+    result.status:SetText('Fight, buffs and consumables are back to the sim\'s defaults.')
+  end, 'Puts everything on the Fight and Buffs tabs back to what the website starts with. Your character stays as read.')
+  p.reset:SetPoint('BOTTOMLEFT', 0, 0)
+end
+
+local function buildBuffsPage(p)
+  local scroll = CreateFrame('ScrollFrame', 'WarlockSimBuffScroll', p, 'UIPanelScrollFrameTemplate')
+  scroll:SetPoint('TOPLEFT', 0, -26); scroll:SetPoint('BOTTOMRIGHT', -24, 0)
+  local child = CreateFrame('Frame', nil, scroll)
+  child:SetSize(W - 2 * PAD - 28, 10)
+  scroll:SetScrollChild(child)
+  local y, checks = 0, {}
+  local function header(text)
+    local t = Text(child, 'GameFontNormal', text); t:SetPoint('TOPLEFT', 0, y - 4)
+    y = y - 22
+  end
+  local function item(tbl, key, others)
+    local e = WL.DEFAULT_CONFIG[tbl][key]
+    local cb = Check(child, e.name, function() return WL.cfg[tbl][key] and WL.cfg[tbl][key].on end, function(v)
+      WL.cfg[tbl][key].on = v
+      if v then others(key) end
+    end, e.name .. '\n' .. (e.desc or ''))
+    cb:SetPoint('TOPLEFT', 0, y)
+    cb.label:SetWidth(W - 2 * PAD - 60)
+    if cb.label.SetWordWrap then cb.label:SetWordWrap(false) end
+    checks[#checks + 1] = cb
+    y = y - 20
+  end
+  header('Raid buffs')
+  for i = 1, #WL.BUFF_ORDER do
+    item('buffs', WL.BUFF_ORDER[i], function(key)
+      for k, b in pairs(WL.cfg.buffs) do if k ~= key and b.on and WL.buffsClash(WL.cfg.buffs[key], b) then b.on = false end end
+    end)
+  end
+  header('On the boss')
+  for i = 1, #WL.DEBUFF_ORDER do
+    item('debuffs', WL.DEBUFF_ORDER[i], function(key)
+      local g = WL.cfg.debuffs[key].group
+      if g then for k, d in pairs(WL.cfg.debuffs) do if k ~= key and d.group == g then d.on = false end end end
+    end)
+  end
+  header('Consumables')
+  for i = 1, #WL.CONSUMABLE_ORDER do
+    item('consumables', WL.CONSUMABLE_ORDER[i], function(key)
+      local c = WL.cfg.consumables[key]
+      for k, x in pairs(WL.cfg.consumables) do if k ~= key and x.group == c.group then x.on = false end end
+      if c.requires and WL.cfg.professions then WL.cfg.professions[c.requires] = true end
+    end)
+  end
+  child:SetHeight(-y + 8)
+  local none = Button(p, 'Nothing', 90, function()
+    for _, b in pairs(WL.cfg.buffs) do b.on = false end
+    for _, d in pairs(WL.cfg.debuffs) do d.on = false end
+    for k, c in pairs(WL.cfg.consumables) do c.on = k == 'buildOil' end
+    WL.refresh()
+  end, 'Switches every buff, boss debuff and consumable off (the weapon stone setting stays).')
+  none:SetPoint('TOPLEFT', 0, 0)
+  local def = Button(p, 'The sim\'s defaults', 140, function()
+    local d = WL.DEFAULT_CONFIG
+    for k, b in pairs(WL.cfg.buffs) do b.on = d.buffs[k].on end
+    for k, x in pairs(WL.cfg.debuffs) do x.on = d.debuffs[k].on end
+    for k, c in pairs(WL.cfg.consumables) do c.on = d.consumables[k].on end
+    WL.refresh()
+  end, 'The raid buffs and boss debuffs the website starts with.')
+  def:SetPoint('LEFT', none, 'RIGHT', 6, 0)
+  p.sync = function() for i = 1, #checks do checks[i].sync() end end
+end
+
+local function buildCodesPage(p)
+  local t = Text(p, 'GameFontHighlightSmall', 'Paste a settings code (WFS1:...) or a build code (WFB1:...) from the website here, or make one to take there. Ctrl+V pastes, Ctrl+C copies.')
+  t:SetPoint('TOPLEFT', 0, 0); t:SetWidth(W - 2 * PAD)
+  local scroll = CreateFrame('ScrollFrame', 'WarlockSimCodeScroll', p, 'UIPanelScrollFrameTemplate')
+  scroll:SetPoint('TOPLEFT', 2, -34); scroll:SetPoint('BOTTOMRIGHT', -26, 54)
+  local bg = scroll:CreateTexture(nil, 'BACKGROUND'); bg:SetAllPoints(); bg:SetColorTexture(0, 0, 0, 0.45)
+  local box = CreateFrame('EditBox', nil, scroll)
+  box:SetMultiLine(true); box:SetAutoFocus(false); box:SetFontObject(ChatFontNormal or GameFontHighlightSmall)
+  box:SetWidth(W - 2 * PAD - 32)
+  box:SetScript('OnEscapePressed', function(self) self:ClearFocus() end)
+  scroll:SetScrollChild(box)
+  scroll:SetScript('OnMouseDown', function() box:SetFocus() end)
+  p.box = box
+  local function say(msg, bad) result.status:SetText((bad and '|cffff6060' or '|cff80ff80') .. msg .. '|r') end
+  local function show(code) box:SetText(code); box:SetFocus(); box:HighlightText() end
+  local load = Button(p, 'Load the code', 120, function()
+    local code = (box:GetText() or ''):gsub('%s+', '')
+    if code:sub(1, #WL.SETTINGS_CODE_PREFIX) == WL.SETTINGS_CODE_PREFIX then
+      local o, err = WL.decodeSettings(code)
+      if not o then say(err, true); return end
+      local c = WL.newConfig()
+      local unknown = WL.applySettings(c, o)
+      WL.cfg = c; WL.saveSettings()
+      say('Settings loaded' .. (#unknown > 0 and (' (not known here: ' .. table.concat(unknown, ', ') .. ')') or '') .. (WL.char and '. Your character\'s own gear numbers still win: the code\'s gear is used when no character is read.' or '.'))
+    elseif code:sub(1, #WL.BUILD_CODE_PREFIX) == WL.BUILD_CODE_PREFIX then
+      local b, err, known = WL.addImportedBuild(code)
+      if not b then say(err, true); return end
+      local errs = WL.validateBuild(b)
+      WL.db.options.template = b.key
+      say('Build "' .. b.short .. '" ' .. (known and 'was loaded before' or 'loaded') .. ': it is in the ranking and can be picked under "Play it like".' .. (#errs > 0 and (' Note: ' .. errs[1]) or ''), #errs > 0)
+    elseif code:find('share=', 1, true) then say('That is a share link. The addon reads settings codes and build codes: on the website use "Make settings code" or "Make build code".', true)
+    else say('That is neither a settings code (WFS1:) nor a build code (WFB1:).', true) end
+    WL.refresh()
+  end, 'Reads the code in the box. A settings code replaces the Fight and Buffs settings (and the gear numbers used when no character is read). A build code adds a build with its priority list.')
+  load:SetPoint('BOTTOMLEFT', 0, 26)
+  local s = Button(p, 'My settings as a code', 150, function()
+    show(WL.encodeSettings(WL.characterConfig()))
+    say('Settings code made' .. (WL.char and ' (with your character\'s gear numbers)' or '') .. '. Copy it with Ctrl+C and paste it on the website under "Input / output".')
+  end, 'Makes a settings code of everything set here, with your character\'s gear numbers if one is read. The website opens it under "Input / output".')
+  s:SetPoint('LEFT', load, 'RIGHT', 6, 0)
+  local b = Button(p, 'My character as a build code', 190, function()
+    local build, notes = WL.characterBuildNow()
+    if not build then say(notes[1], true); return end
+    show(WL.encodeBuild(build))
+    local _, points = WL.talentSplit(build.talents)
+    say('Build code made. ' .. (points ~= 51 and 'The website only takes builds with exactly 51 talent points (yours has ' .. points .. ').' or 'Paste it on the website under "Input / output".'), points ~= 51)
+  end, 'Your talents, demon and priority list as a build code for the website.')
+  b:SetPoint('BOTTOMLEFT', 0, 0)
+  local forget = Button(p, 'Forget loaded builds', 150, function()
+    WL.db.builds = {}; WL.imported = {}
+    if not WL.findTemplate(WL.db.options.template) then WL.db.options.template = nil end
+    say('Loaded builds removed.'); WL.refresh()
+  end, 'Removes every build that was loaded from a build code.')
+  forget:SetPoint('LEFT', b, 'RIGHT', 6, 0)
+end
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- the window
+-- ---------------------------------------------------------------------------------------------------------------------
+local TAB_NAMES = { 'Character', 'Builds', 'Fight', 'Buffs', 'Codes' }
+local BUILDERS = { buildCharacterPage, buildBuildsPage, buildFightPage, buildBuffsPage, buildCodesPage }
+local PAGE_H = 248
+
+local function selectTab(i)
+  hideMenu()
+  WL.db.options.tab = i
+  for k = 1, #tabs do
+    pages[k]:SetShown(k == i)
+    tabs[k].bg:SetColorTexture(0.58, 0.51, 0.79, k == i and 0.55 or 0.15)
+  end
+end
+
+local function create()
+  main = CreateFrame('Frame', 'WarlockSimFrame', UIParent, BackdropTemplateMixin and 'BackdropTemplate' or nil)
+  main:SetSize(W, H); main:SetFrameStrata('MEDIUM'); main:SetToplevel(true)
+  main:SetClampedToScreen(true); main:SetMovable(true); main:EnableMouse(true)
+  local pos = WL.db.pos
+  if type(pos) == 'table' and pos[1] then main:SetPoint(pos[1], UIParent, pos[2] or pos[1], pos[3] or 0, pos[4] or 0) else main:SetPoint('CENTER', 80, 0) end
+  if main.SetBackdrop then
+    main:SetBackdrop({ bgFile = 'Interface\\Buttons\\WHITE8X8', edgeFile = 'Interface\\Tooltips\\UI-Tooltip-Border', edgeSize = 14, insets = { left = 3, right = 3, top = 3, bottom = 3 } })
+    main:SetBackdropColor(0.05, 0.04, 0.08, 0.95); main:SetBackdropBorderColor(0.58, 0.51, 0.79, 1)
+  else
+    local bg = main:CreateTexture(nil, 'BACKGROUND'); bg:SetAllPoints(); bg:SetColorTexture(0.05, 0.04, 0.08, 0.95)
+  end
+  local drag = CreateFrame('Frame', nil, main)
+  drag:SetPoint('TOPLEFT', 0, 0); drag:SetPoint('TOPRIGHT', -30, 0); drag:SetHeight(28)
+  drag:EnableMouse(true); drag:RegisterForDrag('LeftButton')
+  drag:SetScript('OnDragStart', function() main:StartMoving() end)
+  drag:SetScript('OnDragStop', function()
+    main:StopMovingOrSizing()
+    local a, _, b, x, y = main:GetPoint(1)
+    WL.db.pos = { a, b, x, y }
+  end)
+  local title = Text(main, 'GameFontNormalLarge', 'Warlock Sim'); title:SetPoint('TOPLEFT', PAD, -9)
+  local ver = Text(main, 'GameFontDisableSmall', 'v' .. WL.VERSION .. '  -  /wsim'); ver:SetPoint('LEFT', title, 'RIGHT', 8, -1)
+  local close = CreateFrame('Button', nil, main, 'UIPanelCloseButton')
+  close:SetPoint('TOPRIGHT', 0, 0)
+  close:SetScript('OnClick', function() main:Hide() end)
+  main:SetScript('OnHide', hideMenu)
+
+  local tabW = (W - 2 * PAD - 4 * 4) / 5
+  for i = 1, #TAB_NAMES do
+    local tb = CreateFrame('Button', nil, main)
+    tb:SetSize(tabW, 22); tb:SetPoint('TOPLEFT', PAD + (i - 1) * (tabW + 4), -32)
+    tb.bg = tb:CreateTexture(nil, 'BACKGROUND'); tb.bg:SetAllPoints()
+    local hl = tb:CreateTexture(nil, 'HIGHLIGHT'); hl:SetAllPoints(); hl:SetColorTexture(1, 1, 1, 0.08)
+    local t = Text(tb, 'GameFontNormalSmall', TAB_NAMES[i]); t:SetPoint('CENTER'); t:SetJustifyH('CENTER')
+    tb:SetScript('OnClick', function() selectTab(i) end)
+    tabs[i] = tb
+    local page = CreateFrame('Frame', nil, main)
+    page:SetPoint('TOPLEFT', PAD, -62); page:SetSize(W - 2 * PAD, PAGE_H)
+    pages[i] = page
+    BUILDERS[i](page)
+    if page.sync then keep(page) end
+  end
+
+  local line = main:CreateTexture(nil, 'ARTWORK'); line:SetColorTexture(0.58, 0.51, 0.79, 0.6)
+  line:SetPoint('TOPLEFT', PAD, -62 - PAGE_H - 8); line:SetSize(W - 2 * PAD, 1)
+  local top = -62 - PAGE_H - 16
+  result.head = Text(main, 'GameFontNormalLarge'); result.head:SetPoint('TOPLEFT', PAD, top)
+  result.subBtn = CreateFrame('Button', nil, main)
+  result.subBtn:SetPoint('TOPLEFT', PAD, top - 20); result.subBtn:SetSize(W - 2 * PAD, 14)
+  result.sub = Text(result.subBtn, 'GameFontHighlightSmall'); result.sub:SetAllPoints()
+  result.subBtn:SetScript('OnClick', function() if current and current.back then WL.showResult(current.back) end end)
+  result.rows = {}
+  for i = 1, ROWS do
+    local r = CreateFrame('Button', nil, main)
+    r:SetPoint('TOPLEFT', PAD, top - 38 - (i - 1) * 17); r:SetSize(W - 2 * PAD, 16)
+    r.icon = r:CreateTexture(nil, 'ARTWORK'); r.icon:SetSize(14, 14); r.icon:SetPoint('LEFT', 0, 0)
+    r.bar = CreateFrame('StatusBar', nil, r)
+    r.bar:SetPoint('LEFT', 18, 0); r.bar:SetPoint('RIGHT', -52, 0); r.bar:SetHeight(14)
+    r.bar:SetStatusBarTexture('Interface\\Buttons\\WHITE8X8'); r.bar:SetStatusBarColor(0.58, 0.51, 0.79, 0.55)
+    r.bar:SetMinMaxValues(0, 1)
+    r.label = Text(r.bar, 'GameFontHighlightSmall'); r.label:SetPoint('LEFT', 4, 0); r.label:SetJustifyV('MIDDLE')
+    r.right = Text(r, 'GameFontHighlightSmall'); r.right:SetPoint('RIGHT', 0, 0); r.right:SetJustifyH('RIGHT')
+    tip(r, function(self) return self.tipText end)
+    r:SetScript('OnClick', function(self) if self.onClick then self.onClick() end end)
+    r:Hide()
+    result.rows[i] = r
+  end
+  result.info = Text(main, 'GameFontHighlightSmall')
+  result.info:SetPoint('TOPLEFT', PAD, top - 38 - ROWS * 17 - 4); result.info:SetWidth(W - 2 * PAD)
+  result.info:SetHeight(74)
+  if result.info.SetSpacing then result.info:SetSpacing(2) end
+
+  result.progress = CreateFrame('StatusBar', nil, main)
+  result.progress:SetPoint('BOTTOMLEFT', PAD, 10); result.progress:SetSize(W - 2 * PAD - 70, 16)
+  result.progress:SetStatusBarTexture('Interface\\Buttons\\WHITE8X8'); result.progress:SetStatusBarColor(0.3, 0.75, 0.35, 0.8)
+  result.progress:SetMinMaxValues(0, 1)
+  local pbg = result.progress:CreateTexture(nil, 'BACKGROUND'); pbg:SetAllPoints(); pbg:SetColorTexture(0, 0, 0, 0.5)
+  result.progressText = Text(result.progress, 'GameFontHighlightSmall'); result.progressText:SetPoint('LEFT', 4, 0)
+  result.stop = Button(main, 'Stop', 62, function() WL.cancelJob() end)
+  result.stop:SetPoint('BOTTOMRIGHT', -PAD, 7)
+  result.status = Text(main, 'GameFontHighlightSmall'); result.status:SetPoint('BOTTOMLEFT', PAD, 10); result.status:SetWidth(W - 2 * PAD)
+  result.status:SetJustifyV('BOTTOM')
+
+  main:SetScript('OnUpdate', function()
+    local done, total, label, secs = WL.jobProgress()
+    if not done then return end
+    result.progress:SetValue(total > 0 and done / total or 0)
+    local left = done > 0 and secs * (total - done) / done or nil
+    result.progressText:SetText(string.format('%s: %d of %d fights%s', label, done, total, left and string.format(' - about %d s left', floor(left + 0.5)) or ''))
+  end)
+  selectTab(WL.db.options.tab or 1)
+  WL.showResult(nil)
+end
+
+function WL.refresh()
+  if not main then return end
+  for i = 1, #syncers do if syncers[i].sync then syncers[i].sync() end end
+  local running = WL.jobRunning()
+  result.progress:SetShown(running); result.stop:SetShown(running); result.status:SetShown(not running)
+  WL.saveSettings()
+end
+WL.onJobEnd = function(res, err)
+  if res then
+    WL.lastResult = res
+    if main then
+      WL.showResult(res)
+      result.status:SetText(string.format('|cffaaaaaa%d fights in %s s (%s ms of sim time a fight).|r', res.fights, fmt(res.seconds, 1), fmt(res.fights > 0 and 1000 * res.cpuSeconds / res.fights or 0, 1)))
+    end
+  elseif main then result.status:SetText('|cffff6060' .. tostring(err) .. '|r') end
+  WL.refresh()
+end
+function WL.toggleWindow()
+  if not WL.db then return end
+  if not main then create(); main:Show(); WL.refresh(); return end
+  main:SetShown(not main:IsShown())
+  if main:IsShown() then WL.refresh() end
+end

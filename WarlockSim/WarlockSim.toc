@@ -1,0 +1,17 @@
+## Interface: 16001
+## Title: Warlock Sim
+## Notes: Simulates your Warlock's DPS inside the game, with your own talents and stats. Type /wsim
+## Author: Xn
+## Version: 0.1.0
+## SavedVariables: WarlockSimDB
+## IconTexture: Interface\Icons\Spell_Shadow_ShadowBolt
+
+Data.lua
+Expected.lua
+Engine.lua
+Sim.lua
+Codes.lua
+Character.lua
+Reader.lua
+Core.lua
+UI.lua
