@@ -23,8 +23,12 @@ practise its priority list in Forever Warlocking — it reads the same build and
 
 ## Install
 
-Copy the `WarlockSim` folder into `World of Warcraft\_classic_beta_\Interface\AddOns`, restart the game and tick
-**Xn's Warlock Sim** in the AddOns list. Type `/wsim` to open the window.
+1. Download `WarlockSim-x.y.z.zip` from the newest entry on the
+   [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
+2. Unzip it into `World of Warcraft\_classic_beta_\Interface\AddOns`, so that there is a folder `AddOns\WarlockSim`.
+   (To update, unzip over the old folder.)
+3. Restart the game and tick **Xn's Warlock Sim** in the AddOns list.
+4. Type `/wsim` to open the window.
 
 ## What it does
 
