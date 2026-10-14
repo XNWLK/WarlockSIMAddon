@@ -15,7 +15,7 @@ What changed in each version, newest first. Download a version from the
 
 ## v0.6.2
 
-- Escape really closes the window now (0.6.1 used a way the game client does not have yet).
+- Escape really closes the window now (the way 0.6.1 used did not work in the game).
 
 ## v0.6.1
 
