@@ -1,6 +1,4 @@
-<p align="center"><img src="art/logo-400.png" width="160" alt="Xn's Warlock Sim logo: a Shadow Bolt flying past rising DPS bars"></p>
-
-<h1 align="center">Xn's Warlock Sim</h1>
+# Xn's Warlock Sim
 
 A Warlock DPS simulator **inside the game**, for World of Warcraft: Forever. It reads your character — talents, race,
 demon and the spell numbers on your character sheet — plays a few hundred fights in the background and shows your DPS,
