@@ -10,14 +10,24 @@
       <stop offset="1" stop-color="#D9BEFF" stop-opacity="0.9"/>
     </linearGradient>
     <radialGradient id="glow" cx="300" cy="110" r="78" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#9A6AE0" stop-opacity="0.55"/>
-      <stop offset="1" stop-color="#9A6AE0" stop-opacity="0"/>
+      <stop offset="0" stop-color="#B05CE8" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#B05CE8" stop-opacity="0"/>
     </radialGradient>
-    <radialGradient id="orb" cx="292" cy="104" r="50" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#3A1D5E"/>
-      <stop offset="0.7" stop-color="#26123F"/>
-      <stop offset="1" stop-color="#7A45D0"/>
+    <radialGradient id="orb" cx="300" cy="110" r="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F3E3FF"/>
+      <stop offset="0.22" stop-color="#C08AF5"/>
+      <stop offset="0.55" stop-color="#5B2A96"/>
+      <stop offset="1" stop-color="#1E0F33"/>
     </radialGradient>
+    <radialGradient id="core" cx="300" cy="110" r="18" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.5" stop-color="#F0D8FF" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#E0B8FF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.2"/></filter>
+    <filter id="smoke" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="4"/></filter>
+    <path id="arm" d="M0 0 C-12 -30 22 -48 43 -22 C18 -34 0 -20 11 0 Z"/>
+    <path id="tongue" d="M0 -20 C30 -22 62 -8 96 0 C62 8 30 22 0 20 Z"/>
     <linearGradient id="bar3" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#A47BEA"/>
       <stop offset="1" stop-color="#6A3FB5"/>
@@ -42,13 +52,29 @@
 
   <!-- bolt -->
   <circle cx="300" cy="110" r="78" fill="url(#glow)"/>
-  <circle cx="300" cy="110" r="44" fill="url(#orb)"/>
-  <circle cx="300" cy="110" r="44" fill="none" stroke="#C9A0FF" stroke-width="3" opacity="0.85"/>
-  <g>
-    <path d="M300 110 C288 80 322 62 343 88 C318 76 300 90 311 110 Z" fill="#E6D4FF"/>
-    <path d="M300 110 C288 80 322 62 343 88 C318 76 300 90 311 110 Z" fill="#B393F0" transform="rotate(120 300 110)"/>
-    <path d="M300 110 C288 80 322 62 343 88 C318 76 300 90 311 110 Z" fill="#9A6AE0" transform="rotate(240 300 110)"/>
+  <!-- smoky tongues streaming back along the trail -->
+  <g filter="url(#soft)">
+    <use href="#tongue" fill="#3A1D5E" transform="translate(300 110) rotate(128) scale(1.15 1)"/>
+    <use href="#tongue" fill="#4B2380" transform="translate(300 110) rotate(152) scale(1.05 0.9)"/>
+    <use href="#tongue" fill="#7A45D0" transform="translate(300 110) rotate(140) scale(1.35 0.7)"/>
+    <use href="#tongue" fill="#C08AF5" transform="translate(300 110) rotate(141) scale(1.1 0.3)" opacity="0.8"/>
   </g>
-  <circle cx="300" cy="110" r="9" fill="#1A0B2E"/>
-  <circle cx="282" cy="88" r="4" fill="#F5ECFF"/>
+  <!-- the ball: dark smoky edge, bright violet heart -->
+  <circle cx="300" cy="110" r="46" fill="url(#orb)"/>
+  <g filter="url(#smoke)" fill="#1E0F33" opacity="0.6">
+    <circle cx="342" cy="100" r="14"/><circle cx="330" cy="70" r="13"/><circle cx="300" cy="62" r="12"/>
+    <circle cx="268" cy="78" r="13"/><circle cx="258" cy="114" r="11"/><circle cx="276" cy="146" r="12"/>
+    <circle cx="306" cy="156" r="13"/><circle cx="338" cy="136" r="14"/>
+  </g>
+  <!-- swirl -->
+  <g filter="url(#soft)">
+    <use href="#arm" fill="#E9C9FF" transform="translate(300 110) rotate(0) scale(1.05)"/>
+    <use href="#arm" fill="#C86FD8" transform="translate(300 110) rotate(72) scale(0.9)"/>
+    <use href="#arm" fill="#A35FE0" transform="translate(300 110) rotate(144) scale(1.05)"/>
+    <use href="#arm" fill="#D7A8FF" transform="translate(300 110) rotate(216) scale(0.95)" opacity="0.9"/>
+    <use href="#arm" fill="#8E4AD6" transform="translate(300 110) rotate(288) scale(0.85)"/>
+    <use href="#arm" fill="#F3E3FF" transform="translate(300 110) rotate(36) scale(0.55)" opacity="0.9"/>
+    <use href="#arm" fill="#E0A8F0" transform="translate(300 110) rotate(180) scale(0.5)" opacity="0.9"/>
+  </g>
+  <circle cx="300" cy="110" r="18" fill="url(#core)"/>
 </svg>
