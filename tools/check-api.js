@@ -24,6 +24,9 @@ const GUARDED = {
   issecretvalue: 'tested before use', debugprofilestop: 'tested before use',
   CR_CRIT_SPELL: 'constant, numbered fallback', CR_HASTE_SPELL: 'constant, numbered fallback', Enum: 'the game\'s table of constants, tested before use',
   WarlockSimItemPanel: 'the addon\'s panel under the item link window',
+  WarlockSimMinimapButton: 'the addon\'s minimap button', WarlockSim_Toggle: 'the addon\'s key binding (Bindings.xml)', WarlockSim_SimCharacter: 'the addon\'s key binding (Bindings.xml)',
+  BINDING_HEADER_WARLOCKSIM: 'the addon\'s key binding names', BINDING_NAME_WARLOCKSIM_TOGGLE: 'the addon\'s key binding names', BINDING_NAME_WARLOCKSIM_SIM: 'the addon\'s key binding names',
+  Minimap: 'the minimap (named in its layout file, not on the frame list); "or MinimapCluster.Minimap" fallback, tested before use',
   // frames of the game's character sheet: named in its layout file (not top-level, so not on the frame list); tested before use
   PaperDollFrame: 'character sheet, tested before use', PaperDollItemsFrame: 'character sheet, tested before use', CharacterModelScene: 'character sheet, tested before use',
 };
@@ -37,7 +40,7 @@ fs.readdirSync(ADDON).filter(f => f.endsWith('.lua') && f !== 'Data.lua' && f !=
   // templates and events are inside strings: look at them before the strings are blanked
   (raw.match(/CreateFrame\([^)]*\)/g) || []).forEach(c => {
     const m = c.match(/,\s*(?:BackdropTemplateMixin and )?'([A-Za-z]+(?:Template|Button)[A-Za-z]*)'/);
-    if (m) { checked.templates++; if (!templates.has(m[1])) say(file, 'frame template "' + m[1] + '" is not in the Forever client'); }
+    if (m && !m[1].startsWith('WarlockSim')) { checked.templates++; /* a frame name of the addon's own is not a template */ if (!templates.has(m[1])) say(file, 'frame template "' + m[1] + '" is not in the Forever client'); }
   });
   (raw.match(/RegisterEvent\('([A-Z_]+)'\)/g) || []).forEach(c => { const e = c.match(/'([A-Z_]+)'/)[1]; checked.events++; if (!events.has(e)) say(file, 'event ' + e + ' is not in the Forever client'); });
   const code = raw.replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"/g, "''");   // one pass, so an apostrophe inside "..." is not taken for the start of a text

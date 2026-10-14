@@ -182,5 +182,20 @@ watcher:SetScript('OnUpdate', function(_, elapsed)
   show(key)
 end)
 
+-- Kept per character between sessions: after a /reload or a login the numbers are there at once, and are only worked
+-- out again if the items, talents or settings changed in between (the key says so). The fights of the run as you are
+-- (`baseRes`) are not kept: if an item is left to do, that run is played again first (same fights, same result).
+WL.logoutHooks[#WL.logoutHooks + 1] = function()
+  local e = state.key and state.base and WL.charStore(true)
+  if e then e.sheet = { key = state.key, base = state.base, n = state.n, worth = copy(state.worth) } end
+end
+WL.loginHooks[#WL.loginHooks + 1] = function()
+  local e = WL.charStore(false)
+  local s = e and e.sheet
+  if type(s) == 'table' and type(s.key) == 'string' and type(s.base) == 'number' and type(s.worth) == 'table' then
+    state = { key = s.key, base = s.base, n = s.n, worth = copy(s.worth) }
+  end
+end
+
 -- for /wsim dump
 function WL.sheetState() return { base = state.base, worth = state.worth, n = state.n } end

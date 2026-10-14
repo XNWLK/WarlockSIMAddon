@@ -7,6 +7,7 @@ local PAD = 12
 local main, tabs, pages, result = nil, {}, {}, {}
 local current                                             -- the result on screen
 local floor = math.floor
+local copy = WL.copy
 
 local function fmt(x, d)
   if x == nil then return '?' end
@@ -247,6 +248,38 @@ local function showRank(r)
   result.info:SetText((r.pending and ('|cffaaaaaa' .. r.pending .. ' more to come...|r\n') or '') .. '|cffaaaaaaDifferences smaller than the +- of two builds are noise. Run more fights (Fight tab) to tell close builds apart.|r')
 end
 
+local function signed(x, d) return (x >= 0 and '+' or '') .. fmt(x, d) end
+-- "What if": the change in DPS, and which spells it came from
+local function showWhatIf(r)
+  result.head:SetText(string.format('%s%s DPS|r  |cffaaaaaa+- %s|r', r.diff >= 0 and '|cff40ff40' or '|cffff6060', signed(r.diff, 1), fmt(r.err, 1)))
+  result.sub:SetText(string.format('What if %s:  %s -> %s DPS', WL.describeStats(r.delta, true), fmt(r.base.dps, 1), fmt(r.res.dps, 1)))
+  local list, seen, dur = {}, {}, r.base.avgDuration > 0 and r.base.avgDuration or 1
+  for _, by in ipairs({ r.base.bySpell, r.res.bySpell }) do
+    for k in pairs(by) do
+      if not seen[k] then
+        seen[k] = true
+        local d = ((r.res.bySpell[k] and r.res.bySpell[k].dmg or 0) - (r.base.bySpell[k] and r.base.bySpell[k].dmg or 0)) / dur
+        if math.abs(d) >= 0.05 then list[#list + 1] = { key = k, d = d } end
+      end
+    end
+  end
+  table.sort(list, function(a, b) return math.abs(a.d) > math.abs(b.d) end)
+  local rows, top = {}, list[1] and math.abs(list[1].d) or 1
+  for i = 1, math.min(#list, ROWS) do
+    local name, icon = rowInfo(list[i].key, r.build)
+    local d = list[i].d
+    rows[i] = { label = name, share = math.abs(d) / top, right = signed(d, 1), icon = spellIcon(icon), color = d >= 0 and { 0.25, 0.75, 0.3, 0.6 } or { 0.85, 0.3, 0.3, 0.6 },
+      tip = string.format('%s\n%s DPS from this spell with the change', name, signed(d, 1)) }
+  end
+  setRows(rows)
+  local lines, only, amount = {}, nil, 0
+  for k, v in pairs(r.delta) do if v ~= 0 then if only then only = false else only, amount = k, v end end end
+  if only then lines[#lines + 1] = string.format('|cffffd100That is %s DPS for each %s.|r', signed(r.diff / amount, 2), WL.describeStats({ [only] = 1 })) end
+  lines[#lines + 1] = string.format('|cffaaaaaaBoth sides play the same %d fights, so the change is measured to within the +-. More fights (Fight tab) make the +- smaller.|r', r.res.iterations)
+  for i = 1, #(r.notes or {}) do lines[#lines + 1] = '|cffffb060' .. r.notes[i] .. '|r' end
+  result.info:SetText(table.concat(lines, '\n'))
+end
+
 function WL.showResult(r)
   current = r
   if not r then
@@ -254,6 +287,7 @@ function WL.showResult(r)
     result.sub:SetText('Read your character, then press Sim!')
     setRows({}); result.info:SetText('')
   elseif r.kind == 'rank' then showRank(r)
+  elseif r.kind == 'whatif' then showWhatIf(r)
   else showSingle(r.res, r.build, r.race, r.weights, r.notes, r.back ~= nil) end
 end
 
@@ -344,6 +378,7 @@ local function buildCharacterPage(p)
       fmt(s.int), fmt(s.spi), fmt(s.sta), fmt(s.mp5), fmt(s.pierce),
       fmt(g.sp), pctText(floor(g.hitPct * 10 + 0.5) / 10), pctText(floor(g.critPct * 10 + 0.5) / 10), fmt(g.int), fmt(g.spi), fmt(g.sta)))
     local notes = {}
+    if ch.restored then notes[#notes + 1] = '|cffaaaaaaAs read ' .. ((ch.readAt or 0) > 0 and ('on ' .. date('%d %b, %H:%M', ch.readAt)) or 'before') .. ' (kept over the reload). Read again if your items or talents changed since.|r' end
     if ch.level and ch.level < 60 then notes[#notes + 1] = '|cffffb060The sim is built for level 60 against a level 63 boss: below 60 the DPS shown is not what you really do.|r' end
     if points ~= 51 and (ch.level or 60) >= 60 then notes[#notes + 1] = string.format('|cffffb060%d talent points found (51 expected).|r', points) end
     for i = 1, #ch.notes do notes[#notes + 1] = '|cffffb060' .. ch.notes[i] .. '|r' end
@@ -355,6 +390,53 @@ local function buildCharacterPage(p)
     if ch.weaponEffect then notes[#notes + 1] = 'Your weapon has a temporary effect (stone or oil): its bonus is in your numbers.' end
     p.notes:SetText(table.concat(notes, ' '))
   end
+end
+
+-- "What if": your character with a few stats more (or less), against your character as it is
+local WHATIF_BOXES = { { 'sp', 'Spell power' }, { 'hit', 'Hit %' }, { 'crit', 'Crit %' }, { 'haste', 'Haste %' }, { 'int', 'Intellect' }, { 'spi', 'Spirit' },
+                       { 'sta', 'Stamina' }, { 'pierce', 'Spell Pierce' }, { 'mp5', 'Mana per 5' } }
+local WHATIF_QUICK = { { '+10 SP', 'sp', 10 }, { '+1% hit', 'hit', 1 }, { '+1% crit', 'crit', 1 }, { '+1% haste', 'haste', 1 }, { '+20 Int', 'int', 20 } }
+local function buildWhatIfPage(p)
+  local change = {}
+  local t = Text(p, 'GameFontHighlightSmall', 'What if your character had a little more (or less) of a stat? Both sides play the same fights, so even a small change shows.')
+  t:SetPoint('TOPLEFT', 0, 0); t:SetWidth(W - 2 * PAD)
+  local boxes = {}
+  local function simChange()
+    for i = 1, #boxes do                                  -- what is typed counts, even if the box still has the cursor
+      local v = tonumber(((boxes[i]:GetText() or ''):gsub(',', '.')))
+      change[WHATIF_BOXES[i][1]] = v or 0
+    end
+    startSim(function() return WL.simWhatIf(copy(change)) end)
+  end
+  local bw = (W - 2 * PAD - 4 * 6) / #WHATIF_QUICK
+  for i = 1, #WHATIF_QUICK do
+    local q = WHATIF_QUICK[i]
+    local b = Button(p, q[1], bw, function()
+      for k in pairs(change) do change[k] = 0 end
+      change[q[2]] = q[3]
+      for j = 1, #boxes do boxes[j]:ClearFocus(); boxes[j].sync() end
+      simChange()
+    end, 'Sims your character as it is and with ' .. WL.describeStats({ [q[2]] = q[3] }, true) .. ', and shows the difference.')
+    b:SetPoint('TOPLEFT', (i - 1) * (bw + 6), -34)
+  end
+  local h = Text(p, 'GameFontNormalSmall', 'Or your own change (a minus for less):'); h:SetPoint('TOPLEFT', 0, -66)
+  for i = 1, #WHATIF_BOXES do
+    local key, x, y = WHATIF_BOXES[i][1], ((i - 1) % 3) * 136, -84 - math.floor((i - 1) / 3) * 24
+    local l = Text(p, 'GameFontNormalSmall', WHATIF_BOXES[i][2]); l:SetPoint('TOPLEFT', x, y - 4)
+    local e = Edit(p, 46, function() return change[key] or 0 end, function(v) change[key] = v end)
+    e:SetPoint('TOPLEFT', x + 76, y)
+    boxes[i] = keep(e)
+  end
+  local n = Text(p, 'GameFontDisableSmall', 'Hit, crit and haste are in percent. Intellect also adds crit, by the sim\'s rule. The number of fights is the one on the Fight tab.')
+  n:SetPoint('TOPLEFT', 0, -162); n:SetWidth(W - 2 * PAD)
+  p.go = Button(p, 'Sim this change', 130, simChange, 'Sims your character as it is and with the change above, and shows the difference in DPS and where it comes from.')
+  p.go:SetPoint('BOTTOMRIGHT', 0, 0)
+  local clear = Button(p, 'Clear', 80, function()
+    for k in pairs(change) do change[k] = 0 end
+    for j = 1, #boxes do boxes[j]:ClearFocus(); boxes[j].sync() end
+  end, 'Sets every box back to 0.')
+  clear:SetPoint('BOTTOMLEFT', 0, 0)
+  p.sync = function() if p.go.SetEnabled then p.go:SetEnabled(WL.char ~= nil and not WL.jobRunning()) end end
 end
 
 local function buildBuildsPage(p)
@@ -426,6 +508,13 @@ local function buildFightPage(p)
   label('While simming', 190)
   place(keep(Dropdown(p, 110, function() return { { value = 'auto', label = 'Automatic' }, { value = 'smooth', label = 'Stay smooth' }, { value = 'fast', label = 'Sim faster' }, { value = 'fastest', label = 'Fastest' } } end,
     function() return o().speed end, function(v) o().speed = v end, 'The game gives addons one processor core, shared with the game itself. "Automatic" sims faster while you are out of combat and stays smooth while you fight. "Stay smooth" sims for 8 ms of every frame: the game runs nearly as usual. "Sim faster" takes 30 ms: about twice as quick, the game stutters a little. "Fastest" takes 100 ms: the sim gets nearly the whole core, the game drops to about 10 frames a second until it is done.')), 284)
+  y = y - 26
+  label('Item sims', 0)
+  place(keep(Edit(p, 50, function() return o().itemFights end, function(v) o().itemFights = math.max(20, math.min(2000, floor(v))) end,
+    'How many fights an item sim plays (the click on an item, and the numbers on your character sheet). More fights = smaller differences show reliably, and a longer wait. 150 is a quick look; 500 and more to tell close items apart.')), 92)
+  label('fights', 148)
+  place(keep(Check(p, 'Minimap button', function() return o().minimapButton ~= false end, function(v) o().minimapButton = v; WL.updateMinimapButton() end,
+    'The round button at the edge of the minimap: click opens or closes this window, right-click sims your character, drag moves it. /wsim minimap does the same as this box.')), 214)
   p.reset = Button(p, 'Back to the sim\'s settings', 190, function()
     WL.cfg = WL.newConfig(); WL.saveSettings(); WL.refresh()
     result.status:SetText('Fight, buffs and consumables are back to the sim\'s defaults.')
@@ -559,8 +648,8 @@ end
 -- ---------------------------------------------------------------------------------------------------------------------
 -- the window
 -- ---------------------------------------------------------------------------------------------------------------------
-local TAB_NAMES = { 'Character', 'Builds', 'Buffs', 'Fight', 'Codes' }
-local BUILDERS = { buildCharacterPage, buildBuildsPage, buildBuffsPage, buildFightPage, buildCodesPage }
+local TAB_NAMES = { 'Character', 'What if', 'Builds', 'Buffs', 'Fight', 'Codes' }
+local BUILDERS = { buildCharacterPage, buildWhatIfPage, buildBuildsPage, buildBuffsPage, buildFightPage, buildCodesPage }
 local PAGE_H = 248
 
 local function selectTab(i)
@@ -600,7 +689,7 @@ local function create()
   close:SetScript('OnClick', function() main:Hide() end)
   main:SetScript('OnHide', hideMenu)
 
-  local tabW = (W - 2 * PAD - 4 * 4) / 5
+  local tabW = (W - 2 * PAD - 4 * (#TAB_NAMES - 1)) / #TAB_NAMES
   for i = 1, #TAB_NAMES do
     local tb = CreateFrame('Button', nil, main)
     tb:SetSize(tabW, 22); tb:SetPoint('TOPLEFT', PAD + (i - 1) * (tabW + 4), -32)
@@ -705,4 +794,13 @@ function WL.toggleWindow()
   if not main then create(); main:Show(); WL.refresh(); return end
   main:SetShown(not main:IsShown())
   if main:IsShown() then WL.refresh() end
+end
+-- the key binding "Sim my character" and a right-click on the minimap button: the window opens and Sim! is pressed
+-- (your character is read first if nothing was read yet and you are not fighting)
+function WL.simFromKey()
+  if not WL.db then return end
+  if not main then create() end
+  main:Show()
+  if not WL.char and not (InCombatLockdown and InCombatLockdown()) then WL.doReadCharacter() end
+  startSim(WL.simCharacter)
 end

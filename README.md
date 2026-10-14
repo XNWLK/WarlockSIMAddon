@@ -29,16 +29,17 @@ practise its priority list in Forever Warlocking — it reads the same build and
 2. Unzip it into `World of Warcraft\_classic_beta_\Interface\AddOns`, so that there is a folder `AddOns\WarlockSim`.
    (To update, unzip over the old folder.)
 3. Restart the game and tick **Xn's Warlock Sim** in the AddOns list.
-4. Type `/wsim` to open the window.
+4. Type `/wsim` or click the minimap button to open the window. Key bindings for opening it and for simming your\n   character are in the game's Key Bindings, under AddOns.
 
 ## What it does
 
 | Tab | |
 |---|---|
 | **Character** | *Read my character* takes your talents, race, demon, sacrificed demon and your spell power, hit, crit, haste, Intellect, Spirit, Stamina, mana per 5 s and Spell Pierce from the game. *Sim!* plays the fights. The order of your spells (the priority list) is taken from the ready build closest to your talents, or from one you pick. |
+| **What if** | Your character with +10 spell power, +1% hit, +1% crit, +1% haste or +20 Intellect in one click, or any change you type in (a minus for less): the change in DPS, the spells it comes from and what one point is worth. Both sides play the same fights. |
 | **Builds** | *Sim builds with your gear* plays every build of the website with **your** gear numbers and puts them in order — which build is best for your gear. Your own character, with the talents you have now, is in the list in gold. |
 | **Buffs** | Raid buffs, debuffs on the boss and consumables, as on the website. |
-| **Fight** | Number of fights, fight length, 1–3 targets, when cooldowns are used, precast, movement, hits taken, latency, stat weights on or off, how much of each frame the sim may take, and the click that sims an item. |
+| **Fight** | Number of fights, fight length, 1–3 targets, when cooldowns are used, precast, movement, hits taken, latency, stat weights on or off, how much of each frame the sim may take, the click that sims an item and how many fights it plays, the minimap button. |
 | **Codes** | Paste a settings code or a build code from the website, or make one from your character to open there. |
 
 The result shows DPS with its margin, a bar per spell (hover for casts, crits and misses), the stat weights in spell
@@ -76,6 +77,7 @@ Shift + right-click is taken by another addon or gets in your way.
 |---|---|
 | `/wsim` | Opens or closes the window (`/warlocksim` works too). |
 | `/wsim read` | Reads your character. |
+| `/wsim minimap` | Shows or hides the minimap button. |
 | `/wsim test` | Plays 14 fights and compares them with the website's engine: the maths check. |
 | `/wsim dump` | Saves what the game returned when your character was read (for bug reports). |
 | `/wsim stop` | Stops a running sim. |
@@ -84,6 +86,8 @@ Shift + right-click is taken by another addon or gets in your way.
 
 - **Not in combat.** The Forever client hides your numbers from addons while you fight, so your character can only be
   read out of combat. Sims can run at any time.
+- **Kept over a reload.** The character you read last and the numbers on your character sheet are kept per character,
+  over a `/reload` and the next login. Read again after you changed items or talents.
 - **Your numbers are read as they are.** Raid buffs the addon recognises on you are taken off again, so that the Buffs
   tab alone decides which buffs the sim uses. Anything else that is on you while reading — a flask, food, a weapon stone
   or oil — stays inside your numbers and counts as gear. The Character tab lists what it found.

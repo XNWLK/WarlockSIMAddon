@@ -2,7 +2,7 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.5.1'
+WL.VERSION = '0.6.0'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -17,7 +17,7 @@ end
 -- WL.cfg       the settings the sim runs with (the sim's defaults + what you changed)
 -- WL.char      the character read from the game (nil until "Read my character")
 local DEFAULT_OPTIONS = { fights = 300, weights = true, speed = 'auto', speedDefault = 2, template = nil, stone = 'sheet', race = nil, pet = 'auto', sacrifice = 'auto', minimapHint = true,
-                          itemClick = 'shift-right', itemClickDefault = 2, itemFights = 150, sheetNumbers = true }
+                          itemClick = 'shift-right', itemClickDefault = 2, itemFights = 150, sheetNumbers = true, minimapButton = true, minimapAngle = 200 }
 -- The click that sims an item (options.itemClick). 'off' also hides the button under the item link window.
 WL.ITEM_CLICKS = {
   { value = 'shift-right', label = 'Shift + right-click' }, { value = 'alt-right', label = 'Alt + right-click' }, { value = 'alt-left', label = 'Alt + left-click' },
@@ -113,11 +113,51 @@ function WL.characterBuildNow()
   b.template = tpl.key
   return b, notes, tpl
 end
+-- What is kept per character between sessions (WarlockSimDB.chars["Name-Realm"]): the character as last read and the
+-- numbers on the character sheet, so both are there at once after a /reload or a login.
+function WL.charKey()
+  local ok, name, realm = pcall(function() return UnitName('player'), GetRealmName() end)
+  if not ok or type(name) ~= 'string' or (issecretvalue and issecretvalue(name)) then return nil end
+  return name .. '-' .. tostring(realm)
+end
+function WL.charStore(create)
+  local key = WL.db and WL.charKey()
+  if not key then return nil end
+  local e = WL.db.chars[key]
+  if type(e) ~= 'table' then
+    if not create then return nil end
+    e = {}; WL.db.chars[key] = e
+  end
+  return e
+end
+local function saveCharacter(ch)
+  local e = WL.charStore(true)
+  if not e then return end
+  local keep = {}
+  for k, v in pairs(ch) do if k ~= 'raw' and k ~= 'restored' then keep[k] = v end end   -- `raw` (what the game returned) only goes into /wsim dump
+  e.char = copy(keep)
+end
+-- The character as last read, put back after a /reload or a login. Its gear numbers are worked out again from the saved
+-- sheet numbers (so a newer version of the addon uses its own rules); anything that does not fit any more is dropped.
+local function restoreCharacter()
+  local e = WL.charStore(false)
+  if not (e and type(e.char) == 'table' and e.char.class == 'WARLOCK' and type(e.char.sheet) == 'table' and type(e.char.state) == 'table') then return end
+  local ch = copy(e.char)
+  ch.raw, ch.notes, ch.restored = {}, type(ch.notes) == 'table' and ch.notes or {}, true
+  local ok = pcall(function()
+    ch.gear = WL.gearFromSheet(ch.sheet, ch.state)
+    WL.char = ch
+    local b = WL.characterBuildNow()
+    if not b then error('no build') end
+  end)
+  if not ok then WL.char = nil; e.char = nil end
+end
 function WL.doReadCharacter()
   local ch, err = WL.readCharacter()
   if not ch then return nil, err end
   ch.gear = WL.gearFromSheet(ch.sheet, ch.state)
   WL.char = ch
+  saveCharacter(ch)
   return ch
 end
 
@@ -254,6 +294,41 @@ function WL.simCharacter()
   if #errs > 0 then return false, errs[1] end
   return WL.simBuild(build, WL.raceKey(), WL.characterConfig(), 'My character', notes)
 end
+-- "What if": your character as it is against your character with some stats more or less (delta: the stats of
+-- Items.lua, e.g. { sp = 10, hit = 1 }; hit / crit / haste in percent). Both sides play the same fights, so the
+-- difference is measured, not two separate guesses. result = { kind = 'whatif', base, res, diff, err, delta, build, race }.
+function WL.simWhatIf(delta)
+  local build, notes = WL.characterBuildNow()
+  if not build then return false, notes[1] end
+  local errs = WL.validateBuild(build, true)
+  if #errs > 0 then return false, errs[1] end
+  local any, parts = false, {}
+  for i = 1, #WL.ITEM_STAT_ORDER do
+    local v = tonumber(delta[WL.ITEM_STAT_ORDER[i]]) or 0
+    if v ~= 0 then any = true end
+    parts[#parts + 1] = tostring(v)
+  end
+  if not any then return false, 'Enter a change first (or press one of the + buttons).' end
+  local cfg, race, n = WL.characterConfig(), WL.raceKey(), fights()
+  local gear, d = WL.gearWithSwap(cfg.gear, delta, {}, cfg)
+  local changed = copy(cfg)
+  changed.gear = gear
+  local key = 'whatif|' .. n .. '|' .. race .. '|' .. table.concat(parts, ',') .. '|' .. WL.encodeBuild(build) .. WL.jsonEncode(WL.settingsSnapshot(cfg))
+  local known = recall(key)
+  if known then return answerFromMemory(known) end
+  return startJob('What if', 2 * n, function(j)
+    local function onFight() j.done = j.done + 1 end
+    local base = WL.simulate(build, race, cfg, { iterations = n, onFight = onFight })
+    local res = WL.simulate(build, race, changed, { iterations = n, onFight = onFight })
+    local sum, sq = 0, 0
+    for f = 1, n do local x = res.dpsList[f] - base.dpsList[f]; sum = sum + x; sq = sq + x * x end
+    local mean = sum / n
+    local r = j.result
+    r.kind, r.base, r.res, r.build, r.race, r.delta, r.notes = 'whatif', base, res, build, race, d, notes
+    r.diff, r.err = mean, 1.96 * math.sqrt(math.max(0, sq / n - mean * mean) / math.max(1, n - 1))
+    remember(key, r)
+  end)
+end
 -- Every ready build (and your character, if read) with your numbers: result = { kind = 'rank', rows = { { build, res }, ... } }.
 function WL.simRanking()
   -- your gear as it is right now (not possible in combat, and not for another class: then what was read last, or the settings' numbers)
@@ -330,6 +405,7 @@ end
 -- ---------------------------------------------------------------------------------------------------------------------
 -- start-up and slash commands
 -- ---------------------------------------------------------------------------------------------------------------------
+WL.loginHooks, WL.logoutHooks = {}, {}                    -- other files add what they do at login / logout
 local events = CreateFrame('Frame')
 events:RegisterEvent('ADDON_LOADED')
 events:RegisterEvent('PLAYER_LOGOUT')
@@ -339,9 +415,12 @@ events:SetScript('OnEvent', function(_, event, name)
     initDB()
     if #WL.ACTIONS_MISSING > 0 then WL.print('This copy does not know these priority actions of the sim yet: ' .. table.concat(WL.ACTIONS_MISSING, ', ')) end
   elseif event == 'PLAYER_LOGIN' then
+    if WL.db and not WL.char then restoreCharacter() end
+    for i = 1, #WL.loginHooks do WL.loginHooks[i]() end    -- the minimap button, the numbers on the character sheet
     if WL.db and WL.db.options.minimapHint then WL.print('v' .. WL.VERSION .. ' loaded. Type /wsim to open it.' .. (WL.itemClickText() and (' ' .. WL.itemClickText() .. ' an item to sim what it is worth to you.') or '')) end
   elseif event == 'PLAYER_LOGOUT' then
     if WL.db then WL.saveSettings() end
+    for i = 1, #WL.logoutHooks do WL.logoutHooks[i]() end
   end
 end)
 
@@ -362,8 +441,13 @@ SlashCmdList['WARLOCKSIM'] = function(msg)
     if WL.refresh then WL.refresh() end
   elseif msg == 'stop' then
     WL.cancelJob()
+  elseif msg == 'minimap' then
+    WL.db.options.minimapButton = not WL.db.options.minimapButton
+    if WL.updateMinimapButton then WL.updateMinimapButton() end
+    WL.print('Minimap button ' .. (WL.db.options.minimapButton and 'shown.' or 'hidden. /wsim minimap brings it back.'))
+    if WL.refresh then WL.refresh() end
   elseif msg == 'help' or msg == '?' then
-    WL.print('/wsim - open or close the window  |  /wsim read - read your character  |  /wsim test - check the maths against the DPS sim  |  /wsim dump - save what the game returned (for bug reports)  |  /wsim stop - stop a running sim')
+    WL.print('/wsim - open or close the window  |  /wsim read - read your character  |  /wsim minimap - show or hide the minimap button  |  /wsim test - check the maths against the DPS sim  |  /wsim dump - save what the game returned (for bug reports)  |  /wsim stop - stop a running sim')
   else
     if WL.toggleWindow then WL.toggleWindow() end
   end

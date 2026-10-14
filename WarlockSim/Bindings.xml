@@ -1,0 +1,8 @@
+<Bindings>
+  <Binding name="WARLOCKSIM_TOGGLE" header="WARLOCKSIM" category="ADDONS">
+    WarlockSim_Toggle()
+  </Binding>
+  <Binding name="WARLOCKSIM_SIM" category="ADDONS">
+    WarlockSim_SimCharacter()
+  </Binding>
+</Bindings>

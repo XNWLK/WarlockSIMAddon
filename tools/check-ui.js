@@ -131,6 +131,32 @@ step('character sheet: switched off and on; not while fighting', `WLX.db.options
   WLX.db.options.sheetNumbers = true; MOCK.combat = true; for i = 1, 25 do MOCK.frame() end; assert(not WLX.backgroundRunning(), "no work is started in combat")
   MOCK.combat = false; ${bg}; assert(tonumber(MOCK.sheetText(11)), "numbers are back after the fight")
   PaperDollFrame.shown = false; WLX.db.options.itemFights = 150`);
+step('character sheet: the numbers are kept over a reload, nothing is simmed again', `PaperDollFrame.shown = true; ${bg}; local before = WLX.sheetState().base
+  MOCK.fire("PLAYER_LOGOUT"); local e = WarlockSimDB.chars["Tester-Mock"]; assert(e and e.sheet and e.sheet.base == before, "not saved at logout")
+  e.sheet.base = 1234.4; MOCK.fire("PLAYER_LOGIN"); assert(WLX.sheetState().base == 1234.4, "not put back at login")
+  for i = 1, 25 do MOCK.frame() end; assert(not WLX.backgroundRunning(), "simmed again although nothing changed"); assert(MOCK.findLike("FontString", "1234 DPS"), "the kept total is shown")
+  MOCK.equipped[11] = 1001; ${bg}; assert(WLX.sheetState().base ~= 1234.4, "a changed item works it out again"); MOCK.equipped[11] = 1002; ${bg}; PaperDollFrame.shown = false`);
+step('the character is kept over a reload', `local e = WarlockSimDB.chars["Tester-Mock"]; assert(e and e.char and e.char.raw == nil, "the character is saved without the raw game data")
+  local gear = WLX.char.gear.sp; WLX.char = nil; MOCK.fire("PLAYER_LOGIN"); assert(WLX.char and WLX.char.restored, "not put back"); assert(WLX.char.gear.sp == gear, "other gear numbers")
+  WLX.refresh(); assert(MOCK.findLike("FontString", "kept over the reload"), "the Character tab does not say so")
+  WarlockSimDB.chars["Tester-Mock"].char.talents = "broken"; WLX.char = nil; MOCK.fire("PLAYER_LOGIN"); assert(WLX.char == nil and WarlockSimDB.chars["Tester-Mock"].char == nil, "a broken saved character is dropped")
+  MOCK.click("Read my character"); assert(WLX.char and not WLX.char.restored and WarlockSimDB.chars["Tester-Mock"].char)`);
+step('what if: +10 spell power gains, a typed change, nothing entered', `WLX.db.options.fights = 30; MOCK.click("+10 SP"); assert(WLX.jobRunning(), "no sim"); ${pump}
+  local r = WLX.lastResult; assert(r.kind == "whatif" and r.diff > 0 and r.err >= 0, "kind / diff: " .. tostring(r.kind) .. " " .. tostring(r.diff))
+  assert(MOCK.findLike("FontString", "What if %+10 spell power"), "what changed is shown"); assert(MOCK.findLike("FontString", "DPS for each 1 spell power"), "per point")
+  for _, f in ipairs(MOCK.frames) do if f.__kind == "EditBox" and f.template == "InputBoxTemplate" and f.text == "10" then f:SetText("0") end end
+  MOCK.click("Clear"); MOCK.click("Sim this change"); assert(not WLX.jobRunning(), "nothing entered: no sim"); assert(MOCK.findLike("FontString", "Enter a change first"), "says why")
+  local n = 0; for _, f in ipairs(MOCK.frames) do if f.__kind == "EditBox" and f.template == "InputBoxTemplate" and f.text == "0" then n = n + 1; if n == 2 then f:SetText("-2") end end end
+  MOCK.click("Sim this change"); ${pump}; local r2 = WLX.lastResult; assert(r2.kind == "whatif" and r2.delta.hit == -2 and r2.diff < 0, "-2% hit loses: " .. tostring(r2.delta.hit) .. " " .. tostring(r2.diff))
+  WLX.db.options.fights = 10; return string.format("+10 SP: %+.1f DPS +- %.1f; -2%% hit: %+.1f DPS", r.diff, r.err, r2.diff)`);
+step('item sim fights box; minimap button, its clicks, hiding it', `local box; for _, f in ipairs(MOCK.frames) do if f.__kind == "EditBox" and f.text == "150" then box = f end end; assert(box, "no item fights box")
+  box:SetText("400"); box.scripts.OnEnterPressed(box); assert(WLX.db.options.itemFights == 400, "item fights: " .. tostring(WLX.db.options.itemFights)); box:SetText("5"); box.scripts.OnEnterPressed(box); assert(WLX.db.options.itemFights == 20, "at least 20"); WLX.db.options.itemFights = 150
+  local b = WarlockSimMinimapButton; assert(b and b.shown, "no minimap button"); local was = WarlockSimFrame:IsShown()
+  b.scripts.OnClick(b, "LeftButton"); assert(WarlockSimFrame:IsShown() ~= was, "a click opens / closes the window"); b.scripts.OnClick(b, "LeftButton")
+  b.scripts.OnEnter(b); b.scripts.OnLeave(b); b.scripts.OnDragStart(b); b.scripts.OnUpdate(b, 0.016); b.scripts.OnDragStop(b); assert(WLX.db.options.minimapAngle ~= 200, "dragging moves it")
+  WarlockSimFrame:Hide(); WLX.db.options.fights = 12; b.scripts.OnClick(b, "RightButton"); assert(WarlockSimFrame:IsShown() and WLX.jobRunning(), "right-click opens the window and sims"); WLX.cancelJob(); WLX.db.options.fights = 10
+  WarlockSim_Toggle(); assert(not WarlockSimFrame:IsShown(), "the key binding closes it"); WarlockSim_Toggle()
+  SlashCmdList.WARLOCKSIM("minimap"); assert(not b.shown and WLX.db.options.minimapButton == false, "/wsim minimap hides it"); SlashCmdList.WARLOCKSIM("minimap"); assert(b.shown, "and shows it again")`);
 step('Sim!: the DPS is on screen before the stat weights are done', `WLX.db.options.weights = true; WLX.db.options.fights = 12; MOCK.click("Sim!"); assert(WLX.jobRunning(), "no sim started")
   local seen = false; local n = 0
   while WLX.jobRunning() do MOCK.frame(); n = n + 1; if not seen and MOCK.findLike("FontString", "Stat weights: still simming") then seen = true; assert(MOCK.findLike("FontString", "^%d+%.%d DPS"), "DPS shown with the note") end; if n > 3000000 then error("never ends") end end

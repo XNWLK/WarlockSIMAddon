@@ -3,6 +3,18 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.6.0
+
+- Minimap button: click opens or closes the window, right-click sims your character, drag moves it around the minimap.
+  "Minimap button" on the Fight tab (or `/wsim minimap`) hides it.
+- Key bindings: "Open or close the window" and "Sim my character", in the game's Key Bindings under AddOns.
+- Your character and the numbers on your character sheet are kept over a `/reload` and a new login. The sheet numbers
+  are only worked out again when your items, talents or settings changed.
+- New tab "What if": your character with +10 spell power, +1% hit, +1% crit, +1% haste or +20 Intellect in one click,
+  or any change you type in (a minus for less). It shows the change in DPS, the spells it comes from and what one point
+  is worth. Both sides play the same fights.
+- The number of fights of an item sim (and of the sheet numbers) can be set on the Fight tab ("Item sims").
+
 ## v0.5.1
 
 - The total DPS on the character sheet now sits right above the weapon slots.

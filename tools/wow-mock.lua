@@ -53,6 +53,9 @@ function CreateFrame(kind, name, parent, template)
   return f
 end
 UIParent = newObject('Frame', 'UIParent')
+Minimap = newObject('Frame', 'Minimap'); Minimap.width = 140
+Minimap.GetCenter = function() return 1200, 600 end
+Minimap.GetEffectiveScale = function() return 1 end
 GameTooltip = newObject('GameTooltip', 'GameTooltip')
 DEFAULT_CHAT_FRAME = { AddMessage = function(_, m) MOCK.chat[#MOCK.chat + 1] = m end }
 BackdropTemplateMixin = {}
