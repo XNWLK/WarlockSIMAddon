@@ -54,6 +54,9 @@ function CreateFrame(kind, name, parent, template)
 end
 UIParent = newObject('Frame', 'UIParent')
 -- Forever's Escape: handlers asked in turn until one says it used the key (Blizzard_GameMenuEsc.lua)
+UISpecialFrames = { 'ItemRefTooltip' }
+-- the older way, the one the client of today uses: every listed window that is shown gets hidden
+function MOCK.closeSpecialWindows() local found = false; for _, name in pairs(UISpecialFrames) do local f = _G[name]; if f and f:IsShown() then f:Hide(); found = true end end; return found end
 GameMenuEscPriority = { Dialog = 1, Menu = 2, AddOn = 8 }
 MOCK.escHandlers = {}
 function RegisterGameMenuEscHandler(priority, handler) assert(priority and type(handler) == 'function'); MOCK.escHandlers[#MOCK.escHandlers + 1] = handler end
@@ -218,3 +221,4 @@ function MOCK.sheetText(id)
 end
 function MOCK.slotName(id) for _, n in ipairs({ 'Head', 'Neck', 'Shoulder', 'Back', 'Chest', 'Wrist', 'Hands', 'Waist', 'Legs', 'Feet', 'Finger0', 'Finger1', 'Trinket0', 'Trinket1', 'MainHand', 'SecondaryHand', 'Ranged' }) do
   if _G['Character' .. n .. 'Slot']:GetID() == id then return 'Character' .. n .. 'Slot' end end end
+tinsert, tremove = table.insert, table.remove

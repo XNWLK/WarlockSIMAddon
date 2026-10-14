@@ -3,6 +3,10 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.6.2
+
+- Escape really closes the window now (0.6.1 used a way the game client does not have yet).
+
 ## v0.6.1
 
 - Escape closes the window.

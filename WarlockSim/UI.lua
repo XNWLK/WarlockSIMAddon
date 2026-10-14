@@ -795,9 +795,17 @@ function WL.toggleWindow()
   main:SetShown(not main:IsShown())
   if main:IsShown() then WL.refresh() end
 end
--- Escape closes the window. Forever has its own hand-in for that (RegisterGameMenuEscHandler): the game asks each
--- handler in turn and calls it through securecallfunction, so nothing of the addon's touches the game's own code.
--- Returning true means "Escape was used here": the game menu does not open, and other open windows stay for the next Escape.
+-- Escape closes the window, two ways, so it works on the client as it is and after its next update:
+--  * the game's list of windows that Escape closes (UISpecialFrames, by name). This is what the client of today uses
+--    (other addons' windows close this way too); the game walks the list in its own protected call.
+--  * Forever's newer hand-in (RegisterGameMenuEscHandler), found in Blizzard's newest Forever code: each handler is
+--    called through securecallfunction; true = "Escape was used here", so the game menu does not open.
+-- Whichever comes first hides the window; the other then finds it hidden.
+if type(UISpecialFrames) == 'table' then
+  local listed = false
+  for i = 1, #UISpecialFrames do if UISpecialFrames[i] == 'WarlockSimFrame' then listed = true end end
+  if not listed then tinsert(UISpecialFrames, 'WarlockSimFrame') end
+end
 local escRegistered = false
 local function registerEsc()
   if escRegistered or not (RegisterGameMenuEscHandler and GameMenuEscPriority and GameMenuEscPriority.AddOn) then return end
