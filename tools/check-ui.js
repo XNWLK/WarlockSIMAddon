@@ -159,7 +159,7 @@ step('item sim fights box; minimap button, its clicks, hiding it', `local box; f
   SlashCmdList.WARLOCKSIM("minimap"); assert(not b.shown and WLX.db.options.minimapButton == false, "/wsim minimap hides it"); SlashCmdList.WARLOCKSIM("minimap"); assert(b.shown, "and shows it again")`);
 step('Escape closes the window (the list the game walks), and the game\'s own Escape handlers are left alone', `assert(#MOCK.escHandlers == 0, "an entry of the addon's in the game's Escape handlers taints every Escape")
   local n = 0; for _, name in ipairs(UISpecialFrames) do if name == "WarlockSimFrame" then n = n + 1 end end; assert(n == 1, "on the list of windows Escape closes: " .. n .. " times")
-  WLX.toggleWindow(); assert(MOCK.closeSpecialWindows() and not WarlockSimFrame:IsShown(), "the older way does not close it"); WLX.toggleWindow()`);
+  if not WarlockSimFrame:IsShown() then WLX.toggleWindow() end; assert(MOCK.closeSpecialWindows() and not WarlockSimFrame:IsShown(), "Escape's list does not close it"); WLX.toggleWindow()`);
 step('Sim!: the DPS is on screen before the stat weights are done', `WLX.db.options.weights = true; WLX.db.options.fights = 12; MOCK.click("Sim!"); assert(WLX.jobRunning(), "no sim started")
   local seen = false; local n = 0
   while WLX.jobRunning() do MOCK.frame(); n = n + 1; if not seen and MOCK.findLike("FontString", "Stat weights: still simming") then seen = true; assert(MOCK.findLike("FontString", "^%d+%.%d DPS"), "DPS shown with the note") end; if n > 3000000 then error("never ends") end end
