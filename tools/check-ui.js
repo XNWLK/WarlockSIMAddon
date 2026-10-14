@@ -160,6 +160,15 @@ step('item sim fights box; minimap button, its clicks, hiding it', `local box; f
 step('Escape closes the window (the list the game walks), and the game\'s own Escape handlers are left alone', `assert(#MOCK.escHandlers == 0, "an entry of the addon's in the game's Escape handlers taints every Escape")
   local n = 0; for _, name in ipairs(UISpecialFrames) do if name == "WarlockSimFrame" then n = n + 1 end end; assert(n == 1, "on the list of windows Escape closes: " .. n .. " times")
   if not WarlockSimFrame:IsShown() then WLX.toggleWindow() end; assert(MOCK.closeSpecialWindows() and not WarlockSimFrame:IsShown(), "Escape's list does not close it"); WLX.toggleWindow()`);
+step('the watcher notes actions of this addon the game blocks, and only those', `local chat = #MOCK.chat
+  MOCK.fire("ADDON_ACTION_BLOCKED", "SomeOtherAddon", "ClearTarget()"); assert(WLX.db.blocked == nil, "another addon's block was noted")
+  MOCK.combat = true; MOCK.fire("ADDON_ACTION_BLOCKED", "WarlockSim", "ClearTarget()"); MOCK.fire("ADDON_ACTION_BLOCKED", "WarlockSim", "ClearTarget()"); MOCK.combat = false
+  MOCK.fire("ADDON_ACTION_FORBIDDEN", "WarlockSim", "UNKNOWN()")
+  local b = WLX.db.blocked; assert(b and #b == 3 and b[1].action == "UNKNOWN()" and b[1].event == "ADDON_ACTION_FORBIDDEN" and b[3].combat == true, "the list")
+  assert(#MOCK.chat == chat + 2, "one chat line per action, not per block: " .. (#MOCK.chat - chat))
+  for i = 1, 30 do MOCK.fire("ADDON_ACTION_BLOCKED", "WarlockSim", "X" .. i .. "()") end; assert(#WLX.db.blocked == 20, "the last 20 only")
+  SlashCmdList.WARLOCKSIM("blocked"); assert(MOCK.chat[#MOCK.chat]:find("blocked", 1, true)); SlashCmdList.WARLOCKSIM("dump"); assert(WLX.db.dump.blocked == WLX.db.blocked)
+  WLX.db.blocked = nil; SlashCmdList.WARLOCKSIM("blocked"); assert(MOCK.chat[#MOCK.chat]:find("has not blocked anything", 1, true))`);
 step('Sim!: the DPS is on screen before the stat weights are done', `WLX.db.options.weights = true; WLX.db.options.fights = 12; MOCK.click("Sim!"); assert(WLX.jobRunning(), "no sim started")
   local seen = false; local n = 0
   while WLX.jobRunning() do MOCK.frame(); n = n + 1; if not seen and MOCK.findLike("FontString", "Stat weights: still simming") then seen = true; assert(MOCK.findLike("FontString", "^%d+%.%d DPS"), "DPS shown with the note") end; if n > 3000000 then error("never ends") end end

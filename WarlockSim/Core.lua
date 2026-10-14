@@ -2,7 +2,7 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.6.3'
+WL.VERSION = '0.6.4'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -398,6 +398,7 @@ function WL.dump()
   d.lastTiming, d.selfTest, d.lastError = WL.db.lastTiming, WL.db.selfTest, WL.lastError
   d.sheet = WL.sheetState and WL.sheetState() or nil      -- the numbers on the character sheet
   d.lastItem = WL.db.lastItem                              -- what the game returned for the items of the last item comparison
+  d.blocked = WL.db.blocked                                -- actions of this addon the game blocked (the watcher)
   WL.db.dump = d
   return d
 end
@@ -406,11 +407,31 @@ end
 -- start-up and slash commands
 -- ---------------------------------------------------------------------------------------------------------------------
 WL.loginHooks, WL.logoutHooks = {}, {}                    -- other files add what they do at login / logout
+
+-- The watcher: when the game blocks an action and names this addon (it says so through these two events, in combat
+-- too, where it otherwise stays silent), it is noted with the action and the time (WarlockSimDB.blocked, the last 20)
+-- and said once per action in chat. It only listens.
+local blockedSaid = {}
+local function noteBlocked(event, addon, action)
+  if addon ~= ADDON or not WL.db then return end
+  local list = type(WL.db.blocked) == 'table' and WL.db.blocked or {}
+  WL.db.blocked = list
+  table.insert(list, 1, { at = date and date('%Y-%m-%d %H:%M:%S') or '', event = event, action = tostring(action), combat = (InCombatLockdown and InCombatLockdown()) and true or false, version = WL.VERSION })
+  list[21] = nil
+  if not blockedSaid[tostring(action)] then
+    blockedSaid[tostring(action)] = true
+    WL.print('|cffff6060The game blocked an action of this addon:|r ' .. tostring(action) .. '. It is noted for a bug report (/wsim blocked lists them).')
+  end
+end
+
 local events = CreateFrame('Frame')
 events:RegisterEvent('ADDON_LOADED')
 events:RegisterEvent('PLAYER_LOGOUT')
 events:RegisterEvent('PLAYER_LOGIN')
-events:SetScript('OnEvent', function(_, event, name)
+events:RegisterEvent('ADDON_ACTION_BLOCKED')
+events:RegisterEvent('ADDON_ACTION_FORBIDDEN')
+events:SetScript('OnEvent', function(_, event, name, extra)
+  if event == 'ADDON_ACTION_BLOCKED' or event == 'ADDON_ACTION_FORBIDDEN' then noteBlocked(event, name, extra); return end
   if event == 'ADDON_LOADED' and name == ADDON then
     initDB()
     if #WL.ACTIONS_MISSING > 0 then WL.print('This copy does not know these priority actions of the sim yet: ' .. table.concat(WL.ACTIONS_MISSING, ', ')) end
@@ -441,13 +462,17 @@ SlashCmdList['WARLOCKSIM'] = function(msg)
     if WL.refresh then WL.refresh() end
   elseif msg == 'stop' then
     WL.cancelJob()
+  elseif msg == 'blocked' then
+    local list = type(WL.db.blocked) == 'table' and WL.db.blocked or {}
+    if #list == 0 then WL.print('The game has not blocked anything of this addon.') end
+    for i = 1, #list do local b = list[i]; WL.print(string.format('%s  %s  %s%s (v%s)', b.at, b.event == 'ADDON_ACTION_FORBIDDEN' and 'forbidden' or 'blocked', b.action, b.combat and ', in combat' or '', tostring(b.version))) end
   elseif msg == 'minimap' then
     WL.db.options.minimapButton = not WL.db.options.minimapButton
     if WL.updateMinimapButton then WL.updateMinimapButton() end
     WL.print('Minimap button ' .. (WL.db.options.minimapButton and 'shown.' or 'hidden. /wsim minimap brings it back.'))
     if WL.refresh then WL.refresh() end
   elseif msg == 'help' or msg == '?' then
-    WL.print('/wsim - open or close the window  |  /wsim read - read your character  |  /wsim minimap - show or hide the minimap button  |  /wsim test - check the maths against the DPS sim  |  /wsim dump - save what the game returned (for bug reports)  |  /wsim stop - stop a running sim')
+    WL.print('/wsim - open or close the window  |  /wsim read - read your character  |  /wsim minimap - show or hide the minimap button  |  /wsim test - check the maths against the DPS sim  |  /wsim dump - save what the game returned (for bug reports)  |  /wsim stop - stop a running sim  |  /wsim blocked - actions of this addon the game blocked')
   else
     if WL.toggleWindow then WL.toggleWindow() end
   end

@@ -3,6 +3,11 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.6.4
+
+- If the game ever blocks an action of this addon, it is noted with the action and the time, and said once in chat.
+  `/wsim blocked` lists them (and `/wsim dump` saves them for a bug report). The addon only listens; it changes nothing.
+
 ## v0.6.3
 
 - Closing the window with Escape no longer brings up the message "WarlockSim has been blocked from an action only

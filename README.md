@@ -81,6 +81,7 @@ Shift + right-click is taken by another addon or gets in your way.
 | `/wsim test` | Plays 14 fights and compares them with the website's engine: the maths check. |
 | `/wsim dump` | Saves what the game returned when your character was read (for bug reports). |
 | `/wsim stop` | Stops a running sim. |
+| `/wsim blocked` | Lists actions of this addon the game blocked, if any (for bug reports). |
 
 ## Good to know
 
