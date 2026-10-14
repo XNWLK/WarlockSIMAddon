@@ -53,6 +53,11 @@ function CreateFrame(kind, name, parent, template)
   return f
 end
 UIParent = newObject('Frame', 'UIParent')
+-- Forever's Escape: handlers asked in turn until one says it used the key (Blizzard_GameMenuEsc.lua)
+GameMenuEscPriority = { Dialog = 1, Menu = 2, AddOn = 8 }
+MOCK.escHandlers = {}
+function RegisterGameMenuEscHandler(priority, handler) assert(priority and type(handler) == 'function'); MOCK.escHandlers[#MOCK.escHandlers + 1] = handler end
+function MOCK.escape() for _, h in ipairs(MOCK.escHandlers) do if h() then return true end end; return false end
 Minimap = newObject('Frame', 'Minimap'); Minimap.width = 140
 Minimap.GetCenter = function() return 1200, 600 end
 Minimap.GetEffectiveScale = function() return 1 end

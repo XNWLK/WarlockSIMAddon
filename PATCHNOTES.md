@@ -3,6 +3,10 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.6.1
+
+- Escape closes the window.
+
 ## v0.6.0
 
 - Minimap button: click opens or closes the window, right-click sims your character, drag moves it around the minimap.

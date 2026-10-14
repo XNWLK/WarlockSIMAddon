@@ -795,6 +795,20 @@ function WL.toggleWindow()
   main:SetShown(not main:IsShown())
   if main:IsShown() then WL.refresh() end
 end
+-- Escape closes the window. Forever has its own hand-in for that (RegisterGameMenuEscHandler): the game asks each
+-- handler in turn and calls it through securecallfunction, so nothing of the addon's touches the game's own code.
+-- Returning true means "Escape was used here": the game menu does not open, and other open windows stay for the next Escape.
+local escRegistered = false
+local function registerEsc()
+  if escRegistered or not (RegisterGameMenuEscHandler and GameMenuEscPriority and GameMenuEscPriority.AddOn) then return end
+  escRegistered = pcall(RegisterGameMenuEscHandler, GameMenuEscPriority.AddOn, function()
+    if main and main:IsShown() then main:Hide(); return true end
+    return false
+  end) and true or false
+end
+registerEsc()
+WL.loginHooks[#WL.loginHooks + 1] = registerEsc
+
 -- the key binding "Sim my character" and a right-click on the minimap button: the window opens and Sim! is pressed
 -- (your character is read first if nothing was read yet and you are not fighting)
 function WL.simFromKey()

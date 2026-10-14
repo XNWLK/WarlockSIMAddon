@@ -26,6 +26,7 @@ const GUARDED = {
   WarlockSimItemPanel: 'the addon\'s panel under the item link window',
   WarlockSimMinimapButton: 'the addon\'s minimap button', WarlockSim_Toggle: 'the addon\'s key binding (Bindings.xml)', WarlockSim_SimCharacter: 'the addon\'s key binding (Bindings.xml)',
   BINDING_HEADER_WARLOCKSIM: 'the addon\'s key binding names', BINDING_NAME_WARLOCKSIM_TOGGLE: 'the addon\'s key binding names', BINDING_NAME_WARLOCKSIM_SIM: 'the addon\'s key binding names',
+  GameMenuEscPriority: 'table of Blizzard_GameMenuEsc (beside RegisterGameMenuEscHandler, which is on the list); tested before use',
   Minimap: 'the minimap (named in its layout file, not on the frame list); "or MinimapCluster.Minimap" fallback, tested before use',
   // frames of the game's character sheet: named in its layout file (not top-level, so not on the frame list); tested before use
   PaperDollFrame: 'character sheet, tested before use', PaperDollItemsFrame: 'character sheet, tested before use', CharacterModelScene: 'character sheet, tested before use',

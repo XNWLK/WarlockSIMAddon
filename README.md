@@ -29,7 +29,7 @@ practise its priority list in Forever Warlocking — it reads the same build and
 2. Unzip it into `World of Warcraft\_classic_beta_\Interface\AddOns`, so that there is a folder `AddOns\WarlockSim`.
    (To update, unzip over the old folder.)
 3. Restart the game and tick **Xn's Warlock Sim** in the AddOns list.
-4. Type `/wsim` or click the minimap button to open the window. Key bindings for opening it and for simming your\n   character are in the game's Key Bindings, under AddOns.
+4. Type `/wsim` or click the minimap button to open the window; Escape closes it. Key bindings for opening it and for simming your\n   character are in the game's Key Bindings, under AddOns.
 
 ## What it does
 
