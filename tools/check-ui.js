@@ -157,9 +157,7 @@ step('item sim fights box; minimap button, its clicks, hiding it', `local box; f
   WarlockSimFrame:Hide(); WLX.db.options.fights = 12; b.scripts.OnClick(b, "RightButton"); assert(WarlockSimFrame:IsShown() and WLX.jobRunning(), "right-click opens the window and sims"); WLX.cancelJob(); WLX.db.options.fights = 10
   WarlockSim_Toggle(); assert(not WarlockSimFrame:IsShown(), "the key binding closes it"); WarlockSim_Toggle()
   SlashCmdList.WARLOCKSIM("minimap"); assert(not b.shown and WLX.db.options.minimapButton == false, "/wsim minimap hides it"); SlashCmdList.WARLOCKSIM("minimap"); assert(b.shown, "and shows it again")`);
-step('Escape closes the window, once; then the game menu would open', `assert(#MOCK.escHandlers == 1, "registered " .. #MOCK.escHandlers .. " times (once at load, the login must not add another)")
-  if not WarlockSimFrame:IsShown() then WLX.toggleWindow() end; assert(MOCK.escape() == true and not WarlockSimFrame:IsShown(), "Escape did not close the window")
-  assert(MOCK.escape() == false, "with the window closed, Escape is left to the game")
+step('Escape closes the window (the list the game walks), and the game\'s own Escape handlers are left alone', `assert(#MOCK.escHandlers == 0, "an entry of the addon's in the game's Escape handlers taints every Escape")
   local n = 0; for _, name in ipairs(UISpecialFrames) do if name == "WarlockSimFrame" then n = n + 1 end end; assert(n == 1, "on the list of windows Escape closes: " .. n .. " times")
   WLX.toggleWindow(); assert(MOCK.closeSpecialWindows() and not WarlockSimFrame:IsShown(), "the older way does not close it"); WLX.toggleWindow()`);
 step('Sim!: the DPS is on screen before the stat weights are done', `WLX.db.options.weights = true; WLX.db.options.fights = 12; MOCK.click("Sim!"); assert(WLX.jobRunning(), "no sim started")

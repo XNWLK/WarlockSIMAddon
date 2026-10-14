@@ -795,27 +795,17 @@ function WL.toggleWindow()
   main:SetShown(not main:IsShown())
   if main:IsShown() then WL.refresh() end
 end
--- Escape closes the window, two ways, so it works on the client as it is and after its next update:
---  * the game's list of windows that Escape closes (UISpecialFrames, by name). This is what the client of today uses
---    (other addons' windows close this way too); the game walks the list in its own protected call.
---  * Forever's newer hand-in (RegisterGameMenuEscHandler), found in Blizzard's newest Forever code: each handler is
---    called through securecallfunction; true = "Escape was used here", so the game menu does not open.
--- Whichever comes first hides the window; the other then finds it hidden.
+-- Escape closes the window: its name goes on the game's list of windows that Escape closes (UISpecialFrames), the way
+-- other addons' windows do it in this client (ItemRack's options window).
+-- NOT RegisterGameMenuEscHandler (Blizzard's newer hand-in, tried in v0.6.1/0.6.2): it puts an entry made by the addon
+-- into the game's own list of Escape handlers, which the game reads on every Escape - after that, the rest of the
+-- game's Escape work counts as the addon's, and its protected steps (clearing your target) were blocked with
+-- "WarlockSim has been blocked from an action only available to the Blizzard UI".
 if type(UISpecialFrames) == 'table' then
   local listed = false
   for i = 1, #UISpecialFrames do if UISpecialFrames[i] == 'WarlockSimFrame' then listed = true end end
   if not listed then tinsert(UISpecialFrames, 'WarlockSimFrame') end
 end
-local escRegistered = false
-local function registerEsc()
-  if escRegistered or not (RegisterGameMenuEscHandler and GameMenuEscPriority and GameMenuEscPriority.AddOn) then return end
-  escRegistered = pcall(RegisterGameMenuEscHandler, GameMenuEscPriority.AddOn, function()
-    if main and main:IsShown() then main:Hide(); return true end
-    return false
-  end) and true or false
-end
-registerEsc()
-WL.loginHooks[#WL.loginHooks + 1] = registerEsc
 
 -- the key binding "Sim my character" and a right-click on the minimap button: the window opens and Sim! is pressed
 -- (your character is read first if nothing was read yet and you are not fighting)
