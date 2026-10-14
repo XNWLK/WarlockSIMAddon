@@ -1,4 +1,4 @@
-# Patch notes — Xn's Warlock Sim (addon)
+# Changelog — Xn's Warlock Sim
 
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).

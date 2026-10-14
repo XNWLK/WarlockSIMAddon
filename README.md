@@ -5,7 +5,7 @@ demon and the spell numbers on your character sheet — plays a few hundred figh
 what each spell contributes and what each stat is worth to you.
 
 > Built for the WoW: Forever beta client (interface 16001). What changed in each version:
-> [patch notes](PATCHNOTES.md).
+> [changelog](CHANGELOG.md).
 
 ## One of three
 
