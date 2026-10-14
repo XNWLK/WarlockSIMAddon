@@ -24,10 +24,10 @@ function blobs(n, tPow, spread, rMin, rMax, colors, opacity) {
 }
 const haze = blobs(34, 1.6, 0.7, 30, 56, ['#5B1A8C', '#7A22B0', '#4A1677'], 0.45);
 function mass(k, tMax, color, opacity) { let s = ''; for (let t = 0; t <= tMax; t += 0.01) { const [x, y] = at(t, 0, 0); s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(W(t) * k)}" fill="${color}" opacity="${opacity}"/>`; } return s; }
-const massM = mass(0.95, 1, '#9A28D2', 0.06), massG = mass(0.62, 1, '#7ED445', 0.15), massC = mass(0.36, 0.2, '#E2FF90', 0.3);
-const magenta = blobs(130, 1.6, 1.0, 3, 11, ['#B02EE0', '#D04CF2', '#9A2AD0', '#E070FF'], 0.85);
-const green = blobs(130, 1.5, 0.6, 2, 9, ['#8EE04A', '#B4EE58', '#6CCB3A', '#A8F070'], 0.9);
-const light = blobs(45, 3, 0.45, 2, 6, ['#E8FF96', '#F4FFC0', '#D6FF7A'], 0.95);
+const massM = mass(0.95, 1, '#9A28D2', 0.06), massG = mass(0.5, 1, '#7ED445', 0.05), massC = mass(0.36, 0.2, '#F0E4FF', 0.28);
+const magenta = blobs(170, 1.6, 1.0, 3, 11, ['#B02EE0', '#D04CF2', '#9A2AD0', '#E070FF'], 0.85);
+const green = blobs(45, 1.5, 0.45, 2, 7, ['#8EE04A', '#B4EE58', '#A8F070'], 0.7);
+const light = blobs(45, 3, 0.45, 2, 6, ['#F4E6FF', '#FFFFFF', '#EEF8D0'], 0.95);
 const sparks = blobs(46, 1.5, 1.35, 1.2, 3.4, ['#FFB4F4', '#FFFFFF', '#F59BFF', '#FFD6FA'], 0.9);
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
