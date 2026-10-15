@@ -593,7 +593,7 @@ local function buildBuffsPage(p)
 end
 
 local function buildCodesPage(p)
-  local t = Text(p, 'GameFontHighlightSmall', 'Paste a settings code (WFS1:...) or a build code (WFB1:...) from the website here, or make one to take there. Ctrl+V pastes, Ctrl+C copies.')
+  local t = Text(p, 'GameFontHighlightSmall', 'Paste a settings or build code from the website here, or make one - or a gear code of what you wear - to take there. Ctrl+V pastes, Ctrl+C copies.')
   t:SetPoint('TOPLEFT', 0, 0); t:SetWidth(W - 2 * PAD)
   local scroll = CreateFrame('ScrollFrame', 'WarlockSimCodeScroll', p, 'UIPanelScrollFrameTemplate')
   scroll:SetPoint('TOPLEFT', 2, -34); scroll:SetPoint('BOTTOMRIGHT', -26, 54)
@@ -622,6 +622,7 @@ local function buildCodesPage(p)
       local errs = WL.validateBuild(b)
       WL.db.options.template = b.key
       say('Build "' .. b.short .. '" ' .. (known and 'was loaded before' or 'loaded') .. ': it is in the ranking and can be picked under "Play it like".' .. (#errs > 0 and (' Note: ' .. errs[1]) or ''), #errs > 0)
+    elseif code:sub(1, #WL.GEAR_CODE_PREFIX) == WL.GEAR_CODE_PREFIX then say('That is a gear code: it is for the website\'s gear builder. The addon reads your gear from the game itself.', true)
     elseif code:find('share=', 1, true) then say('That is a share link. The addon reads settings codes and build codes: on the website use "Make settings code" or "Make build code".', true)
     else say('That is neither a settings code (WFS1:) nor a build code (WFB1:).', true) end
     WL.refresh()
@@ -632,6 +633,14 @@ local function buildCodesPage(p)
     say('Settings code made' .. (WL.char and ' (with your character\'s gear numbers)' or '') .. '. Copy it with Ctrl+C and paste it on the website under "Input / output".')
   end, 'Makes a settings code of everything set here, with your character\'s gear numbers if one is read. The website opens it under "Input / output".')
   s:SetPoint('LEFT', load, 'RIGHT', 6, 0)
+  local g = Button(p, 'My gear as a code', 124, function()
+    local code, items, enchants, notes = WL.gearCode()
+    if not code then say(items, true); return end
+    show(code)
+    say(string.format('Gear code made: %d items, %d enchants. Copy it with Ctrl+C and paste it on the website in the gear builder.%s', items, enchants,
+      #notes > 0 and (' ' .. table.concat(notes, ' ')) or ''), #notes > 0)
+  end, 'Makes a gear code of everything you wear: each item with its name, game id and stats, and the enchants (by their text). The website\'s gear builder loads it, so you can look at your own gear there.\n\n"Use:" and "Chance on hit:" effects are not in it; an enchant whose text the addon cannot read is counted as 0 and named.')
+  g:SetPoint('LEFT', s, 'RIGHT', 6, 0)
   local b = Button(p, 'My character as a build code', 190, function()
     local build, notes = WL.characterBuildNow()
     if not build then say(notes[1], true); return end

@@ -175,6 +175,34 @@ step('stop early: What if and an item stop long before the fights set; switched 
   MOCK.keys = { shift = true }; MOCK.button = "RightButton"; HandleModifiedItemClick(MOCK.link(1003), MOCK.bagLocation()); MOCK.keys = {}; ${pump}; for i = 1, 16 do MOCK.frame() end
   local t = WarlockSimItemPanel.text.text; WarlockSimItemPanel:Hide()
   return "What if +10 SP: exact enough after " .. early .. " of 300 fights; item: " .. (t:match("Exact enough after %d+ of %d+ fights") or "all fights")`);
+const gearCode = step('gear code: what you wear, for the website\'s gear builder', `MOCK.equipped[1] = 1009; MOCK.equipped[5] = 1008
+  MOCK.combat = true; MOCK.click("My gear as a code"); MOCK.combat = false; assert(MOCK.findLike("FontString", "You are in combat"), "refused in combat")
+  MOCK.click("My gear as a code"); local box; for _, f in ipairs(MOCK.frames) do if f.__kind == "EditBox" and not f.template then box = f end end
+  assert(box:GetText():sub(1, 5) == "WFG1:", "no gear code in the box"); assert(MOCK.findLike("FontString", "Gear code made: 6 items, 2 enchants"), "the count")
+  assert(MOCK.findLike("FontString", "Enchant not understood, counted as 0: %+18 Spell Damage and Healing / %+1%% Spell Hit / Minor Glow"), "the enchant part it cannot read is named")
+  local code = box:GetText(); box:SetText(code); MOCK.click("Load the code"); assert(MOCK.findLike("FontString", "That is a gear code"), "loading a gear code says what it is for")
+  assert(WLX.db.lastGear.chest.understood == true and WLX.db.lastGear.head.understood == false, "kept for the dump")
+  MOCK.equipped[1] = nil; MOCK.equipped[5] = nil; return code`);
+{
+  // the website's own reader takes the code (app/gear-builder.js, run with the browser helpers it expects)
+  const vm = require('vm');
+  const WG = require(path.join(SIM, 'tools', 'load-wl.js')).load(SIM, ['engine/settings-code.js', 'data/items.js']);
+  const ctx = { WL: WG, atob: s => Buffer.from(s, 'base64').toString('latin1'), btoa: s => Buffer.from(s, 'latin1').toString('base64'), escape, unescape };
+  ctx.window = ctx; vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(SIM, 'app', 'gear-builder.js'), 'utf8'), ctx);
+  const g = ctx.WL.decodeGear(gearCode);
+  const head = g.slots.head.custom, chest = g.slots.chest.custom, main = g.slots.mainHand.custom;
+  assert.strictEqual(Object.keys(g.slots).sort().join(','), 'chest,finger1,finger2,head,mainHand,offHand', 'the items');
+  assert.strictEqual(head.name, 'Mish’undare, Circlet of the Mind Flayer', 'a name that is not plain ASCII');
+  assert.strictEqual(head.id, 1009); assert.strictEqual(head.quality, '4' === '4' ? 'epic' : '', 'quality');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(chest)), { name: 'Robe of Tests', slot: 'chest', stats: { int: 20, hitPct: 1 }, id: 1008, quality: 'epic' }, 'a robe: chest, its own stats without the enchant');
+  assert.strictEqual(main.weapon, 'sword'); assert.strictEqual(main.slot, 'mainHand');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(g.enchants.chest.custom)), { name: '+4 All Stats', stats: { int: 4, spi: 4, sta: 4, agi: 4 }, id: 1891 }, 'the robe\'s enchant');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(g.enchants.head.custom.stats)), { sp: 18, hitPct: 1 }, 'the head enchant: what could be read');
+  assert(!g.enchants.finger1, 'a ring enchant is not sent (rings take none on the website)');
+  assert.strictEqual(g.ignored.length, 0, 'the website ignores nothing: ' + g.ignored.join(', '));
+  console.log('ok   gear code: the website\'s gear builder reads it: ' + Object.keys(g.slots).length + ' items, ' + Object.keys(g.enchants).length + ' enchants');
+}
 step('Escape closes the window (the list the game walks), and the game\'s own Escape handlers are left alone', `assert(#MOCK.escHandlers == 0, "an entry of the addon's in the game's Escape handlers taints every Escape")
   local n = 0; for _, name in ipairs(UISpecialFrames) do if name == "WarlockSimFrame" then n = n + 1 end end; assert(n == 1, "on the list of windows Escape closes: " .. n .. " times")
   if not WarlockSimFrame:IsShown() then WLX.toggleWindow() end; assert(MOCK.closeSpecialWindows() and not WarlockSimFrame:IsShown(), "Escape's list does not close it"); WLX.toggleWindow()`);

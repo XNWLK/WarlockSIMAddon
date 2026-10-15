@@ -2,7 +2,7 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.7.0'
+WL.VERSION = '0.8.0'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -479,6 +479,7 @@ function WL.dump()
   d.lastTiming, d.selfTest, d.lastError = WL.db.lastTiming, WL.db.selfTest, WL.lastError
   d.sheet = WL.sheetState and WL.sheetState() or nil      -- the numbers on the character sheet
   d.lastItem = WL.db.lastItem                              -- what the game returned for the items of the last item comparison
+  d.lastGear = WL.db.lastGear                              -- the last gear code: each worn link, and how its enchant was read
   d.blocked = WL.db.blocked                                -- actions of this addon the game blocked (the watcher)
   WL.db.dump = d
   return d

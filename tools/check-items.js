@@ -56,6 +56,24 @@ check('gear after a swap', g, { sp = 520, shadowSp = 0, fireSp = 0, hitPct = 6, 
 n = n + 1; local text = WL.describeStats(d, true)
 if text ~= '+20 spell power, +1% hit, -1% crit, +6 Intellect, -8 Stamina' then bad[#bad + 1] = 'difference text: ' .. text end
 n = n + 1; if WL.describeStats({}, true) ~= 'nothing the sim counts' then bad[#bad + 1] = 'empty difference text' end
+-- enchant texts (the gear code): the game's own item wording, then words; hit / crit / haste with a % as they stand
+local function ench(name, text, want, wantOk)
+  local s, ok = WL.enchantStats(text, S, pct)
+  check('enchant ' .. name, s, want)
+  n = n + 1; if ok ~= wantOk then bad[#bad + 1] = 'enchant ' .. name .. ': understood = ' .. tostring(ok) end
+end
+ench('Intellect', '+8 Intellect', { int = 8 }, true)
+ench('spell damage', '+30 Spell Damage and Healing', { sp = 30 }, true)
+ench('spell power after', 'Spell Power +18', { sp = 18 }, true)
+ench('two parts', '+18 Spell Damage and Healing / +1% Spell Hit', { sp = 18, hit = 1 }, true)
+ench('mana regen', 'Mana Regen 4 per 5 sec.', { mp5 = 4 }, true)
+ench('all stats', '+4 All Stats', { int = 4, spi = 4, sta = 4, agi = 4 }, true)
+ench('shadow', '+20 Shadow Spell Damage', { shadowSp = 20 }, true)
+ench('crit rating', '+14 Spell Critical Strike Rating', { crit = 1 }, true)
+ench('healing only', '+24 Healing Spells', {}, false)
+ench('nothing to read', 'Minor Speed Increase', {}, false)
+ench('one of two not read', '+10 Stamina, Minor Speed Increase', { sta = 10 }, false)
+ench('colour codes', '|cff00ff00+15 Spirit|r', { spi = 15 }, true)
 -- every equip location maps to slots that exist
 for loc, slots in pairs(WL.ITEM_SLOTS) do n = n + 1; for _, s in ipairs(slots) do if s < 1 or s > 18 then bad[#bad + 1] = loc .. ' slot ' .. s end end end
 return n .. '|' .. table.concat(bad, '\\n')

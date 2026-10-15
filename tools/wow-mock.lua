@@ -153,6 +153,10 @@ MOCK.items = {
   [1005] = { name = 'Short Blade', loc = 'INVTYPE_WEAPONMAINHAND', class = 2, sub = 7, api = { ITEM_MOD_SPELL_POWER_SHORT = 30 }, lines = { 'Short Blade' } },
   [1006] = { name = 'Orb', loc = 'INVTYPE_HOLDABLE', class = 4, sub = 0, api = { ITEM_MOD_SPELL_POWER_SHORT = 15 }, lines = { 'Orb' } },
   [1007] = { name = 'Bread', loc = '', class = 0, sub = 0, api = {}, lines = { 'Bread' } },
+  [1008] = { name = 'Robe of Tests', loc = 'INVTYPE_ROBE', class = 4, sub = 1, ench = 1891, api = { ITEM_MOD_INTELLECT_SHORT = 20 },
+             lines = { 'Robe of Tests', '+20 Intellect', 'Equip: Improves spell hit by 1%.', 'Enchanted: +4 All Stats' } },
+  [1009] = { name = 'Mish\226\128\153undare, Circlet of the Mind Flayer', loc = 'INVTYPE_HEAD', class = 4, sub = 1, ench = 2588, api = { ITEM_MOD_SPELL_POWER_SHORT = 35 },
+             lines = { 'Mish\226\128\153undare, Circlet of the Mind Flayer', 'Enchanted: +18 Spell Damage and Healing / +1% Spell Hit', 'Enchanted: Minor Glow' } },
 }
 MOCK.equipped = { [11] = 1002, [12] = 1003, [16] = 1005, [17] = 1006 }
 local function mockItem(info)
@@ -160,7 +164,7 @@ local function mockItem(info)
   local id = tonumber(tostring(info):match('item:(%d+)'))
   return MOCK.items[id], id
 end
-function MOCK.link(id) return '|cffa335ee|Hitem:' .. id .. '::::::::60:::::|h[' .. MOCK.items[id].name .. ']|h|r' end
+function MOCK.link(id) return '|cffa335ee|Hitem:' .. id .. ':' .. (MOCK.items[id].ench or '') .. ':::::::60:::::|h[' .. MOCK.items[id].name .. ']|h|r' end
 ItemRefTooltip = newObject('GameTooltip', 'ItemRefTooltip')
 ItemRefTooltip.shown = false
 TooltipUtil = { GetDisplayedItem = function(tt) if MOCK.refItem then return MOCK.items[MOCK.refItem].name, MOCK.link(MOCK.refItem), MOCK.refItem end end }
@@ -169,6 +173,7 @@ function GetInventoryItemID(_, slot) return MOCK.equipped[slot] end
 C_Item.GetItemInfoInstant = function(info) local it, id = mockItem(info); if not it then return nil end; return id, 'Type', 'Sub', it.loc, 1, it.class, it.sub end
 C_Item.GetItemStats = function(link) local it = mockItem(link); return it and it.api end
 C_Item.GetItemNameByID = function(info) local it = mockItem(info); return it and it.name end
+C_Item.GetItemQualityByID = function(info) local it = mockItem(info); return it and 4 end
 C_TooltipInfo = { GetHyperlink = function(link)
   local it = mockItem(link); if not it then return nil end
   local lines = {}
@@ -176,6 +181,7 @@ C_TooltipInfo = { GetHyperlink = function(link)
   return { lines = lines }
 end }
 Enum = { TooltipDataLineType = { ItemEnchantmentPermanent = 15, GemSocket = 3 } }
+ENCHANTED_TOOLTIP_LINE = 'Enchanted: %s'
 function GetCombatRatingBonusForCombatRatingValue(id, v) return v / 14 end
 ITEM_MOD_INTELLECT, ITEM_MOD_SPIRIT, ITEM_MOD_STAMINA, ITEM_MOD_AGILITY = '%c%s Intellect', '%c%s Spirit', '%c%s Stamina', '%c%s Agility'
 ITEM_MOD_SPELL_POWER, ITEM_MOD_HIT_SPELL_RATING, ITEM_MOD_CRIT_SPELL_RATING = 'Increases spell power by %s.', 'Improves spell hit by %s.', 'Improves spell critical strike by %s.'

@@ -3,6 +3,14 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.8.0
+
+- Gear codes: "My gear as a code" on the Codes tab turns everything you wear into a code for the website's gear
+  builder: each item with its name and stats, and your enchants. Paste it there to look at your own gear on the website.
+  An enchant whose text the addon cannot read is counted as 0 and named.
+- Fixed: a Human Warlock's sword was never recognised, so Sword Specialization was left out when your character was read
+  and in item sims.
+
 ## v0.7.0
 
 - Sims stop as soon as the result is exact enough ("Stop early" on the Fight tab, on by default). The number of fights

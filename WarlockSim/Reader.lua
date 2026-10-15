@@ -5,11 +5,14 @@ local ADDON, WL = ...
 
 local function isSecret(v) return issecretvalue ~= nil and issecretvalue(v) or false end
 -- f(...) -> its results, or nil when the function is missing, fails, or its first result is hidden
+-- every value the game returns is passed on (GetItemInfoInstant's weapon sub-class is its 7th: a fixed list of six lost it)
+local function pass(ok, ...)
+  if not ok or isSecret((...)) then return nil end
+  return ...
+end
 local function try(f, ...)
   if type(f) ~= 'function' then return nil end
-  local ok, a, b, c, d, e, g = pcall(f, ...)
-  if not ok or isSecret(a) then return nil end
-  return a, b, c, d, e, g
+  return pass(pcall(f, ...))
 end
 local function num(v) return (type(v) == 'number' and not isSecret(v)) and v or nil end
 

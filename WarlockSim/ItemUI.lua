@@ -9,11 +9,14 @@ local ADDON, WL = ...
 local copy = WL.copy
 
 local function isSecret(v) return issecretvalue ~= nil and issecretvalue(v) or false end
+-- every value the game returns is passed on (GetItemInfoInstant's weapon sub-class is its 7th: a fixed list of six lost it)
+local function pass(ok, ...)
+  if not ok or isSecret((...)) then return nil end
+  return ...
+end
 local function try(f, ...)
   if type(f) ~= 'function' then return nil end
-  local ok, a, b, c, d, e, g = pcall(f, ...)
-  if not ok or isSecret(a) then return nil end
-  return a, b, c, d, e, g
+  return pass(pcall(f, ...))
 end
 
 local CR = { hit = 8, crit = 11, haste = 20 }               -- the game's numbers for spell hit, spell crit and spell haste rating
@@ -33,7 +36,7 @@ local function readItem(link)
   item.equipLoc, item.classID, item.subclassID = equipLoc, classID, subclassID
   item.isSword = classID == 2 and (subclassID == 7 or subclassID == 8)
   local api = try(C_Item.GetItemStats, link)
-  local lines = {}
+  local lines, enchants = {}, {}
   local data = C_TooltipInfo and try(C_TooltipInfo.GetHyperlink, link)
   local types = Enum and Enum.TooltipDataLineType
   local enchanted = gameString('ENCHANTED_TOOLTIP_LINE')
@@ -43,12 +46,17 @@ local function readItem(link)
       local l = data.lines[i]
       local text = type(l) == 'table' and l.leftText
       if type(text) == 'string' and not isSecret(text) then
-        local skip = types and (l.type == types.ItemEnchantmentPermanent or l.type == types.GemSocket)
-        if not skip and enchanted and enchanted ~= '' and text:gsub('|c%x%x%x%x%x%x%x%x', ''):sub(1, #enchanted) == enchanted then skip = true end
-        if not skip then lines[#lines + 1] = text end
+        local plain = text:gsub('|c%x%x%x%x%x%x%x%x', ''):gsub('|r', '')
+        local isEnchant = (types and l.type == types.ItemEnchantmentPermanent) or (enchanted and enchanted ~= '' and plain:sub(1, #enchanted) == enchanted)
+        if isEnchant then
+          -- kept apart: an item's own stats never include its enchant (the gear code sends the enchant on its own)
+          if enchanted and enchanted ~= '' and plain:sub(1, #enchanted) == enchanted then plain = plain:sub(#enchanted + 1) end
+          enchants[#enchants + 1] = (plain:gsub('^%s+', ''))
+        elseif not (types and l.type == types.GemSocket) then lines[#lines + 1] = text end
       end
     end
   end
+  item.enchantLines = enchants
   item.stats, item.unknown = WL.itemStats(type(api) == 'table' and api or nil, lines, gameString, toPct)
   item.raw = { api = type(api) == 'table' and api or nil, lines = lines }
   return item
@@ -59,6 +67,54 @@ local function equipped(slot)
   return readItem(link)
 end
 local function itemID(link) return link and tonumber(link:match('item:(%d+)')) end
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- the gear code: what you wear, for the website's gear builder ("WFG1:", format agreed with the sim; see Codes.lua)
+-- ---------------------------------------------------------------------------------------------------------------------
+local GEAR_KEYS = { 'head', 'neck', 'shoulder', 'shirt', 'chest', 'waist', 'legs', 'feet', 'wrist', 'hands', 'finger1', 'finger2',
+                    'trinket1', 'trinket2', 'back', 'mainHand', 'offHand', 'ranged', 'tabard' }   -- = the game's inventory slots 1 to 19
+local ENCHANTABLE = { head = true, shoulder = true, back = true, chest = true, wrist = true, hands = true, legs = true, feet = true, mainHand = true }
+local ITEM_TYPE = { INVTYPE_HEAD = 'head', INVTYPE_NECK = 'neck', INVTYPE_SHOULDER = 'shoulder', INVTYPE_CLOAK = 'back', INVTYPE_CHEST = 'chest',
+  INVTYPE_ROBE = 'chest', INVTYPE_BODY = 'shirt', INVTYPE_TABARD = 'tabard', INVTYPE_WRIST = 'wrist', INVTYPE_HAND = 'hands', INVTYPE_WAIST = 'waist',
+  INVTYPE_LEGS = 'legs', INVTYPE_FEET = 'feet', INVTYPE_FINGER = 'finger', INVTYPE_TRINKET = 'trinket', INVTYPE_WEAPON = 'oneHand',
+  INVTYPE_WEAPONMAINHAND = 'mainHand', INVTYPE_2HWEAPON = 'twoHand', INVTYPE_WEAPONOFFHAND = 'offHand', INVTYPE_HOLDABLE = 'offHand',
+  INVTYPE_SHIELD = 'offHand', INVTYPE_RANGED = 'ranged', INVTYPE_RANGEDRIGHT = 'ranged', INVTYPE_THROWN = 'ranged', INVTYPE_RELIC = 'ranged' }
+local WEAPON_TYPE = { [7] = 'sword', [8] = 'sword', [15] = 'dagger', [10] = 'staff', [4] = 'mace', [5] = 'mace' }   -- weapon sub-classes
+local QUALITY = { [0] = 'poor', [1] = 'common', [2] = 'uncommon', [3] = 'rare', [4] = 'epic', [5] = 'legendary' }
+local CODE_STAT = { hit = 'hitPct', crit = 'critPct', haste = 'hastePct' }   -- the addon's item stats -> the sim's Sheet (gear) names
+local function codeStats(s)
+  local o = {}
+  for k, v in pairs(s or {}) do if v ~= 0 then o[CODE_STAT[k] or k] = math.floor(v * 100 + 0.5) / 100 end end
+  return o
+end
+-- Returns the code, the number of items and enchants, and notes (enchants not understood), or nil and a plain sentence.
+function WL.gearCode()
+  if InCombatLockdown and InCombatLockdown() then return nil, 'You are in combat. The game hides item details from addons then - make the code after the fight.' end
+  local out, notes, items, enchants, seen = { v = 1, items = {}, enchants = {} }, {}, 0, 0, {}
+  for inv = 1, #GEAR_KEYS do
+    local key, link = GEAR_KEYS[inv], try(GetInventoryItemLink, 'player', inv)
+    if type(link) == 'string' then
+      local item = readItem(link)
+      local e = { id = itemID(link), name = item.name, slot = ITEM_TYPE[item.equipLoc or ''], stats = codeStats(item.stats) }
+      e.quality = QUALITY[try(C_Item.GetItemQualityByID, link) or -1]
+      if item.classID == 2 then e.weapon = WEAPON_TYPE[item.subclassID or -1] or 'other' end
+      out.items[key] = e
+      items = items + 1
+      local ench = { link = link }
+      if ENCHANTABLE[key] and #item.enchantLines > 0 then
+        local text = table.concat(item.enchantLines, ' / ')
+        local stats, understood = WL.enchantStats(text, gameString, toPct)
+        out.enchants[key] = { id = tonumber(link:match('item:%d+:(%d+)')), name = text, stats = codeStats(stats) }
+        enchants = enchants + 1
+        if not understood then notes[#notes + 1] = 'Enchant not understood, counted as 0: ' .. text end
+        ench.text, ench.stats, ench.understood = text, stats, understood
+      end
+      seen[key] = ench
+    end
+  end
+  WL.db.lastGear = seen                                   -- for /wsim dump: the links and how each enchant was read
+  return WL.encodeGear(out), items, enchants, notes
+end
 
 -- An item you wear against an empty slot: what it is worth.
 local function worth(item)

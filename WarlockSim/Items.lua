@@ -131,6 +131,47 @@ function WL.itemStats(api, lines, strings, toPct)
   return stats, unknown
 end
 
+-- An enchant's text -> the sim's stats, as for items (hit / crit / haste in percent). The text is what the tooltip shows
+-- after "Enchanted:", e.g. "+8 Intellect", "+30 Spell Damage and Healing", "Spell Power +18",
+-- "+18 Spell Damage and Healing / +1% Spell Hit", "Mana Regen 4 per 5 sec.". Each part (split at "/" and ",") is read in
+-- the game's own item wording first, then by its words. Returns the stats and whether every part was understood.
+local function enchantWords(p, toPct)
+  local n, pct = p:match('(%d+%.?%d*)(%%?)')
+  n = tonumber(n)
+  if not n then return {} end
+  local lp = p:lower()
+  local w = lp:gsub('%d+%.?%d*%%?', ' ')
+  local function has(x) return w:find(x, 1, true) ~= nil end
+  local function rated(k) return pct == '%' and n or (toPct and toPct(k, n) or n) end
+  local s = {}
+  if has('all stats') or has('all attributes') then s.int, s.spi, s.sta, s.agi = n, n, n, n
+  elseif has('penetration') then s.pierce = n
+  elseif has('mana') and (lp:find('per 5', 1, true) or lp:find('every 5', 1, true) or has('regen')) then s.mp5 = n
+  elseif has('hit') then s.hit = rated('hit')
+  elseif has('crit') then s.crit = rated('crit')
+  elseif has('haste') then s.haste = rated('haste')
+  elseif has('damage') or has('spell power') then               -- not "+24 Healing Spells": healing alone is no spell power
+    if has('shadow') then s.shadowSp = n elseif has('fire') then s.fireSp = n else s.sp = n end
+  elseif has('intellect') then s.int = n
+  elseif has('spirit') then s.spi = n
+  elseif has('stamina') then s.sta = n
+  elseif has('agility') then s.agi = n end
+  return s
+end
+function WL.enchantStats(text, strings, toPct)
+  local stats, understood = {}, true
+  for part in (tostring(text or '') .. '/'):gmatch('([^/,]*)[/,]') do
+    local p = part:gsub('|c%x%x%x%x%x%x%x%x', ''):gsub('|r', ''):gsub('^%s+', ''):gsub('%s+$', '')
+    if p ~= '' then
+      local s = WL.itemStats(nil, { p }, strings, toPct)
+      if next(s) == nil then s = enchantWords(p, toPct) end
+      if next(s) == nil then understood = false end
+      for k, v in pairs(s) do stats[k] = (stats[k] or 0) + v end
+    end
+  end
+  return stats, understood
+end
+
 -- gear: the sim's gear numbers; new: the stats of the item put on; olds: a list of the stats of the item(s) taken off.
 -- Returns the new gear and the difference per stat. Intellect also moves the sheet's crit (the sim's 60 Int = 1%).
 function WL.gearWithSwap(gear, new, olds, cfg)

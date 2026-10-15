@@ -216,6 +216,12 @@ function WL.settingsSnapshot(c)
     resist = c.combat.targetResist, levelResist = (c.combat.levelResist and c.combat.levelResist.on) and true or false,
   }
 end
+-- Gear codes ("WFG1:", the website's gear builder): the addon only makes them, from what you wear (ItemUI.lua, WL.gearCode).
+-- { v = 1, items = { <slot key> = { id, name, slot, quality, weapon, stats } }, enchants = { <slot key> = { id, name, stats } } }
+WL.GEAR_CODE_PREFIX = 'WFG1:'
+function WL.encodeGear(o)
+  return WL.GEAR_CODE_PREFIX .. WL.base64Encode(WL.jsonEncode(o))
+end
 function WL.encodeSettings(c)
   return WL.SETTINGS_CODE_PREFIX .. WL.base64Encode(WL.jsonEncode(WL.settingsSnapshot(c)))
 end

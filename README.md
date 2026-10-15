@@ -40,7 +40,7 @@ practise its priority list in Forever Warlocking — it reads the same build and
 | **Builds** | *Sim builds with your gear* plays every build of the website with **your** gear numbers and puts them in order — which build is best for your gear. Your own character, with the talents you have now, is in the list in gold. |
 | **Buffs** | Raid buffs, debuffs on the boss and consumables, as on the website. |
 | **Fight** | Number of fights, fight length, 1–3 targets, when cooldowns are used, precast, movement, hits taken, latency, stat weights on or off, stopping early once the result is exact enough, how much of each frame the sim may take, the click that sims an item and how many fights it plays, the minimap button. |
-| **Codes** | Paste a settings code or a build code from the website, or make one from your character to open there. |
+| **Codes** | Paste a settings code or a build code from the website, or make one from your character to open there. *My gear as a code* makes a gear code of everything you wear (items and enchants) for the website's gear builder. |
 
 The result shows DPS with its margin, a bar per spell (hover for casts, crits and misses), the stat weights in spell
 power, Life Taps, lowest mana and threat.
