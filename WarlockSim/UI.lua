@@ -227,6 +227,7 @@ local function showSingle(res, build, raceKey, weights, notes, fromRank)
   lines[#lines + 1] = string.format('|cffaaaaaaLife Taps a fight: %s   lowest mana: %s   threat: %s a second%s|r', fmt(res.lifeTaps, 1), fmt(res.minMana, 0), fmt(res.tps, 0),
     res.mana.oomAvg > 0 and '   |cffff6060out of mana at times|r' or '')
   for i = 1, #(notes or {}) do lines[#lines + 1] = '|cffffb060' .. notes[i] .. '|r' end
+  if WL.char and (WL.char.level or 60) < 60 then lines[#lines + 1] = string.format('|cffffb060A level 60 number: you are level %d (see the Character tab).|r', WL.char.level) end
   result.info:SetText(table.concat(lines, '\n'))
 end
 
@@ -379,7 +380,7 @@ local function buildCharacterPage(p)
       fmt(g.sp), pctText(floor(g.hitPct * 10 + 0.5) / 10), pctText(floor(g.critPct * 10 + 0.5) / 10), fmt(g.int), fmt(g.spi), fmt(g.sta)))
     local notes = {}
     if ch.restored then notes[#notes + 1] = '|cffaaaaaaAs read ' .. ((ch.readAt or 0) > 0 and ('on ' .. date('%d %b, %H:%M', ch.readAt)) or 'before') .. ' (kept over the reload). Read again if your items or talents changed since.|r' end
-    if ch.level and ch.level < 60 then notes[#notes + 1] = '|cffffb060The sim is built for level 60 against a level 63 boss: below 60 the DPS shown is not what you really do.|r' end
+    if ch.level and ch.level < 60 then notes[#notes + 1] = string.format('|cffffb060Level %d: the sim plays your numbers as a level 60 Warlock (level 60 spells, a level 63 boss), so the DPS is what that would do, not what you do now. Item and stat comparisons still give a rough idea; hit counts for more here than against enemies of your own level.|r', ch.level) end
     if points ~= 51 and (ch.level or 60) >= 60 then notes[#notes + 1] = string.format('|cffffb060%d talent points found (51 expected).|r', points) end
     for i = 1, #ch.notes do notes[#notes + 1] = '|cffffb060' .. ch.notes[i] .. '|r' end
     local on = {}
@@ -468,7 +469,7 @@ local function buildFightPage(p)
   local f, o = function() return WL.cfg.fight end, function() return WL.db.options end
   label('Fights', 0)
   place(keep(Edit(p, 50, function() return o().fights end, function(v) o().fights = math.max(10, math.min(20000, floor(v))) end,
-    'How many fights are played and averaged. More fights = a steadier number and a longer wait. 300 is good for a quick look, 1000 and more to compare close things.')), 92)
+    'How many fights are played and averaged - with "Stop early" on, the most that are played. More fights = a steadier number and a longer wait. 300 is good for a quick look, 1000 and more to compare close builds.')), 92)
   label('Fight length (s)', 190)
   place(keep(Edit(p, 50, function() return f().duration end, function(v) f().duration = math.max(10, math.min(1800, v)) end, 'Each fight lasts this long, give or take 10%.')), 300)
   y = y - 26
@@ -494,7 +495,9 @@ local function buildFightPage(p)
   y = y - 26
   place(keep(Check(p, 'Keep Curse of the Elements up', function() return WL.cfg.options.useCurseOfElements end, function(v) WL.cfg.options.useCurseOfElements = v end)), -2)
   place(keep(Check(p, 'Stat weights', function() return o().weights end, function(v) o().weights = v end,
-    'Also works out what hit, crit, haste, Intellect and Spell Pierce are worth in spell power for this build. Needs six more runs, so a sim takes about seven times as long.')), 216)
+    'Also works out what hit, crit, haste, Intellect and Spell Pierce are worth in spell power for this build. Needs six more runs on the same fights; each stops as soon as its weight is exact enough.')), 216)
+  place(keep(Check(p, 'Stop early', function() return o().stopEarly ~= false end, function(v) o().stopEarly = v end,
+    'Stops a sim as soon as its result is exact enough, instead of always playing every fight: the number of fights set becomes the most that are played (never fewer than 40).\n\nA DPS stops when its +- is 0.5% of it. A comparison (an item, What if, a stat weight, the numbers on the character sheet) plays the same fights on both sides and stops when the +- of the difference is 0.5 DPS or a tenth of the difference - often after a few dozen fights.\n\nOff: every sim plays exactly the number of fights set.')), 318)
   y = y - 26
   label('Move every', 0)
   place(keep(Edit(p, 36, function() return f().moveEvery end, function(v) f().moveEvery = math.max(0, v) end, 'Every this many seconds you have to move (0 = never). Only instants can be cast while moving.')), 92)
@@ -789,11 +792,18 @@ WL.onJobPartial = function(res)
   WL.lastResult = res
   if main then WL.showResult(res) end
 end
+-- Opening the window reads your character (out of combat): one look at the game's numbers when it opens, nothing while
+-- it stays open. In combat the character read last stays.
+local function readOnOpen()
+  if InCombatLockdown and InCombatLockdown() then return end
+  WL.doReadCharacter()
+end
 function WL.toggleWindow()
   if not WL.db then return end
-  if not main then create(); main:Show(); WL.refresh(); return end
-  main:SetShown(not main:IsShown())
-  if main:IsShown() then WL.refresh() end
+  if not main then create() elseif main:IsShown() then main:Hide(); return end
+  readOnOpen()
+  main:Show()
+  WL.refresh()
 end
 -- Escape closes the window: its name goes on the game's list of windows that Escape closes (UISpecialFrames), the way
 -- other addons' windows do it in this client (ItemRack's options window).
@@ -812,7 +822,6 @@ end
 function WL.simFromKey()
   if not WL.db then return end
   if not main then create() end
-  main:Show()
-  if not WL.char and not (InCombatLockdown and InCombatLockdown()) then WL.doReadCharacter() end
+  if not main:IsShown() then readOnOpen(); main:Show() end
   startSim(WL.simCharacter)
 end

@@ -69,7 +69,7 @@ local function currentKey()
     local snap = copy(WL.settingsSnapshot(WL.cfg))
     snap.gear = nil
     parts[#parts + 1] = WL.jsonEncode(snap)
-    parts[#parts + 1] = tostring(WL.db.options.stone) .. tostring(WL.itemFights())
+    parts[#parts + 1] = tostring(WL.db.options.stone) .. tostring(WL.itemFights()) .. tostring(WL.stopEarly())
   end
   return table.concat(parts, '\1')
 end
@@ -96,7 +96,7 @@ local function show(key)
   end
   if fresh and state.base then
     total:SetText(string.format('|cffffd100%.0f DPS|r', state.base))
-    sub:SetText('sim, ' .. (state.n or 0) .. ' fights')
+    sub:SetText(((WL.char and (WL.char.level or 60) < 60) and 'level 60 sim, ' or 'sim, ') .. (state.n or 0) .. ' fights')
   elseif WL.backgroundRunning() then total:SetText('|cff999999...|r'); sub:SetText('simming')
   else total:SetText(''); sub:SetText('') end
 end
@@ -137,11 +137,10 @@ local function start(key)
         if t.id == 16 then gear.weaponIsSword = false end
         local c = copy(cfg)
         c.gear = gear
-        local r = WL.simulate(build, race, c, { iterations = n })
-        local sum, sq = 0, 0
-        for f = 1, n do local d = base.dpsList[f] - r.dpsList[f]; sum = sum + d; sq = sq + d * d end
-        local mean = sum / n
-        st.worth[t.id] = { link = t.link, dps = mean, err = 1.96 * math.sqrt(math.max(0, sq / n - mean * mean) / math.max(1, n - 1)) }
+        -- the same fights as the run as you are; stops once the item's worth is exact enough
+        local r = WL.simulate(build, race, c, { iterations = n, stop = WL.pairedStop(base.dpsList) })
+        local diff, err = WL.pairedDiff(base.dpsList, r.dpsList)
+        st.worth[t.id] = { link = t.link, dps = -diff, err = err }
       end
     end
   end, true)

@@ -22,7 +22,7 @@ const pump = 'local n = 0; while WLX.jobRunning() do MOCK.frame(); n = n + 1; if
 const build = WL.BUILDS[2];                                  // Demo Pact Fire Imp
 
 step('start-up', 'MOCK.talents = ' + toLua(build.talents) + '; MOCK.fire("ADDON_LOADED", "SomethingElse"); MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db and WLX.cfg); MOCK.fire("PLAYER_LOGIN"); assert(#MOCK.chat == 1, "no hello line"); WLX.db.options.fights = 10');
-step('open the window', 'SlashCmdList.WARLOCKSIM(""); assert(WarlockSimFrame and WarlockSimFrame:IsShown()); return MOCK.find("FontString", "No result yet") and "empty result shown"');
+step('open the window (in combat: nothing is read)', 'MOCK.combat = true; SlashCmdList.WARLOCKSIM(""); MOCK.combat = false; assert(WarlockSimFrame and WarlockSimFrame:IsShown()); assert(WLX.char == nil, "read in combat"); return MOCK.find("FontString", "No result yet") and "empty result shown"');
 step('sim without a character says so', 'MOCK.click("Sim!"); assert(not WLX.jobRunning())');
 step('read in combat is refused', 'MOCK.combat = true; MOCK.click("Read my character"); MOCK.combat = false; assert(WLX.char == nil)');
 step('not a Warlock is refused', 'MOCK.class = "MAGE"; MOCK.click("Read my character"); MOCK.class = nil; assert(WLX.char == nil)');
@@ -157,6 +157,24 @@ step('item sim fights box; minimap button, its clicks, hiding it', `local box; f
   WarlockSimFrame:Hide(); WLX.db.options.fights = 12; b.scripts.OnClick(b, "RightButton"); assert(WarlockSimFrame:IsShown() and WLX.jobRunning(), "right-click opens the window and sims"); WLX.cancelJob(); WLX.db.options.fights = 10
   WarlockSim_Toggle(); assert(not WarlockSimFrame:IsShown(), "the key binding closes it"); WarlockSim_Toggle()
   SlashCmdList.WARLOCKSIM("minimap"); assert(not b.shown and WLX.db.options.minimapButton == false, "/wsim minimap hides it"); SlashCmdList.WARLOCKSIM("minimap"); assert(b.shown, "and shows it again")`);
+step('opening the window reads the character (out of combat), and only then', `WarlockSimFrame:Hide(); local before = WLX.char; WLX.char = nil
+  WLX.toggleWindow(); assert(WarlockSimFrame:IsShown() and WLX.char and not WLX.char.restored, "not read on opening")
+  local c = WLX.char; WLX.refresh(); assert(WLX.char == c, "read again while open"); WLX.toggleWindow(); assert(not WarlockSimFrame:IsShown() and WLX.char == c, "read on closing")
+  MOCK.combat = true; WLX.toggleWindow(); MOCK.combat = false; assert(WLX.char == c, "read in combat"); WLX.toggleWindow(); WLX.toggleWindow()`);
+step('stop early: the rules', `local st = WLX.singleStop(); local i = 0; repeat i = i + 1 until st(i, 900) or i > 500; assert(i == 40, "a steady DPS stops at the 40th fight: " .. i)
+  local base = {}; for f = 1, 200 do base[f] = 900 + (f % 7) * 30 end
+  local ps = WLX.pairedStop(base); i = 0; repeat i = i + 1 until ps(i, base[i] + 5) or i > 500; assert(i == 40, "a steady difference stops at 40: " .. i)
+  local noisy = WLX.pairedStop(base); i = 0; repeat i = i + 1 until noisy(i, base[i] + ((i % 2 == 0) and 40 or -40)) or i > 500; assert(i == 200, "a difference lost in noise plays every fight of the base run: " .. i)
+  local m, e, n = WLX.pairedDiff(base, { base[1] + 2, base[2] + 2 }); assert(n == 2 and math.abs(m - 2) < 1e-9 and e == 0, "pairedDiff over the fights both played")
+  WLX.db.options.stopEarly = false; assert(WLX.singleStop() == nil and WLX.pairedStop(base) == nil, "switched off"); WLX.db.options.stopEarly = true`);
+step('stop early: What if and an item stop long before the fights set; switched off, they play every fight', `WLX.db.options.fights = 300; MOCK.click("+10 SP"); ${pump}
+  local r = WLX.lastResult; assert(r.kind == "whatif" and r.res.iterations < 300 and r.res.iterations >= 40 and r.base.iterations == r.res.iterations, "fights: " .. r.res.iterations)
+  local early = r.res.iterations
+  WLX.db.options.stopEarly = false; WLX.db.options.fights = 60; MOCK.click("+10 SP"); ${pump}; assert(WLX.lastResult.res.iterations == 60, "off: every fight")
+  WLX.db.options.stopEarly = true; WLX.db.options.fights = 10
+  MOCK.keys = { shift = true }; MOCK.button = "RightButton"; HandleModifiedItemClick(MOCK.link(1003), MOCK.bagLocation()); MOCK.keys = {}; ${pump}; for i = 1, 16 do MOCK.frame() end
+  local t = WarlockSimItemPanel.text.text; WarlockSimItemPanel:Hide()
+  return "What if +10 SP: exact enough after " .. early .. " of 300 fights; item: " .. (t:match("Exact enough after %d+ of %d+ fights") or "all fights")`);
 step('Escape closes the window (the list the game walks), and the game\'s own Escape handlers are left alone', `assert(#MOCK.escHandlers == 0, "an entry of the addon's in the game's Escape handlers taints every Escape")
   local n = 0; for _, name in ipairs(UISpecialFrames) do if name == "WarlockSimFrame" then n = n + 1 end end; assert(n == 1, "on the list of windows Escape closes: " .. n .. " times")
   if not WarlockSimFrame:IsShown() then WLX.toggleWindow() end; assert(MOCK.closeSpecialWindows() and not WarlockSimFrame:IsShown(), "Escape's list does not close it"); WLX.toggleWindow()`);

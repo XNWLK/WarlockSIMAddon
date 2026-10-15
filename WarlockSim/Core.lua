@@ -2,7 +2,7 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.6.4'
+WL.VERSION = '0.7.0'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -17,7 +17,7 @@ end
 -- WL.cfg       the settings the sim runs with (the sim's defaults + what you changed)
 -- WL.char      the character read from the game (nil until "Read my character")
 local DEFAULT_OPTIONS = { fights = 300, weights = true, speed = 'auto', speedDefault = 2, template = nil, stone = 'sheet', race = nil, pet = 'auto', sacrifice = 'auto', minimapHint = true,
-                          itemClick = 'shift-right', itemClickDefault = 2, itemFights = 150, sheetNumbers = true, minimapButton = true, minimapAngle = 200 }
+                          itemClick = 'shift-right', itemClickDefault = 2, itemFights = 150, sheetNumbers = true, minimapButton = true, minimapAngle = 200, stopEarly = true }
 -- The click that sims an item (options.itemClick). 'off' also hides the button under the item link window.
 WL.ITEM_CLICKS = {
   { value = 'shift-right', label = 'Shift + right-click' }, { value = 'alt-right', label = 'Alt + right-click' }, { value = 'alt-left', label = 'Alt + left-click' },
@@ -243,6 +243,83 @@ WL.startJob = startJob
 
 local function fights() return math.max(10, math.min(20000, math.floor(tonumber(WL.db.options.fights) or 300))) end
 
+-- Stopping once the result is exact enough (options.stopEarly, on by default; the number of fights set is then the most
+-- that are played, never fewer than MIN_FIGHTS). Two rules, each a function(fight number, that fight's DPS) -> stop?
+--   one run on its own: stop when the +- of the DPS is at most 0.5% of it;
+--   one side of a comparison (it plays the same fights as `baseList`): stop when the +- of the difference, taken fight
+--   by fight, is at most `abs` DPS or `rel` of the difference - and at the end of the base run's fights at the latest.
+local MIN_FIGHTS = 40
+function WL.stopEarly() return WL.db ~= nil and WL.db.options.stopEarly ~= false end
+local function margin(s, s2, i)
+  local mean = s / i
+  return mean, 1.96 * math.sqrt(math.max(0, (s2 - i * mean * mean) / (i - 1)) / i)
+end
+function WL.singleStop()
+  if not WL.stopEarly() then return nil end
+  local s, s2 = 0, 0
+  return function(i, dps)
+    s, s2 = s + dps, s2 + dps * dps
+    if i < MIN_FIGHTS then return false end
+    local mean, err = margin(s, s2, i)
+    return err <= 0.005 * mean
+  end
+end
+function WL.pairedStop(baseList, rel, abs)
+  if not WL.stopEarly() then return nil end
+  local s, s2 = 0, 0
+  return function(i, dps)
+    local d = dps - (baseList[i] or dps)
+    s, s2 = s + d, s2 + d * d
+    if i >= #baseList then return true end
+    if i < MIN_FIGHTS then return false end
+    local mean, err = margin(s, s2, i)
+    return err <= math.max(abs or 0.5, (rel or 0.1) * math.abs(mean))
+  end
+end
+-- Both sides of a comparison played fight by fight, side by side (fight i with the same seed and length on both), so
+-- they stop together once the difference is exact enough. For "What if", which also shows the change per spell.
+-- Returns two results with what the window shows: dps, dpsList, bySpell[k].dmg (an average fight), avgDuration, iterations.
+function WL.pairedRun(build, race, cfgA, cfgB, n, onFight)
+  local stA, stB = WL.computeStats(build, race, cfgA), WL.computeStats(build, race, cfgB)
+  local tA, tB = WL.buildSpellTable(build, stA, cfgA), WL.buildSpellTable(build, stB, cfgB)
+  local A, B = { dpsList = {}, bySpell = {}, dur = 0 }, { dpsList = {}, bySpell = {}, dur = 0 }
+  local early, s, s2, played = WL.stopEarly(), 0, 0, 0
+  for i = 0, n - 1 do
+    local seed, dur = WL.fightParams(cfgA, i)
+    local a = WL.simulateOnce(build, race, cfgA, { stats = stA, table = tA, seed = seed, duration = dur })
+    local b = WL.simulateOnce(build, race, cfgB, { stats = stB, table = tB, seed = seed, duration = dur })
+    for _, pair in ipairs({ { A, a }, { B, b } }) do
+      local side, r = pair[1], pair[2]
+      side.dpsList[i + 1] = r.dps; side.dur = side.dur + r.duration
+      for k, row in pairs(r.bySpell) do side.bySpell[k] = side.bySpell[k] or { dmg = 0 }; side.bySpell[k].dmg = side.bySpell[k].dmg + row.dmg end
+    end
+    played = i + 1
+    if onFight then onFight(); onFight() end
+    local d = b.dps - a.dps
+    s, s2 = s + d, s2 + d * d
+    if early and played >= MIN_FIGHTS and played < n then          -- the same rule as WL.pairedStop
+      local mean, err = margin(s, s2, played)
+      if err <= math.max(0.5, 0.1 * math.abs(mean)) then break end
+    end
+  end
+  for _, side in ipairs({ A, B }) do
+    local s = 0
+    for f = 1, played do s = s + side.dpsList[f] end
+    side.dps, side.avgDuration, side.iterations = s / played, side.dur / played, played
+    for _, row in pairs(side.bySpell) do row.dmg = row.dmg / played end
+  end
+  return A, B
+end
+-- The difference of a comparison, fight by fight over the fights both sides played: mean, its +-, number of fights.
+function WL.pairedDiff(baseList, list)
+  local n = math.min(#baseList, #list)
+  local s, s2 = 0, 0
+  for f = 1, n do local d = list[f] - baseList[f]; s = s + d; s2 = s2 + d * d end
+  if n < 2 then return n == 1 and s or 0, 0, n end
+  local mean, err = margin(s, s2, n)
+  return mean, err, n
+end
+
 -- One build with stat weights (optional): result = { kind = 'single', res, weights, notes, build }.
 -- Results of the last sims, by everything that decides them: asking for the same thing again costs nothing.
 local remembered, REMEMBER = {}, 6
@@ -265,21 +342,28 @@ end
 function WL.simBuild(build, raceKey, cfg, label, notes)
   local n, weights = fights(), WL.db.options.weights
   local keys = WL.STAT_WEIGHT_KEYS
-  local key = 'single|' .. n .. '|' .. raceKey .. '|' .. tostring(weights) .. '|' .. WL.encodeBuild(build) .. WL.jsonEncode(WL.settingsSnapshot(cfg))
+  local key = 'single|' .. n .. '|' .. tostring(WL.stopEarly()) .. '|' .. raceKey .. '|' .. tostring(weights) .. '|' .. WL.encodeBuild(build) .. WL.jsonEncode(WL.settingsSnapshot(cfg))
   local known = recall(key)
   if known then return answerFromMemory(known) end
   return startJob(label, n * (weights and (1 + #keys) or 1), function(j)
     local function onFight() j.done = j.done + 1 end
-    local res = WL.simulate(build, raceKey, cfg, { iterations = n, onFight = onFight })
+    local res = WL.simulate(build, raceKey, cfg, { iterations = n, onFight = onFight, stop = WL.singleStop() })
     j.result.kind, j.result.res, j.result.build, j.result.notes, j.result.race = 'single', res, build, notes, raceKey
     if weights then
       -- the DPS and the spells are on screen now; the stat weights follow
       j.result.weightsPending = true
       if WL.onJobPartial then WL.onJobPartial(j.result) end
+      j.total = j.done + #res.dpsList * #keys             -- the weights play at most as many fights as the run above did
       local by = {}
       for i = 1, #keys do
         j.label = label .. ' - stat weights'
-        by[keys[i]] = WL.statWeightRun(build, raceKey, cfg, n, keys[i], onFight)
+        -- the same fights with a little more of one stat; the difference is taken fight by fight, so each weight can stop
+        -- on its own once exact enough (2% of the difference - the steps are big, +100 spell power, +2% hit... - or 0.25 DPS)
+        local c = copy(cfg)
+        c.extra = c.extra or {}
+        c.extra[keys[i]] = (c.extra[keys[i]] or 0) + cfg.weightDeltas[keys[i]]
+        local r = WL.simulate(build, raceKey, c, { iterations = #res.dpsList, onFight = onFight, stop = WL.pairedStop(res.dpsList, 0.02, 0.25) })
+        by[keys[i]] = res.dps + WL.pairedDiff(res.dpsList, r.dpsList)
       end
       j.result.weights = WL.combineWeights(cfg, res.dps, by)
       j.result.weightsPending = nil
@@ -313,19 +397,15 @@ function WL.simWhatIf(delta)
   local gear, d = WL.gearWithSwap(cfg.gear, delta, {}, cfg)
   local changed = copy(cfg)
   changed.gear = gear
-  local key = 'whatif|' .. n .. '|' .. race .. '|' .. table.concat(parts, ',') .. '|' .. WL.encodeBuild(build) .. WL.jsonEncode(WL.settingsSnapshot(cfg))
+  local key = 'whatif|' .. n .. '|' .. tostring(WL.stopEarly()) .. '|' .. race .. '|' .. table.concat(parts, ',') .. '|' .. WL.encodeBuild(build) .. WL.jsonEncode(WL.settingsSnapshot(cfg))
   local known = recall(key)
   if known then return answerFromMemory(known) end
   return startJob('What if', 2 * n, function(j)
     local function onFight() j.done = j.done + 1 end
-    local base = WL.simulate(build, race, cfg, { iterations = n, onFight = onFight })
-    local res = WL.simulate(build, race, changed, { iterations = n, onFight = onFight })
-    local sum, sq = 0, 0
-    for f = 1, n do local x = res.dpsList[f] - base.dpsList[f]; sum = sum + x; sq = sq + x * x end
-    local mean = sum / n
+    local base, res = WL.pairedRun(build, race, cfg, changed, n, onFight)
     local r = j.result
     r.kind, r.base, r.res, r.build, r.race, r.delta, r.notes = 'whatif', base, res, build, race, d, notes
-    r.diff, r.err = mean, 1.96 * math.sqrt(math.max(0, sq / n - mean * mean) / math.max(1, n - 1))
+    r.diff, r.err = WL.pairedDiff(base.dpsList, res.dpsList)
     remember(key, r)
   end)
 end
@@ -339,7 +419,7 @@ function WL.simRanking()
   if mine and #WL.validateBuild(mine, true) == 0 then list[#list + 1] = mine end
   local tpls = WL.templates()
   for i = 1, #tpls do list[#list + 1] = tpls[i] end
-  local key = 'rank|' .. n .. '|' .. race .. '|' .. WL.jsonEncode(WL.settingsSnapshot(cfg))
+  local key = 'rank|' .. n .. '|' .. tostring(WL.stopEarly()) .. '|' .. race .. '|' .. WL.jsonEncode(WL.settingsSnapshot(cfg))
   for i = 1, #list do key = key .. '|' .. WL.encodeBuild(list[i]) end
   local known = recall(key)
   if known then return answerFromMemory(known) end
@@ -348,7 +428,8 @@ function WL.simRanking()
     j.result.kind, j.result.rows, j.result.race = 'rank', rows, race
     for i = 1, #list do
       j.label = 'Builds: ' .. (list[i].short or list[i].key)
-      local res = WL.simulate(list[i], race, cfg, { iterations = n, onFight = function() j.done = j.done + 1 end })
+      local res = WL.simulate(list[i], race, cfg, { iterations = n, onFight = function() j.done = j.done + 1 end, stop = WL.singleStop() })
+      j.done = n * i                                       -- a build that stopped early moves the bar on to the next one
       rows[#rows + 1] = { build = list[i], res = res }
       table.sort(rows, function(a, b) return a.res.dps > b.res.dps end)
       -- the list grows on screen build by build

@@ -35,11 +35,11 @@ practise its priority list in Forever Warlocking — it reads the same build and
 
 | Tab | |
 |---|---|
-| **Character** | *Read my character* takes your talents, race, demon, sacrificed demon and your spell power, hit, crit, haste, Intellect, Spirit, Stamina, mana per 5 s and Spell Pierce from the game. *Sim!* plays the fights. The order of your spells (the priority list) is taken from the ready build closest to your talents, or from one you pick. |
+| **Character** | Opening the window reads your character (out of combat); *Read my character* does it again by hand. It takes your talents, race, demon, sacrificed demon and your spell power, hit, crit, haste, Intellect, Spirit, Stamina, mana per 5 s and Spell Pierce from the game. *Sim!* plays the fights. The order of your spells (the priority list) is taken from the ready build closest to your talents, or from one you pick. |
 | **What if** | Your character with +10 spell power, +1% hit, +1% crit, +1% haste or +20 Intellect in one click, or any change you type in (a minus for less): the change in DPS, the spells it comes from and what one point is worth. Both sides play the same fights. |
 | **Builds** | *Sim builds with your gear* plays every build of the website with **your** gear numbers and puts them in order — which build is best for your gear. Your own character, with the talents you have now, is in the list in gold. |
 | **Buffs** | Raid buffs, debuffs on the boss and consumables, as on the website. |
-| **Fight** | Number of fights, fight length, 1–3 targets, when cooldowns are used, precast, movement, hits taken, latency, stat weights on or off, how much of each frame the sim may take, the click that sims an item and how many fights it plays, the minimap button. |
+| **Fight** | Number of fights, fight length, 1–3 targets, when cooldowns are used, precast, movement, hits taken, latency, stat weights on or off, stopping early once the result is exact enough, how much of each frame the sim may take, the click that sims an item and how many fights it plays, the minimap button. |
 | **Codes** | Paste a settings code or a build code from the website, or make one from your character to open there. |
 
 The result shows DPS with its margin, a bar per spell (hover for casts, crits and misses), the stat weights in spell
@@ -92,12 +92,16 @@ Shift + right-click is taken by another addon or gets in your way.
 - **Your numbers are read as they are.** Raid buffs the addon recognises on you are taken off again, so that the Buffs
   tab alone decides which buffs the sim uses. Anything else that is on you while reading — a flask, food, a weapon stone
   or oil — stays inside your numbers and counts as gear. The Character tab lists what it found.
-- **Level 60.** The sim plays level-60 spells against a level-63 boss. Below level 60 the DPS shown is not what you do.
+- **Level 60.** The sim plays level-60 spells against a level-63 boss. Below level 60 the DPS shown is what a level 60
+  Warlock with your numbers would do, not what you do now; item and stat comparisons still give a rough idea (hit counts
+  for more there than against enemies of your own level).
 - **Speed.** The game gives addons one processor core, shared with the game itself, and no background threads — an addon
   cannot use more cores. Fights are played a few milliseconds per frame. "While simming" on the Fight tab decides how
   many: "Automatic" (quick while you are out of combat, gentle while you fight), "Stay smooth", "Sim faster" or
   "Fastest". The DPS is shown as soon as it is known, the stat weights follow; and a sim asked for again with nothing
-  changed is answered at once. Fewer fights are quicker and less exact (the "+-" behind the DPS says how exact).
+  changed is answered at once. "Stop early" (on by default) ends a sim once its result is exact enough; comparisons,
+  which play the same fights on both sides, often need only a few dozen. Fewer fights are quicker and less exact (the
+  "+-" behind the DPS says how exact).
 - **On the website, not in the addon:** the build editor, charts, comparing runs, the fight timeline and log, share
   links (settings codes and build codes do work here).
 

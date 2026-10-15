@@ -3,6 +3,15 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.7.0
+
+- Sims stop as soon as the result is exact enough ("Stop early" on the Fight tab, on by default). The number of fights
+  set is then the most that are played. Comparisons gain the most, because both sides play the same fights: What if,
+  item sims, stat weights and the numbers on the character sheet often finish after a few dozen fights.
+- Opening the window reads your character (out of combat), so "Read my character" is rarely needed.
+- Below level 60 the addon says more clearly that its DPS is a level 60 number: on the Character tab, under a result,
+  in the item panel and on the character sheet.
+
 ## v0.6.4
 
 - If the game ever blocks an action of this addon, it is noted with the action and the time, and said once in chat.

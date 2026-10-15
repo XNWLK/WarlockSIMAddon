@@ -1489,6 +1489,8 @@ local ROW_FIELDS = { 'casts', 'landed', 'misses', 'crits', 'hits', 'ticks', 'tic
 local HP_FIELDS = { 'tap', 'self', 'healed', 'leech', 'sac', 'blocked' }
 
 -- Monte-Carlo wrapper: averages `iterations` fights. opt.onFight(i, n) is called after each fight (progress).
+-- Addon only (not in the sim's engine): opt.stop(i, dps of fight i) -> true ends the run after fight i ("exact
+-- enough"); every average is then over the fights played. Without opt.stop the run is exactly the sim's.
 function WL.simulate(build, raceKey, cfg, opt)
   opt = opt or {}
   local n = opt.iterations or cfg.fight.iterations
@@ -1499,8 +1501,8 @@ function WL.simulate(build, raceKey, cfg, opt)
   local tapPct, petOomFights, petOomSec, idleSec, spiRegen, sacMana, oom = 0, 0, 0, 0, 0, 0, 0
   local tpsSum, hp = 0, { min = huge, tap = 0, self = 0, healed = 0, leech = 0, sac = 0, blocked = 0 }
   local exDmg, exTime, preDmg, preTime = 0, 0, 0, 0
-  local onFight = opt.onFight
-  for i = 0, n - 1 do
+  local onFight, stop, planned = opt.onFight, opt.stop, n
+  for i = 0, planned - 1 do
     local fseed, fdur = WL.fightParams(cfg, i)
     local r = WL.simulateOnce(build, raceKey, cfg, { stats = stats, table = tbl, seed = fseed, duration = fdur })
     dpsList[i + 1] = r.dps; durSum = durSum + r.duration; lifeTaps = lifeTaps + r.lifeTaps; movingTaps = movingTaps + (r.movingTaps or 0)
@@ -1518,7 +1520,8 @@ function WL.simulate(build, raceKey, cfg, opt)
       end
       for j = 1, #ROW_FIELDS do local f = ROW_FIELDS[j]; a[f] = a[f] + (b[f] or 0) end
     end
-    if onFight then onFight(i + 1, n) end
+    if onFight then onFight(i + 1, planned) end
+    if stop and i + 1 < planned and stop(i + 1, r.dps) then n = i + 1; break end
   end
   for _, a in pairs(agg) do for j = 1, #ROW_FIELDS do local f = ROW_FIELDS[j]; a[f] = a[f] / n end end
   for j = 1, #HP_FIELDS do local k = HP_FIELDS[j]; hp[k] = hp[k] / n end

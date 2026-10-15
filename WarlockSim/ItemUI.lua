@@ -145,13 +145,13 @@ function WL.simItem(link, worn)
     for i = 1, #alts do
       local c = copy(cfg)
       c.gear = alts[i].gear
-      local r = WL.simulate(build, race, c, { iterations = n, onFight = onFight })
-      -- same fights on both sides, so the difference is taken fight by fight: its margin is far smaller than that of either DPS
-      local sum, sq = 0, 0
-      for f = 1, n do local d = r.dpsList[f] - base.dpsList[f]; sum = sum + d; sq = sq + d * d end
-      local mean = sum / n
-      alts[i].dps, alts[i].diff = r.dps, mean
-      alts[i].err = 1.96 * math.sqrt(math.max(0, sq / n - mean * mean) / math.max(1, n - 1))
+      local before = j.done
+      -- same fights on both sides, so the difference is taken fight by fight: its margin is far smaller than that of
+      -- either DPS, and this side can stop as soon as it is exact enough (the run as you are always plays all of them)
+      local r = WL.simulate(build, race, c, { iterations = n, onFight = onFight, stop = WL.pairedStop(base.dpsList) })
+      j.done = before + n
+      alts[i].dps = r.dps
+      alts[i].diff, alts[i].err, alts[i].n = WL.pairedDiff(base.dpsList, r.dpsList)
     end
     j.result.kind, j.result.link, j.result.worn, j.result.item, j.result.alts, j.result.base, j.result.n = 'item', link, worn, item, alts, base, n
   end)
@@ -190,7 +190,11 @@ local function resultText(res)
       if not seen[old.link] then seen[old.link] = true; notCounted(old.name, old.unknown) end
     end
   end
-  lines[#lines + 1] = string.format('|cff777777%.1f DPS as you are. %d fights. Enchants and set bonuses are not counted.|r', res.base.dps, res.n)
+  local fewest = res.n
+  for i = 1, #res.alts do if res.alts[i].n and res.alts[i].n < fewest then fewest = res.alts[i].n end end
+  lines[#lines + 1] = string.format('|cff777777%.1f DPS as you are. %s Enchants and set bonuses are not counted.%s|r', res.base.dps,
+    fewest < res.n and string.format('Exact enough after %d of %d fights.', fewest, res.n) or string.format('%d fights.', res.n),
+    (WL.char and (WL.char.level or 60) < 60) and ' Played at level 60.' or '')
   return table.concat(lines, '\n')
 end
 
