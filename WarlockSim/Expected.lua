@@ -3,8 +3,8 @@ local ADDON, WL = ...
 WL.EXPECTED = { fights = {
   { build = "demo_pact_succ_sb", race = "human", i = 0, total = 85819.06676975562 },
   { build = "demo_pact_succ_sb", race = "orc", i = 1, total = 77970.15497679479 },
-  { build = "aff_pact_succ_sb", race = "gnome", i = 0, total = 85576.5955232454 },
-  { build = "aff_pact_succ_sb", race = "undead", i = 1, total = 80457.80981943513 },
+  { build = "aff_pact_succ_sb", race = "gnome", i = 0, total = 87086.5000538851 },
+  { build = "aff_pact_succ_sb", race = "undead", i = 1, total = 81857.699190112 },
   { build = "demo_pact_fire", race = "orc", i = 0, total = 82102.42217935565 },
   { build = "demo_pact_fire", race = "troll", i = 1, total = 87066.76132489288 },
   { build = "destro_incin_succ", race = "undead", i = 0, total = 77313.51603238167 },
@@ -13,6 +13,6 @@ WL.EXPECTED = { fights = {
   { build = "destro_incin_imp", race = "gnome", i = 1, total = 78899.18391399998 },
   { build = "sm_ruin_classic", race = "human", i = 0, total = 75847.76040857575 },
   { build = "sm_ruin_classic", race = "orc", i = 1, total = 78316.33546046737 },
-  { build = "wrack_succubus", race = "gnome", i = 0, total = 67047.99757629563 },
-  { build = "wrack_succubus", race = "undead", i = 1, total = 62450.86397329086 },
+  { build = "wrack_succubus", race = "gnome", i = 0, total = 67890.75794121575 },
+  { build = "wrack_succubus", race = "undead", i = 1, total = 67774.958493531 },
 } }

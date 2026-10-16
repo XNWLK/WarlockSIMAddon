@@ -18,8 +18,8 @@ What changed in each version, newest first. Download a version from the
     health and nothing raises that any more.
   - Windfury Totem and Flametongue Totem are gone from the Buffs tab (they only help players now, not your demon), and
     so is Tranquil Air Totem. Blessing of Salvation is now Salvation (same -30% threat).
-  - Four ready builds that had Malediction points spend them elsewhere: Aff Pact Shadow Bolt Succubus, Destro Incinerate
-    Succubus, SM Ruin (classic) and Wrack Succubus.
+  - Ready builds, searched again under the new rules: Aff Pact Shadow Bolt Succubus is now 8/31/12, Destro Incinerate
+    Succubus 14/4/33, SM Ruin (classic) 30/0/21 and Wrack Succubus 33/0/18.
 - Old settings codes with the removed totems load without a notice.
 - After updating, your character is read again once and the numbers on the character sheet are worked out again.
 
