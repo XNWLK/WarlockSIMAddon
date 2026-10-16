@@ -147,7 +147,7 @@ local function keep(w) syncers[#syncers + 1] = w; return w end
 -- result area
 -- ---------------------------------------------------------------------------------------------------------------------
 local ROWS = 10
-local PET_ROW = { melee = 'melee', brand = 'Demonic Brand', windfury = 'Windfury Totem', flametongue = 'Flametongue Totem' }
+local PET_ROW = { melee = 'melee', brand = 'Demonic Brand' }
 local function rowInfo(key, build)
   local target, bk = key:match('^x(%d):(.+)$')
   bk = bk or key
@@ -621,7 +621,7 @@ local function buildCodesPage(p)
       if not b then say(err, true); return end
       local errs = WL.validateBuild(b)
       WL.db.options.template = b.key
-      say('Build "' .. b.short .. '" ' .. (known and 'was loaded before' or 'loaded') .. ': it is in the ranking and can be picked under "Play it like".' .. (#errs > 0 and (' Note: ' .. errs[1]) or ''), #errs > 0)
+      say('Build "' .. b.short .. '" ' .. (known and 'was loaded before' or 'loaded') .. ': it is in the ranking and can be picked under "Play it like".' .. (b.migrated and (' ' .. table.concat(b.migrated, '. ') .. '.') or '') .. (#errs > 0 and (' Note: ' .. errs[1]) or ''), #errs > 0)
     elseif code:sub(1, #WL.GEAR_CODE_PREFIX) == WL.GEAR_CODE_PREFIX then say('That is a gear code: it is for the website\'s gear builder. The addon reads your gear from the game itself.', true)
     elseif code:find('share=', 1, true) then say('That is a share link. The addon reads settings codes and build codes: on the website use "Make settings code" or "Make build code".', true)
     else say('That is neither a settings code (WFS1:) nor a build code (WFB1:).', true) end

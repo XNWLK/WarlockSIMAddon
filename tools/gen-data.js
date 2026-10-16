@@ -4,7 +4,7 @@
 const fs = require('fs'), path = require('path'), vm = require('vm'), cp = require('child_process');
 const ROOT = path.join(__dirname, '..');
 const SIM = process.env.SIM_DIR || path.join(ROOT, '..', 'wow-forever-warlock-sim');
-const WL = require(path.join(SIM, 'tools', 'load-wl.js')).load(SIM);
+const WL = require(path.join(SIM, 'tools', 'load-wl.js')).load(SIM, ['engine/settings-code.js']);   // + the retired settings
 
 // ---- Lua writer: keeps the key order of the JS objects (and writes it out where the engine depends on it) ----
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -97,6 +97,7 @@ out.push('WL.PET_KEYS = ' + lua(WL.PET_KEYS));
 out.push('WL.SACRIFICE_KEYS = ' + lua(WL.SACRIFICE_KEYS));
 out.push('WL.STAT_WEIGHT_KEYS = ' + lua(WL.STAT_WEIGHT_KEYS));
 out.push('WL.RETIRED_SETTINGS = ' + lua(WL.RETIRED_SETTINGS));
+out.push('WL.RETIRED_TALENTS = ' + lua(WL.RETIRED_TALENTS));
 out.push('WL.DEFAULT_CONFIG = ' + lua(WL.DEFAULT_CONFIG, '', NO_TEXT));
 out.push('WL.BUFF_ORDER = ' + order(WL.DEFAULT_CONFIG.buffs));
 out.push('WL.DEBUFF_ORDER = ' + order(WL.DEFAULT_CONFIG.debuffs));

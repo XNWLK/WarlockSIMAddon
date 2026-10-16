@@ -257,7 +257,10 @@ function WL.applySettings(c, o)
   for i = 1, 3 do
     local list, tgt = type(o[pairsOf[i][1]]) == 'table' and o[pairsOf[i][1]] or {}, c[pairsOf[i][2]] or {}
     for k, e in pairs(tgt) do e.on = indexOf(list, k) ~= nil end
-    for j = 1, #list do if not tgt[list[j]] then unknown[#unknown + 1] = pairsOf[i][1] .. '.' .. tostring(list[j]) end end
+    for j = 1, #list do
+      local name = pairsOf[i][1] .. '.' .. tostring(list[j])
+      if not tgt[list[j]] and not indexOf(WL.RETIRED_SETTINGS, name) then unknown[#unknown + 1] = name end
+    end
   end
   c.professions = c.professions or {}
   for k in pairs(c.professions) do c.professions[k] = (type(o.prof) == 'table' and o.prof[k]) and true or false end
@@ -294,7 +297,9 @@ function WL.decodeBuild(code)
   if o.v ~= 1 or type(o.talents) ~= 'table' then return nil, 'Unknown build-code version' end
   local b = { short = sub(tostring(o.short or 'Custom build'), 1, 40), talents = {}, pet = type(o.pet) == 'string' and o.pet or nil,
               sacrifice = type(o.sacrifice) == 'string' and o.sacrifice or nil, oil = type(o.oil) == 'string' and o.oil or 'none', rotation = {} }
-  for k, v in pairs(o.talents) do if type(v) == 'number' then b.talents[k] = v end end
+  local migrated
+  b.talents, migrated = WL.migrateTalents(o.talents)
+  if #migrated > 0 then b.migrated = migrated end              -- what a patch changed in this build
   if type(o.rotation) == 'table' then
     local rot = {}
     for i = 1, #o.rotation do rot[i] = tostring(o.rotation[i]) end

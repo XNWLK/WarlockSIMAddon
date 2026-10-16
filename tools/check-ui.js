@@ -140,7 +140,9 @@ step('the character is kept over a reload', `local e = WarlockSimDB.chars["Teste
   local gear = WLX.char.gear.sp; WLX.char = nil; MOCK.fire("PLAYER_LOGIN"); assert(WLX.char and WLX.char.restored, "not put back"); assert(WLX.char.gear.sp == gear, "other gear numbers")
   WLX.refresh(); assert(MOCK.findLike("FontString", "kept over the reload"), "the Character tab does not say so")
   WarlockSimDB.chars["Tester-Mock"].char.talents = "broken"; WLX.char = nil; MOCK.fire("PLAYER_LOGIN"); assert(WLX.char == nil and WarlockSimDB.chars["Tester-Mock"].char == nil, "a broken saved character is dropped")
-  MOCK.click("Read my character"); assert(WLX.char and not WLX.char.restored and WarlockSimDB.chars["Tester-Mock"].char)`);
+  MOCK.click("Read my character"); assert(WLX.char and not WLX.char.restored and WarlockSimDB.chars["Tester-Mock"].char)
+  WarlockSimDB.chars["Tester-Mock"].char.simCommit = "old"; WLX.char = nil; MOCK.fire("PLAYER_LOGIN"); assert(WLX.char == nil and WarlockSimDB.chars["Tester-Mock"].char == nil, "a character read under older game rules is kept")
+  MOCK.click("Read my character"); assert(WLX.char and WarlockSimDB.chars["Tester-Mock"].char.simCommit == WLX.SIM_COMMIT)`);
 step('what if: +10 spell power gains, a typed change, nothing entered', `WLX.db.options.fights = 30; MOCK.click("+10 SP"); assert(WLX.jobRunning(), "no sim"); ${pump}
   local r = WLX.lastResult; assert(r.kind == "whatif" and r.diff > 0 and r.err >= 0, "kind / diff: " .. tostring(r.kind) .. " " .. tostring(r.diff))
   assert(MOCK.findLike("FontString", "What if %+10 spell power"), "what changed is shown"); assert(MOCK.findLike("FontString", "DPS for each 1 spell power"), "per point")

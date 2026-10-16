@@ -2,7 +2,7 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.8.0'
+WL.VERSION = '0.9.0'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -135,13 +135,17 @@ local function saveCharacter(ch)
   if not e then return end
   local keep = {}
   for k, v in pairs(ch) do if k ~= 'raw' and k ~= 'restored' then keep[k] = v end end   -- `raw` (what the game returned) only goes into /wsim dump
+  keep.simCommit = WL.SIM_COMMIT                                       -- the rules it was read under
   e.char = copy(keep)
 end
 -- The character as last read, put back after a /reload or a login. Its gear numbers are worked out again from the saved
 -- sheet numbers (so a newer version of the addon uses its own rules); anything that does not fit any more is dropped.
+-- A character read under other game rules (a Forever patch the sim follows since) is dropped too: the sheet itself may
+-- have changed with that patch, so it is read again.
 local function restoreCharacter()
   local e = WL.charStore(false)
   if not (e and type(e.char) == 'table' and e.char.class == 'WARLOCK' and type(e.char.sheet) == 'table' and type(e.char.state) == 'table') then return end
+  if e.char.simCommit ~= WL.SIM_COMMIT then e.char = nil; return end
   local ch = copy(e.char)
   ch.raw, ch.notes, ch.restored = {}, type(ch.notes) == 'table' and ch.notes or {}, true
   local ok = pcall(function()
@@ -474,7 +478,7 @@ function WL.dump()
   local ch = WL.char
   if ch then
     d.character = { name = ch.name, realm = ch.realm, level = ch.level, raceKey = ch.raceKey, pet = ch.pet, sacrifice = ch.sacrifice, sheet = ch.sheet, gear = ch.gear,
-                    talents = ch.talents, buffsOnYou = ch.buffsOnYou, otherAuras = ch.otherAuras, notes = ch.notes, isSword = ch.isSword, weaponEffect = ch.weaponEffect, raw = ch.raw }
+                    talents = ch.talents, buffsOnYou = ch.buffsOnYou, otherAuras = ch.otherAuras, notes = ch.notes, weaponEffect = ch.weaponEffect, raw = ch.raw }
   end
   d.lastTiming, d.selfTest, d.lastError = WL.db.lastTiming, WL.db.selfTest, WL.lastError
   d.sheet = WL.sheetState and WL.sheetState() or nil      -- the numbers on the character sheet

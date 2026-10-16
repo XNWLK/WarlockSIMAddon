@@ -30,11 +30,10 @@ local BUFF_NAMES = {
   divineSpirit = { 'Divine Spirit', 'Prayer of Spirit' },
   blessingOfKings = { 'Blessing of Kings', 'Greater Blessing of Kings' },
   blessingOfWisdom = { 'Blessing of Wisdom', 'Greater Blessing of Wisdom' },
-  blessingOfSalvation = { 'Blessing of Salvation', 'Greater Blessing of Salvation' },
+  blessingOfSalvation = { 'Salvation', 'Blessing of Salvation', 'Greater Blessing of Salvation' },
   concentrationAura = { 'Concentration Aura' },
   manaSpring = { 'Mana Spring', 'Mana Spring Totem' },
   graceOfAir = { 'Grace of Air', 'Grace of Air Totem' },
-  tranquilAir = { 'Tranquil Air', 'Tranquil Air Totem' },
   moonkinAura = { 'Moonkin Aura', 'Moonkin Form' },
   scrollOfAgility = { 'Agility' },
 }
@@ -216,18 +215,17 @@ function WL.readCharacter()
   for i = 1, #auras do if not used[i] then others[#others + 1] = auras[i].name end end
   c.otherAuras = others
 
-  -- weapon: a sword (Human racial) and a temporary effect on it (stone, oil)
+  -- weapon: what it is (for /wsim dump) and a temporary effect on it (stone, oil)
   local itemID = num((try(GetInventoryItemID, 'player', 16)))
   if itemID and C_Item and C_Item.GetItemInfoInstant then
     local _, _, _, _, _, classID, subclassID = try(C_Item.GetItemInfoInstant, itemID)
     raw.weapon = { itemID, classID, subclassID }
-    c.isSword = classID == 2 and (subclassID == 7 or subclassID == 8)
   end
   if C_Item and C_Item.GetWeaponEnchantInfo then
     local hasMain = try(C_Item.GetWeaponEnchantInfo)
     c.weaponEffect = hasMain and true or false
   end
 
-  c.state = { raceKey = c.raceKey, talents = c.talents, pet = c.pet, sacrifice = c.sacrifice, buffs = buffs, isSword = c.isSword, hitHasSuppression = false }
+  c.state = { raceKey = c.raceKey, talents = c.talents, pet = c.pet, sacrifice = c.sacrifice, buffs = buffs, hitHasSuppression = false }
   return c
 end

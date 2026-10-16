@@ -44,7 +44,7 @@ builds.forEach(b => {
   assert(back.indexOf('ERR') !== 0, back);
   const o2 = JSON.parse(unb64(back.split('|')[0].slice(5)));
   const rot = WL.migrateRotation(b.rotation);
-  assert.deepStrictEqual(o2.talents, norm(b.talents), b.key + ' talents');
+  assert.deepStrictEqual(o2.talents, norm(WL.migrateTalents(b.talents).talents), b.key + ' talents');   // Malediction -> Grim Reach
   assert.deepStrictEqual(o2.rotation, norm(rot), b.key + ' rotation');
   assert.strictEqual(o2.pet || null, b.pet || null); assert.strictEqual(o2.sacrifice || null, b.sacrifice || null); assert.strictEqual(o2.oil, b.oil);
   assert.strictEqual(o2.short, String(b.short).slice(0, 40));
@@ -53,6 +53,19 @@ builds.forEach(b => {
   if (!b.timeline) assert.strictEqual(back.split('|')[1], String(WL.validateBuild(Object.assign(norm(b), { rotation: rot })).length), b.key + ': the addon and the page find the same number of problems');
   n++;
 });
+// codes made before the patch of 2026-10-16: the removed totems and the sword box load quietly, Malediction moves to Grim Reach
+{
+  const snap = norm(WL.settingsSnapshot(norm(WL.DEFAULT_CONFIG)));
+  snap.buffs = snap.buffs.concat(['windfuryTotem', 'flametongueTotem', 'tranquilAir']); snap.gear.weaponIsSword = true;
+  const r = host.eval('local o = WLX.decodeSettings(' + q('WFS1:' + b64(JSON.stringify(snap))) + '); local c = WLX.copy(WLX.DEFAULT_CONFIG); return #WLX.applySettings(c, o)');
+  assert.strictEqual(r, 0, 'old settings code: names reported as unknown'); n++;
+  const old = { v: 1, short: 'Old', talents: Object.assign(norm(WL.BUILDS[0].talents), { malediction: 5 }), pet: WL.BUILDS[0].pet, sacrifice: WL.BUILDS[0].sacrifice || null, oil: WL.BUILDS[0].oil, rotation: WL.BUILDS[0].rotation };
+  const mt = WL.migrateTalents(old.talents);
+  const back = host.eval('local b = WLX.decodeBuild(' + q('WFB1:' + b64(JSON.stringify(old))) + '); return WLX.encodeBuild(b) .. "|" .. table.concat(b.migrated or {}, "/")');
+  assert.deepStrictEqual(JSON.parse(unb64(back.split('|')[0].slice(5))).talents, norm(mt.talents), 'old build code with Malediction');
+  assert.strictEqual(back.split('|')[1], mt.notes.join('/'), 'migration note');
+  n += 2;
+}
 // damaged codes give a message, not an error
 ['', 'hello', 'WFS1:!!!!', 'WFS1:' + b64('{"v":2}'), 'WFB1:' + b64('[1,2'), 'WFB1:' + b64('{"v":1}')].forEach(c => {
   const r = host.eval('local a, e1 = WLX.decodeSettings(' + q(c) + '); local b, e2 = WLX.decodeBuild(' + q(c) + '); return tostring(a == nil and b == nil) .. " " .. tostring(e1) .. " / " .. tostring(e2)');

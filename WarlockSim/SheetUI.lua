@@ -69,7 +69,7 @@ local function currentKey()
     local snap = copy(WL.settingsSnapshot(WL.cfg))
     snap.gear = nil
     parts[#parts + 1] = WL.jsonEncode(snap)
-    parts[#parts + 1] = tostring(WL.db.options.stone) .. tostring(WL.itemFights()) .. tostring(WL.stopEarly())
+    parts[#parts + 1] = tostring(WL.db.options.stone) .. tostring(WL.itemFights()) .. tostring(WL.stopEarly()) .. WL.SIM_COMMIT   -- new game rules: work them out again
   end
   return table.concat(parts, '\1')
 end
@@ -134,7 +134,6 @@ local function start(key)
       if not any then
         st.worth[t.id] = { link = t.link, dps = 0, err = 0 }   -- nothing on it that the sim counts: no need to play fights
       else
-        if t.id == 16 then gear.weaponIsSword = false end
         local c = copy(cfg)
         c.gear = gear
         -- the same fights as the run as you are; stops once the item's worth is exact enough

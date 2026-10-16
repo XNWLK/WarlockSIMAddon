@@ -3,6 +3,26 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.9.0
+
+- Follows the Forever patch of 2026-10-16:
+  - Shadow Mastery gives 2/4/6/8/10% Shadow damage.
+  - Malediction is gone. Grim Reach takes its place in the tree (range only, no damage). A character or build code that
+    still has Malediction points gets them as Grim Reach, up to 2.
+  - Human Ruthless: +2% crit with any weapon (no sword needed any more). Orc Savage: +1% crit. Both also count for your
+    Succubus' melee.
+  - Blood Fury: 3 minute cooldown.
+  - Eureka! (Gnome): an 8 second buff. A damaging spell that finishes while it is up deals 10% more and costs 10% less;
+    channelled spells only on the ticks that come while it lasts. Damage over time spells get nothing.
+  - Touch of the Grave (Undead): 30% chance, then 25 seconds before it can happen again. It deals 5% of your maximum
+    health and nothing raises that any more.
+  - Windfury Totem and Flametongue Totem are gone from the Buffs tab (they only help players now, not your demon), and
+    so is Tranquil Air Totem. Blessing of Salvation is now Salvation (same -30% threat).
+  - Four ready builds that had Malediction points spend them elsewhere: Aff Pact Shadow Bolt Succubus, Destro Incinerate
+    Succubus, SM Ruin (classic) and Wrack Succubus.
+- Old settings codes with the removed totems load without a notice.
+- After updating, your character is read again once and the numbers on the character sheet are worked out again.
+
 ## v0.8.0
 
 - Gear codes: "My gear as a code" on the Codes tab turns everything you wear into a code for the website's gear

@@ -34,7 +34,6 @@ local function readItem(link)
   item.name = try(C_Item.GetItemNameByID, link) or link:match('%[(.-)%]') or 'this item'
   local _, _, _, equipLoc, _, classID, subclassID = try(C_Item.GetItemInfoInstant, link)
   item.equipLoc, item.classID, item.subclassID = equipLoc, classID, subclassID
-  item.isSword = classID == 2 and (subclassID == 7 or subclassID == 8)
   local api = try(C_Item.GetItemStats, link)
   local lines, enchants = {}, {}
   local data = C_TooltipInfo and try(C_TooltipInfo.GetHyperlink, link)
@@ -185,7 +184,6 @@ function WL.simItem(link, worn)
   for i = 1, #alts do
     local a = alts[i]
     a.gear, a.delta = WL.gearWithSwap(cfg.gear, a.worth and {} or item.stats, a.olds, cfg)
-    if a.mainHand then a.gear.weaponIsSword = (not a.worth and item.isSword) and true or false end
   end
   -- kept for /wsim dump: what the game returned for the items of the last comparison
   WL.db.lastItem = { link = link, name = item.name, equipLoc = item.equipLoc, stats = item.stats, unknown = item.unknown, raw = item.raw, worn = worn or nil, against = {} }

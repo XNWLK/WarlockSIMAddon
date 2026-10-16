@@ -297,17 +297,17 @@ function WL.computeStats(build, raceKey, cfg)
   critPct = critPct + (buffStat('critPct') + conCrit())
   if not gear.critIncludesAll then
     critPct = critPct + oilStat('critPct')
-    local sword = racial('critPctIfSword')
-    if sword and gear.weaponIsSword then critPct = critPct + add('critPct', 'Sword Specialization', sword.value) end
+    local rc = racial('critPct')                                         -- Ruthless (Human), Savage (Orc)
+    if rc then critPct = critPct + add('critPct', rc.name, rc.value) end
   end
 
-  -- Melee crit: 2.0% + Agility / 20 + Sword Specialization; no spell-crit sources.
+  -- Melee crit: 2.0% + Agility / 20 + Ruthless / Savage; no spell-crit sources.
   local agiPer = cb.agiPerMeleeCrit
   if not agiPer or agiPer == 0 then agiPer = 20 end
   local meleeCritPct = add('meleeCritPct', 'Base (level 60 Warlock)', cb.meleeCritBasePct ~= nil and cb.meleeCritBasePct or 2)
                    + add('meleeCritPct', 'Agility', agi / agiPer)
-  local swordM = racial('critPctIfSword')
-  if swordM and gear.weaponIsSword then meleeCritPct = meleeCritPct + add('meleeCritPct', 'Sword Specialization', swordM.value) end
+  local rcM = racial('critPct')
+  if rcM then meleeCritPct = meleeCritPct + add('meleeCritPct', rcM.name, rcM.value) end
 
   -- Haste, Spell Pierce, MP5
   local hastePct = add('hastePct', 'Gear', gear.hastePct or 0)
@@ -380,7 +380,7 @@ function WL.buildSpellTable(build, stats, cfg)
       local sm = s.school == 'shadow' and tv('shadowMastery', 'shadowPct') or 0
       local agf = (s.tree == 'destruction' and not s.noAgonizingFlames) and tv('agonizingFlames', 'dmgPct') or 0
       local op0 = sm + agf + (key == 'immolate' and tv('aftermath', 'immoInitPct') or 0)
-      local op22 = sm + agf + (s.noMalediction and 0 or tv('malediction', 'periodicPct'))
+      local op22 = sm + agf
         + (key == 'corruption' and tv('improvedCorruption', 'dmgPct') or 0)
         + (key == 'baneOfAgony' and tv('improvedBaneOfAgony', 'dmgPct') or 0)
         + (s.drain and tv('improvedDrains', 'dmgPct') or 0)
@@ -699,6 +699,25 @@ function WL.migrateRotation(rot)
     if m and not indexOf(out, m) then out[#out + 1] = m end
   end
   return out
+end
+
+-- Talents a Forever patch removed: old build codes still load. Malediction became Grim Reach in the same place of the
+-- tree: its points move there as far as they fit, the rest are left unspent. Returns the talents and what was moved.
+function WL.migrateTalents(t)
+  local out, notes, R = {}, {}, WL.RETIRED_TALENTS or {}
+  for k, v in pairs(t or {}) do if not R[k] and type(v) == 'number' and v ~= 0 then out[k] = v end end
+  for k, v in pairs(t or {}) do
+    local r, n = R[k], type(v) == 'number' and v or 0
+    if r and n ~= 0 then
+      local to = WL.TALENT_BY_KEY[r.to]
+      local m = math.min(n, to.ranks - (out[r.to] or 0))
+      if m > 0 then out[r.to] = (out[r.to] or 0) + m end
+      local pts = n > 1 and 's' or ''
+      notes[#notes + 1] = r.name .. ' no longer exists: ' .. (m > 0 and (m .. ' of its ' .. n .. ' point' .. pts .. ' moved to ' .. to.name)
+        or ('its ' .. n .. ' point' .. (n > 1 and 's are' or ' is') .. ' unspent')) .. ((m > 0 and n > m) and (', ' .. (n - m) .. ' unspent') or '')
+    end
+  end
+  return out, notes
 end
 
 local GATED = { conflagrate = 'conflagrate', conflagrateExpire = 'conflagrate', shadowburn = 'shadowburn', incinerate = 'incinerate', wrack = 'wrack', wrackDots = 'wrack', siphonLife = 'siphonLife',

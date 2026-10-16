@@ -82,7 +82,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- Independent random streams per roll type (common random numbers for stat weights).
   local Rhit, Rcrit, Rproc = makeRng(xorSeed(seed0, 0x1B873593)), makeRng(xorSeed(seed0, 0x85EBCA6B)), makeRng(xorSeed(seed0, 0xC2B2AE35))
   local Rvuln, Rpet, Rjow = makeRng(xorSeed(seed0, 0x27D4EB2F)), makeRng(xorSeed(seed0, 0x165667B1)), makeRng(xorSeed(seed0, 0x3C6EF372))
-  local Rwf, Rft, Rpush = makeRng(xorSeed(seed0, 0x9E3779B9)), makeRng(xorSeed(seed0, 0x7F4A7C15)), makeRng(xorSeed(seed0, 0x61C88647))
+  local Rpush = makeRng(xorSeed(seed0, 0x61C88647))
   local dur, cb, fight = opt.duration or cfg.fight.duration, cfg.combat, cfg.fight
   local executePct = fight.executePct
   local race = WL.RACES[raceKey]
@@ -152,7 +152,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     mana = stats.maxMana, health = stats.maxHealth, shards = huge,
     busyUntil = 0, gcdReady = 0, lastRegen = 0,
     lastSpend = -huge, spendAt = nil, innervateUntil = 0,
-    cds = cds, dots = dots, buffs = buffs, channel = nil, eurekaCharges = 0, eurekaPending = 0,
+    cds = cds, dots = dots, buffs = buffs, channel = nil,
     targetHpPct = 100,
   }
   local inst, decideToken = 0, 0
@@ -195,9 +195,6 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function gcd() return max(cb.minGcd, cb.gcd / (BERSERK and hasteFactor() or hasteBase)) end
   S.has, S.ready, S.buff, S.dotLeft, S.hasteFactor, S.castTime, S.gcd = has, ready, buff, dotLeft, hasteFactor, castTime, gcd
 
-  local function eurekaUp() return S.eurekaCharges > 0 or S.eurekaPending > 0 end
-  local function eurekaRelease() if S.eurekaPending > 0 then S.eurekaPending = S.eurekaPending - 1 end end
-
   -- Spirit regeneration per second outside the 5-second rule: (base + per Spirit x Spirit) per 2 s, accrued continuously.
   local FSR = (cb.fsrSeconds or 0) > 0 and cb.fsrSeconds or 0
   local SPI_REGEN = FSR ~= 0 and (cb.spiritRegenBase + cb.spiritRegenPerSpi * stats.spi) / 2 or 0
@@ -224,31 +221,42 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   end
 
   -- ---------- damage ----------
-  -- Eureka! (Gnome): +10% to your direct hits and channel ticks, added to the spell's own modifier group.
+  -- Eureka! (Gnome): an 8 s buff (buffs.eureka = when it ends). +10% damage and -10% mana cost for every damaging spell
+  -- that FINISHES while it is up: a cast-time spell when its cast completes (pushback can push it out), an instant when
+  -- it is cast (a projectile keeps it after travel). A channel: its cost when it starts inside the buff, each tick that
+  -- comes while the buff is up. DoTs never. The +10% adds to the spell's own modifier group.
+  local EUREKA = (racialCd and racialCd.dmgPct) and racialCd or nil   -- nil for every race but the Gnome
+  local function eurekaAt(key, t)
+    if not EUREKA then return false end
+    local k = SPELLS[key].kind
+    if k == 'utility' or k == 'dot' then return false end
+    local e = buffs.eureka
+    return e ~= nil and e > t + EPS
+  end
   local function eurekaMult(key, periodic)
-    local cd = racialCd
-    if not (cd and cd.charges and eurekaUp()) then return 1 end
-    if periodic and SPELLS[key].kind ~= 'channel' then return 1 end
     local e = tbl[key]
     local g = e and (periodic and e.op22 or e.op0) or 0
-    return (1 + g + cd.dmgPct / 100) / (1 + g)
+    return (1 + g + EUREKA.dmgPct / 100) / (1 + g)
   end
+  local function eurekaTick(key, periodic)
+    if periodic and SPELLS[key].kind == 'channel' and eurekaAt(key, S.t) then return eurekaMult(key, true) end
+    return 1
+  end
+  -- When a cast of `key` started now would finish: a channel counts from its start (its cost is paid then).
+  local function finishesAt(key) return S.t + (SPELLS[key].kind == 'channel' and 0 or castTime(key)) end
   local function addOp0(key, pct) local g = (tbl[key] and tbl[key].op0) or 0; return (1 + g + pct / 100) / (1 + g) end
   local buffList = WL.activeBuffs(cfg)
-  local PI, WF, FT
+  local PI
   local manaBuffs = {}
   for i = 1, #buffList do
     local b = buffList[i]
     if not PI and b.spellDmgPct and b.spellDmgPct ~= 0 then PI = b end
-    if not WF and b.windfury then WF = b.windfury end
-    if not FT and b.flametongue then FT = b.flametongue end
     if b.tide or b.innervate then manaBuffs[#manaBuffs + 1] = { b = b, used = false } end
   end
   local coePct = SPELLS.curseOfElements.dmgTakenPct
-  local EUREKA = racialCd and racialCd.charges                  -- nil for every race but the Gnome
   local function liveMult(key, periodic)
     local s = SPELLS[key]
-    local m = EUREKA and eurekaMult(key, periodic) or 1
+    local m = EUREKA and eurekaTick(key, periodic) or 1
     local now = S.t + EPS
     local e = buffs.coe
     if e ~= nil and e > now then m = m * (1 + coePct / 100) end
@@ -434,14 +442,11 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function useRacials(key)
     local cd = racialCd
     if not cd or not ready('racial') then return false end
-    if cd.charges and key and not eurekaPopOk(key) then return false end
+    if cd == EUREKA and key and not eurekaPopOk(key) then return false end
     cds.racial = S.t + cd.cd
     if cd.spPct then buffs.bloodFury = S.t + cd.duration end
     if cd.hastePct then buffs.berserking = S.t + cd.duration end
-    if cd.charges then
-      S.eurekaCharges = cd.charges; S.eurekaPending = 0
-      if cd.duration then push({ t = S.t + cd.duration, o = 0, type = 'eurekaEnd', pop = cds.racial }) end
-    end
+    if cd == EUREKA then buffs.eureka = S.t + cd.duration end   -- 8 s
     return true
   end
   -- Racial cooldown, Spellblasting potion and Power Infusion, right before a damaging cast.
@@ -665,7 +670,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- ---------- extra targets (multi-DoT; per-target Curse of the Elements / Improved Shadow Bolt) ----------
   local function liveMultX(key, ti, periodic)
     local s = SPELLS[key]
-    local m = EUREKA and eurekaMult(key, periodic) or 1
+    local m = EUREKA and eurekaTick(key, periodic) or 1
     if xDebLeft(ti, 'coe') > 0 then m = m * (1 + coePct / 100) end
     if s.school == 'shadow' and xDebLeft(ti, 'isb') > 0 then m = m * (1 + tv('improvedShadowBolt', 'debuffPct') / 100) end
     if PI and buff('powerInfusion') then m = m * (1 + PI.spellDmgPct / 100) end
@@ -685,7 +690,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   end
   local function periodicTickX(ti, key, snap, i)
     local s, e, rk = SPELLS[key], tbl[key], xkey(ti, key)
-    local amt = (s.tickBase * (snap.baseMult or 1) + s.tickCoef * spNow(e)) * e.periodicMult * liveMultX(key, ti, true) * (snap.eureka or 1)
+    local amt = (s.tickBase * (snap.baseMult or 1) + s.tickCoef * spNow(e)) * e.periodicMult * liveMultX(key, ti, true)
     if s.ramp then amt = amt * s.ramp[i + 1] end
     amt = amt * vulnMult(s.school, ti)
     local crit = Rcrit() * 100 < e.critPct
@@ -705,7 +710,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       return true
     end
     if s.kind == 'hybrid' or s.kind == 'direct' then
-      local amt = (s.base + s.coef * spNow(e)) * e.directMult * liveMultX(key, ti, false) * (eureka or 1)
+      local amt = (s.base + s.coef * spNow(e)) * e.directMult * liveMultX(key, ti, false) * (eureka and eurekaMult(key, false) or 1)
       local execute = S.targetHpPct < executePct
       if (key == 'shadowBolt' or key == 'searingPain') and execute and tv('decimation') ~= 0 then
         amt = amt * addOp0(key, tv('decimation', 'dmgPct')); buffs.decimation = S.t + 10
@@ -716,17 +721,17 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       deal(rk, amt, crit, false, ti)
       if key == 'shadowBolt' and crit and tv('improvedShadowBolt') ~= 0 then xdeb[ti].isb = S.t + 12 end
     end
-    if s.kind ~= 'direct' then applyDotX(ti, key, makeSnap(key, eureka, baseMult)) end
+    if s.kind ~= 'direct' then applyDotX(ti, key, makeSnap(baseMult)) end
     touchOfTheGrave(ti)
     return true
   end
 
   -- baseMult scales only the spell's base value, not its spell-power part (Amplify Curse).
-  makeSnap = function(key, eureka, baseMult) return { eureka = eureka, baseMult = baseMult or 1 } end
+  makeSnap = function(baseMult) return { baseMult = baseMult or 1 } end
 
   local function periodicTick(key, snap, i)
     local s, e = SPELLS[key], tbl[key]
-    local amt = (s.tickBase * (snap.baseMult or 1) + s.tickCoef * spNow(e)) * e.periodicMult * liveMult(key, true) * (snap.eureka or 1)
+    local amt = (s.tickBase * (snap.baseMult or 1) + s.tickCoef * spNow(e)) * e.periodicMult * liveMult(key, true)
     if s.ramp then amt = amt * s.ramp[i + 1] end
     amt = amt * vulnMult(s.school)
     local crit = Rcrit() * 100 < e.critPct
@@ -764,10 +769,10 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       jowProc(false)
       return true
     end
-    if s.kind == 'dot' then applyDot(key, makeSnap(key, eureka, baseMult)); touchOfTheGrave(); jowProc(false); return true end
+    if s.kind == 'dot' then applyDot(key, makeSnap(baseMult)); touchOfTheGrave(); jowProc(false); return true end
     -- direct or hybrid
     local sp = spNow(e)
-    local amt = (s.base + s.coef * sp) * e.directMult * liveMult(key, false) * (eureka or 1)
+    local amt = (s.base + s.coef * sp) * e.directMult * liveMult(key, false) * (eureka and eurekaMult(key, false) or 1)
     if key == 'incinerate' and dotLeft('immolate') > 0 then amt = amt * (1 + s.immolateBonusPct / 100) end
     local execute = S.targetHpPct < executePct
     if (key == 'shadowBolt' or key == 'searingPain') and execute and tv('decimation') ~= 0 then
@@ -790,7 +795,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       buffs.snfFire = S.t + 20
       if Rproc() * 100 < tv('shadowAndFlame', 'procPct') then S.shards = S.shards + 1 end
     end
-    if s.kind == 'hybrid' then applyDot(key, makeSnap(key, eureka, baseMult)) end
+    if s.kind == 'hybrid' then applyDot(key, makeSnap(baseMult)) end
     touchOfTheGrave()
     jowProc(false)
     return true
@@ -812,22 +817,13 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     S.mana = min(stats.maxMana, S.mana + JOW.mana)
     res.manaFromJow = (res.manaFromJow or 0) + (S.mana - before)
   end
-  -- Touch of the Grave (Undead): rolls once per landed cast of a spell with a damage component.
-  local function togMult(ti)
-    local x = (ti or 0) > 1
-    local m = (stats.mult.shadow or 1) * stats.mult.all
-    local coe, isb
-    if x then coe = xDebLeft(ti, 'coe') > 0; isb = xDebLeft(ti, 'isb') > 0 else coe = buff('coe'); isb = buff('isb') end
-    if coe then m = m * (1 + coePct / 100) end
-    if isb then m = m * (1 + tv('improvedShadowBolt', 'debuffPct') / 100) end
-    if PI and buff('powerInfusion') then m = m * (1 + PI.spellDmgPct / 100) end
-    if buff('snfShadow') then m = m * (1 + tv('shadowAndFlame', 'schoolPct') / 100) end
-    return m
-  end
+  -- Touch of the Grave (Undead): rolls once per landed cast of a spell with a damage component. 5% of your maximum
+  -- health; nothing multiplies it. 30% chance, then a 25 s internal cooldown (no roll while it runs).
   touchOfTheGrave = function(ti)
     local tog = racialProc
-    if tog and Rproc() * 100 < tog.chancePct then
-      local td = stats.maxHealth * tog.maxHealthPct / 100 * togMult(ti)
+    if tog and not (S.togReady and S.togReady > S.t + EPS) and Rproc() * 100 < tog.chancePct then
+      S.togReady = S.t + (tog.icd or 0)
+      local td = stats.maxHealth * tog.maxHealthPct / 100
       deal('touchOfTheGrave', td, false, false, ((ti or 0) > 1) and ti or nil)
       local r = row('touchOfTheGrave'); r.casts = r.casts + 1
     end
@@ -869,13 +865,13 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- ---------- casting ----------
   local function effectiveCost(key)
     local c = tbl[key].cost
-    if S.eurekaCharges > 0 and SPELLS[key].kind ~= 'utility' then c = c * (1 - racialCd.costRedPct / 100) end
+    if eurekaAt(key, finishesAt(key)) then c = c * (1 - EUREKA.costRedPct / 100) end
     return c
   end
   -- Cost if Eureka! were popped now (used to decide whether popping racials is worthwhile before this cast).
   local function discountedCost(key)
     local cd, c = racialCd, tbl[key].cost
-    if cd and cd.costRedPct and (S.eurekaCharges > 0 or ready('racial')) then c = c * (1 - cd.costRedPct / 100) end
+    if cd and cd.costRedPct and (buff('eureka') or ready('racial')) then c = c * (1 - cd.costRedPct / 100) end
     return c
   end
   local function minManaCheck() if S.mana < res.minMana then res.minMana = S.mana end end
@@ -890,8 +886,6 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if paid > 0 then
       if castT > EPS and s.kind ~= 'channel' then S.spendAt = S.t + castT else S.lastSpend = S.t end
     end
-    local eureka, eurekaUsed = 1, false
-    if S.eurekaCharges > 0 and s.kind ~= 'utility' then S.eurekaCharges = S.eurekaCharges - 1; S.eurekaPending = S.eurekaPending + 1; eurekaUsed = true end
     -- Amplify Curse: off the GCD, next Bane of Agony +50% of its base value; 3 min cooldown.
     local baseMult = 1
     if key == 'baneOfAgony' and tv('amplifyCurse') ~= 0 and ready('amplifyCurse') and slotGate('amplifyCurse') ~= 0 then
@@ -909,7 +903,6 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if s.kind == 'channel' then
       local r = row(key)
       if not s.aoe and Rhit() * 100 >= stats.hitPct then
-        if eurekaUsed then eurekaRelease() end
         r.misses = r.misses + 1
         if fromTL then TL.turn = true end
         S.busyUntil = S.t; S.gcdReady = S.t + gcdT; scheduleDecide(S.gcdReady)
@@ -920,7 +913,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       jowProc(false)
       inst = inst + 1
       local id = inst
-      S.channel = { key = key, inst = id, snap = makeSnap(key, eureka), start = S.t, finish = S.t + s.duration, eurekaHeld = eurekaUsed, tl = fromTL and true or false, idx = actIdx }
+      S.channel = { key = key, inst = id, snap = makeSnap(), start = S.t, finish = S.t + s.duration, tl = fromTL and true or false, idx = actIdx }
       for i = 1, e.ticks do push({ t = S.t + i * s.tickEvery, o = 0, type = 'chanTick', key = key, inst = id, i = i - 1 }) end
       S.busyUntil = S.t + s.duration; S.gcdReady = S.t + gcdT
       r.castTime = r.castTime + s.duration
@@ -928,7 +921,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     elseif castT > EPS then
       S.busyUntil = S.t + castT; S.gcdReady = S.t + gcdT
       rr.castTime = rr.castTime + castT
-      local ce = { t = S.busyUntil + (s.projectile and TRAVEL or 0), o = 1, type = 'castEnd', key = key, eureka = eureka, baseMult = baseMult, target = target, eurekaHeld = eurekaUsed, tl = fromTL }
+      local ce = { t = S.busyUntil + (s.projectile and TRAVEL or 0), o = 1, type = 'castEnd', key = key, baseMult = baseMult, target = target, tl = fromTL }
       push(ce)
       S.cast = { key = key, rk = rk, full = castT, finish = S.busyUntil, ev = ce, n = 0 }
       scheduleDecide(max(S.busyUntil, S.gcdReady))
@@ -936,10 +929,9 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       S.busyUntil = S.t; S.gcdReady = S.t + gcdT
       rr.castTime = rr.castTime + gcdT
       if s.projectile and TRAVEL > EPS then
-        push({ t = S.t + TRAVEL, o = 1, type = 'castEnd', key = key, eureka = eureka, baseMult = baseMult, target = target, eurekaHeld = eurekaUsed, tl = fromTL })
+        push({ t = S.t + TRAVEL, o = 1, type = 'castEnd', key = key, baseMult = baseMult, target = target, tl = fromTL })
       else
-        if not land(key, eureka, baseMult, target) and fromTL then TL.turn = true end
-        if eurekaUsed then eurekaRelease() end
+        if not land(key, eurekaAt(key, S.t), baseMult, target) and fromTL then TL.turn = true end
       end
       scheduleDecide(S.gcdReady)
     end
@@ -1044,18 +1036,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       push({ t = (P.lashReady ~= 0 and P.lashReady) or (S.t + 1.5), o = 2, type = 'petAct', gen = P.gen })
     end
   end
-  -- Flametongue Totem: every landed pet swing adds a Fire hit of per100 x attack speed / 100.
-  local function flametongueHit()
-    local r = row('pet:flametongue')
-    r.casts = r.casts + 1
-    if Rft() * 100 >= stats.hitPct then r.misses = r.misses + 1; return end
-    r.landed = r.landed + 1
-    local amt = FT.per100 * P.c.melee.swing / 100 * petMult('fire')
-    local crit = Rft() * 100 < stats.critPct
-    if crit then amt = amt * cb.critMultiplier end
-    deal('pet:flametongue', amt, crit, false)
-  end
-  local function petMeleeAttack(rk, roll, extraAp)       -- one swing; true if it landed
+  local function petMeleeAttack(rk, roll)       -- one swing; true if it landed
     local m, r, tb = P.c.melee, bySpell[rk] or row(rk), cb.petMelee
     r.casts = r.casts + 1
     local hitBonus = max(0, stats.hitPct - cb.baseHitPct - tb.hitSuppressionPct)
@@ -1064,7 +1045,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if roll >= miss + tb.dodgePct then
       r.landed = r.landed + 1
       jowProc(true)
-      local dps = m.baseDps + (m.apPerSp * warlockSpNow() + extraAp) / m.apPerDps
+      local dps = m.baseDps + m.apPerSp * warlockSpNow() / m.apPerDps
       local amt = dps * m.swing * (1 - armorRed) * petMult('physical')
       local glance = roll < miss + tb.dodgePct + tb.glancePct
       local crit = not glance and roll < miss + tb.dodgePct + tb.glancePct + critCh
@@ -1072,16 +1053,14 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       if crit then amt = amt * 2 end
       deal(rk, amt, crit, false)
       brandProc()
-      if FT then flametongueHit() end
       return true
     end
     r.misses = r.misses + 1
     return false
   end
-  -- Windfury Totem: each landed swing has a chance of one extra attack with extra attack power.
   petSwing = function()
     if S.t >= dur - EPS then return end
-    if petMeleeAttack('pet:melee', Rpet() * 100, 0) and WF and Rwf() * 100 < WF.procPct then petMeleeAttack('pet:windfury', Rwf() * 100, WF.ap) end
+    petMeleeAttack('pet:melee', Rpet() * 100)
     push({ t = S.t + P.c.melee.swing, o = 0, type = 'petSwing', gen = P.gen })
   end
   end
@@ -1341,18 +1320,15 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if SPELLS[ev.key].aoe then aoeTick(ev.key, ev.i) else periodicTick(ev.key, c.snap, ev.i) end
     local last = ev.i == tbl[ev.key].ticks - 1
     if last then
-      if c.eurekaHeld then eurekaRelease() end
       S.channel = nil; return
     end
     if SPELLS[ev.key].selfDamage and S.health <= selfTick(ev.key) then   -- the next Hellfire tick would kill you
-      if c.eurekaHeld then eurekaRelease() end
       S.channel = nil; res.clipped = res.clipped + 1
       local r = row(ev.key); r.castTime = r.castTime - (c.finish - S.t)
       S.busyUntil = S.t; scheduleDecide(max(S.t, S.gcdReady)); return
     end
     -- A priority channel in a timeline gap ends when the next timeline entry is due.
     if TL and TL.i <= #TL.list and TL.list[TL.i].t <= S.t + EPS and not c.tl then
-      if c.eurekaHeld then eurekaRelease() end
       S.channel = nil; res.clipped = res.clipped + 1
       local r = row(ev.key); r.castTime = r.castTime - (c.finish - S.t)
       S.busyUntil = S.t; scheduleDecide(S.t); return
@@ -1362,8 +1338,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       local idx = c.idx ~= nil and c.idx or indexOf(ROT, ev.key)
       local higher = pickAction(idx or (#ROT + 1))
       if higher then
-        if c.eurekaHeld then eurekaRelease() end
-        S.channel = nil; res.clipped = res.clipped + 1
+          S.channel = nil; res.clipped = res.clipped + 1
         local r = row(ev.key); r.castTime = r.castTime - (c.finish - S.t)
         S.busyUntil = S.t
         scheduleDecide(S.t)
@@ -1385,7 +1360,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     S.gcdReady = preGcd
     local r = row(PRE); r.casts = r.casts + 1; r.castTime = r.castTime + preGcd
     minManaCheck()
-    push({ t = SPELLS[PRE].projectile and TRAVEL or 0, o = -1, type = 'castEnd', key = PRE, eureka = 1, baseMult = 1, target = 0 })
+    push({ t = SPELLS[PRE].projectile and TRAVEL or 0, o = -1, type = 'castEnd', key = PRE, baseMult = 1, target = 0 })
     decideToken = decideToken + 1
     push({ t = preGcd + LAT, o = 2, type = 'decide', token = decideToken })
   else scheduleDecide(0) end
@@ -1418,8 +1393,8 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       end
     elseif ty == 'castEnd' then
       if not ev.dead then                                  -- pushed back: a later copy of this event lands it
-        if not land(ev.key, ev.eureka, ev.baseMult, ev.target) and ev.tl and TL then TL.turn = true end
-        if ev.eurekaHeld then eurekaRelease() end
+        local fin = ev.t - ((SPELLS[ev.key].projectile and TRAVEL > EPS) and TRAVEL or 0)   -- when the cast finished (a projectile flies on)
+        if not land(ev.key, eurekaAt(ev.key, fin), ev.baseMult, ev.target) and ev.tl and TL then TL.turn = true end
       end
     elseif ty == 'chanTick' then
       chanTick(ev)
@@ -1440,8 +1415,6 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     elseif ty == 'mana' then
       local before = S.mana
       S.mana = min(stats.maxMana, S.mana + ev.amount); res.manaFromBuffs = (res.manaFromBuffs or 0) + (S.mana - before)
-    elseif ty == 'eurekaEnd' then
-      if ev.pop == cds.racial and eurekaUp() then S.eurekaCharges = 0; S.eurekaPending = 0 end
     elseif ty == 'summonEnd' then
       finishSummon(ev.to)
     elseif ty == 'sacTick' then
@@ -1457,7 +1430,6 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     elseif ty == 'chanEnd' then
       local ch = S.channel
       if ch and ch.inst == ev.inst and not (ch.finish > S.t + EPS) then
-        if ch.eurekaHeld then eurekaRelease() end
         S.channel = nil
       end
     end
