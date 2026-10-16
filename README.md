@@ -4,6 +4,9 @@ A Warlock DPS simulator **inside the game**, for World of Warcraft: Forever. It 
 demon and the spell numbers on your character sheet — plays a few hundred fights in the background and shows your DPS,
 what each spell contributes and what each stat is worth to you.
 
+**Download it on [CurseForge](https://www.curseforge.com/wow/addons/xns-warlock-sim)** (or from the
+[Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases) here).
+
 > Built for the WoW: Forever beta client (interface 16001). What changed in each version:
 > [changelog](CHANGELOG.md).
 
@@ -24,12 +27,14 @@ practise its priority list in Forever Warlocking — it reads the same build and
 
 ## Install
 
-1. Download `WarlockSim-x.y.z.zip` from the newest entry on the
+1. Install it from [CurseForge](https://www.curseforge.com/wow/addons/xns-warlock-sim) (with the CurseForge app, or
+   download the file there), or download `WarlockSim-x.y.z.zip` from the newest entry on the
    [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 2. Unzip it into `World of Warcraft\_classic_beta_\Interface\AddOns`, so that there is a folder `AddOns\WarlockSim`.
-   (To update, unzip over the old folder.)
+   (To update, unzip over the old folder. The CurseForge app does this step for you.)
 3. Restart the game and tick **Xn's Warlock Sim** in the AddOns list.
-4. Type `/wsim` or click the minimap button to open the window; Escape closes it. Key bindings for opening it and for simming your\n   character are in the game's Key Bindings, under AddOns.
+4. Type `/wsim` or click the minimap button to open the window; Escape closes it. Key bindings for opening it and for simming your
+   character are in the game's Key Bindings, under AddOns.
 
 ## What it does
 
