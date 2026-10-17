@@ -43,16 +43,16 @@ if ${haveRef ? 'true' : 'false'} then
   check('Forever wording', (WL.itemStats(nil, { '+12 Intellect', '+7 Spirit', '-3 Agility', 'Equip: Increases spell power by 30.', 'Equip: Improves spell hit by 1.5%.',
     'Equip: Improves spell critical strike by 28.', 'Equip: Increases your haste by 2%.', 'Equip: Increases shadow damage done by up to 21.', 'Equip: Increases fire damage done by up to 9.',
     'Equip: Increases spell piercing by 10.', 'Equip: Restores 5 mana per 5 sec.', 'Equip: Increases damage done by magical spells and effects by up to 1,200.' }, S, pct)),
-    { int = 12, spi = 7, agi = -3, sp = 1230, hit = 1.5, crit = 2, haste = 2, shadowSp = 21, fireSp = 9, pierce = 10, mp5 = 5 })
+    { int = 12, spi = 7, sp = 1230, hit = 1.5, crit = 2, haste = 2, shadowSp = 21, fireSp = 9, pierce = 10, mp5 = 5 })
   -- both sources say the same thing: counted once; the tooltip's percentage wins over the list's bare number
   check('list and tooltip together', (WL.itemStats({ ITEM_MOD_INTELLECT_SHORT = 12, ITEM_MOD_SPELL_POWER_SHORT = 30, ITEM_MOD_HIT_SPELL_RATING_SHORT = 1 },
     { '+12 Intellect', 'Equip: Increases spell power by 30.', 'Equip: Improves spell hit by 1%.' }, S, pct)), { int = 12, sp = 30, hit = 1 })
 end
 -- a swap: gear + new - old, Intellect also moves the sheet's crit
 local cfg = WL.copy(WL.DEFAULT_CONFIG)
-local g, d = WL.gearWithSwap({ sp = 500, shadowSp = 0, fireSp = 0, hitPct = 5, critPct = 10, hastePct = 0, pierce = 0, agi = 0, int = 148, spi = 54, sta = 160, mp5 = 0 },
+local g, d = WL.gearWithSwap({ sp = 500, shadowSp = 0, fireSp = 0, hitPct = 5, critPct = 10, hastePct = 0, pierce = 0, int = 148, spi = 54, sta = 160, mp5 = 0 },
   { sp = 30, int = 12, hit = 1 }, { { sp = 10, sta = 8 }, { crit = 1, int = 6 } }, cfg)
-check('gear after a swap', g, { sp = 520, shadowSp = 0, fireSp = 0, hitPct = 6, critPct = 10 - 1 + 6 / 60, hastePct = 0, pierce = 0, agi = 0, int = 154, spi = 54, sta = 152, mp5 = 0 })
+check('gear after a swap', g, { sp = 520, shadowSp = 0, fireSp = 0, hitPct = 6, critPct = 10 - 1 + 6 / 60, hastePct = 0, pierce = 0, int = 154, spi = 54, sta = 152, mp5 = 0 })
 n = n + 1; local text = WL.describeStats(d, true)
 if text ~= '+20 spell power, +1% hit, -1% crit, +6 Intellect, -8 Stamina' then bad[#bad + 1] = 'difference text: ' .. text end
 n = n + 1; if WL.describeStats({}, true) ~= 'nothing the sim counts' then bad[#bad + 1] = 'empty difference text' end
@@ -67,7 +67,8 @@ ench('spell damage', '+30 Spell Damage and Healing', { sp = 30 }, true)
 ench('spell power after', 'Spell Power +18', { sp = 18 }, true)
 ench('two parts', '+18 Spell Damage and Healing / +1% Spell Hit', { sp = 18, hit = 1 }, true)
 ench('mana regen', 'Mana Regen 4 per 5 sec.', { mp5 = 4 }, true)
-ench('all stats', '+4 All Stats', { int = 4, spi = 4, sta = 4, agi = 4 }, true)
+ench('all stats', '+4 All Stats', { int = 4, spi = 4, sta = 4 }, true)
+ench('agility: read, counts as nothing', '+7 Agility', {}, true)
 ench('shadow', '+20 Shadow Spell Damage', { shadowSp = 20 }, true)
 ench('crit rating', '+14 Spell Critical Strike Rating', { crit = 1 }, true)
 ench('healing only', '+24 Healing Spells', {}, false)

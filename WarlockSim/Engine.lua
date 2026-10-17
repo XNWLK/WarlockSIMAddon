@@ -249,10 +249,7 @@ function WL.computeStats(build, raceKey, cfg)
   if staPct ~= 0 then add('sta', 'Demonic Embrace', staFlat * staPct / 100) end
   if kingsPct ~= 0 then add('sta', 'Blessing of Kings', sta - staFlat * (1 + staPct / 100)) end
 
-  local agiFlat = add('agi', 'Base (level 60 Warlock)', base.agi or 0) + add('agi', race.name, race.offset.agi or 0)
-          + add('agi', 'Gear', gear.agi or 0) + buffStat('agi') + conStat('agi')
-  local agi = agiFlat * (1 + kingsPct / 100)
-  if kingsPct ~= 0 then add('agi', 'Blessing of Kings', agi - agiFlat) end
+  -- Agility: none (demons crit with your spell crit only, so it does nothing).
 
   -- Pools
   local manaFlat = base.mana + 20 + cb.manaPerInt * (int - 20)
@@ -301,14 +298,6 @@ function WL.computeStats(build, raceKey, cfg)
     if rc then critPct = critPct + add('critPct', rc.name, rc.value) end
   end
 
-  -- Melee crit: 2.0% + Agility / 20 + Ruthless / Savage; no spell-crit sources.
-  local agiPer = cb.agiPerMeleeCrit
-  if not agiPer or agiPer == 0 then agiPer = 20 end
-  local meleeCritPct = add('meleeCritPct', 'Base (level 60 Warlock)', cb.meleeCritBasePct ~= nil and cb.meleeCritBasePct or 2)
-                   + add('meleeCritPct', 'Agility', agi / agiPer)
-  local rcM = racial('critPct')
-  if rcM then meleeCritPct = meleeCritPct + add('meleeCritPct', rcM.name, rcM.value) end
-
   -- Haste, Spell Pierce, MP5
   local hastePct = add('hastePct', 'Gear', gear.hastePct or 0)
                + add('hastePct', 'Stat-weight test', ex.hastePct or 0)
@@ -330,7 +319,7 @@ function WL.computeStats(build, raceKey, cfg)
   local oilNames = {}
   for i = 1, #oils do oilNames[i] = oils[i].name end
   return {
-    race = raceKey, int = int, spi = spi, sta = sta, agi = agi, meleeCritPct = meleeCritPct, maxMana = maxMana, maxHealth = maxHealth,
+    race = raceKey, int = int, spi = spi, sta = sta, maxMana = maxMana, maxHealth = maxHealth,
     sp = sp, dkSp = dkSp, schoolSp = schoolSp, hitPct = hitPct, hitPctUncapped = hitRaw, critPct = critPct, hastePct = hastePct, mp5 = mp5, pierce = pierce,
     mult = mult, petActive = petActive, sacrificeActive = sacrificeActive,
     oilName = #oils > 0 and table.concat(oilNames, ' + ') or WL.OILS.none.name, breakdown = bd,
@@ -358,7 +347,9 @@ function WL.buildSpellTable(build, stats, cfg)
       e.cd = s.cd or 0
       if key == 'soulFire' and tv('decimation') ~= 0 then e.cd = s.cd * (1 - tv('decimation', 'sfCdRedPct') / 100) end
 
-      e.range = (s.range and s.range ~= 0) and roundTo(s.range * (1 + tv('destructiveReach', 'rangePct') / 100), 100) or 0
+      -- Destructive Reach: Destruction spells, Grim Reach: Affliction spells (never both on one spell).
+      local reach = s.tree == 'destruction' and tv('destructiveReach', 'rangePct') or s.tree == 'affliction' and tv('grimReach', 'rangePct') or 0
+      e.range = (s.range and s.range ~= 0) and roundTo(s.range * (1 + reach / 100), 100) or 0
       if s.radius then e.radius = s.radius end
 
       e.cost = s.cost or 0

@@ -8,7 +8,7 @@ WL.EXPECTED = { fights = {
   { build = "demo_pact_fire", race = "orc", i = 0, total = 82102.42217935565 },
   { build = "demo_pact_fire", race = "troll", i = 1, total = 87066.76132489288 },
   { build = "destro_incin_succ", race = "undead", i = 0, total = 77313.51603238167 },
-  { build = "destro_incin_succ", race = "human", i = 1, total = 75913.51497305969 },
+  { build = "destro_incin_succ", race = "human", i = 1, total = 76205.02467922751 },
   { build = "destro_incin_imp", race = "troll", i = 0, total = 71694.5190855 },
   { build = "destro_incin_imp", race = "gnome", i = 1, total = 78899.18391399998 },
   { build = "sm_ruin_classic", race = "human", i = 0, total = 75847.76040857575 },

@@ -36,7 +36,7 @@ const scenes = [
   S('pushback', [['fight.hitEvery', 2], ['buffs.concentrationAura.on', true]]),
   S('precast soul fire, pull', [['fight.precast', 'soulFire'], ['options.activesPolicy', 'pull']]),
   S('precast shadow bolt, execute', [['fight.precast', 'shadowBolt'], ['options.activesPolicy', 'execute']]),
-  S('grace of air + salvation', [['buffs.graceOfAir.on', true], ['buffs.blessingOfSalvation.on', true]]),
+  S('salvation, high crit', [['buffs.blessingOfSalvation.on', true], ['gear.critPct', 25]], { builds: ['demo_pact_succ_sb', 'wrack_succubus', 'destro_incin_imp'] }),
   S('every race, pushback', [['fight.hitEvery', 1.5]], { builds: ['demo_pact_fire', 'wrack_succubus', 'destro_incin_imp'] }),
   S('mana buffs + potions', [['buffs.manaTide.on', true], ['buffs.innervate.on', true], ['buffs.powerInfusion.on', true], ['buffs.manaSpring.on', true], ['buffs.restorativeTotems.on', true],
     ['consumables.majorManaPotion.on', true], ['gear.int', 20], ['gear.spi', 0], ['fight.duration', 240]]),
@@ -111,20 +111,22 @@ scenes.filter(s => !ONLY || s.name.indexOf(ONLY) >= 0).forEach(sc => {
 // stats and spell tables for every build and race at the defaults
 let tableBad = 0;
 host.run('CHK.setScene({})');
-builds.forEach(b => {
+// plus one character with both range talents (Destructive Reach: Destruction spells, Grim Reach: Affliction spells)
+const reach = Object.assign({}, builds[0], { key: 'both_reach_talents', talents: Object.assign({}, builds[0].talents, { destructiveReach: 2, grimReach: 2 }) });
+builds.concat([reach]).forEach(b => {
   host.run('CHK.setBuild(' + toLua(b) + ')');
   RACES.forEach(race => {
     const stats = WL.computeStats(b, race, WL.DEFAULT_CONFIG), table = WL.buildSpellTable(b, stats, WL.DEFAULT_CONFIG);
     const o = JSON.parse(host.eval('return CHK.table("' + race + '")'));
-    ['int', 'spi', 'sta', 'agi', 'maxMana', 'maxHealth', 'sp', 'hitPct', 'critPct', 'meleeCritPct', 'hastePct', 'mp5', 'pierce'].forEach(k => { if (!near(stats[k], o.stats[k])) { tableBad++; if (!firstBad) firstBad = 'stats ' + b.key + ' ' + race + ' ' + k + ': sim ' + stats[k] + ' addon ' + o.stats[k]; } });
-    Object.keys(table).forEach(k => ['cast', 'cd', 'cost', 'sp', 'critPct', 'critMult', 'directMult', 'periodicMult', 'ticks'].forEach(f => {
+    ['int', 'spi', 'sta', 'maxMana', 'maxHealth', 'sp', 'hitPct', 'critPct', 'hastePct', 'mp5', 'pierce'].forEach(k => { if (!near(stats[k], o.stats[k])) { tableBad++; if (!firstBad) firstBad = 'stats ' + b.key + ' ' + race + ' ' + k + ': sim ' + stats[k] + ' addon ' + o.stats[k]; } });
+    Object.keys(table).forEach(k => ['cast', 'cd', 'range', 'cost', 'sp', 'critPct', 'critMult', 'directMult', 'periodicMult', 'ticks'].forEach(f => {
       const a = table[k][f], bb = o.table[k] && o.table[k][f];
       if (a !== undefined && !near(a, bb)) { tableBad++; if (!firstBad) firstBad = 'spell table ' + b.key + ' ' + race + ' ' + k + '.' + f + ': sim ' + a + ' addon ' + bb; }
     }));
     if (Object.keys(table).length !== Object.keys(o.table).length) { tableBad++; if (!firstBad) firstBad = 'spell table ' + b.key + ': different spells'; }
   });
 });
-console.log((tableBad ? 'FAIL ' : 'ok   ') + 'stats and spell tables: ' + builds.length * RACES.length + ' characters' + (tableBad ? ', ' + tableBad + ' values differ' : ''));
+console.log((tableBad ? 'FAIL ' : 'ok   ') + 'stats and spell tables: ' + (builds.length + 1) * RACES.length + ' characters' + (tableBad ? ', ' + tableBad + ' values differ' : ''));
 
 console.log('');
 console.log(host.limits());

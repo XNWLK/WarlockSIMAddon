@@ -199,7 +199,7 @@ const gearCode = step('gear code: what you wear, for the website\'s gear builder
   assert.strictEqual(head.id, 1009); assert.strictEqual(head.quality, '4' === '4' ? 'epic' : '', 'quality');
   assert.deepStrictEqual(JSON.parse(JSON.stringify(chest)), { name: 'Robe of Tests', slot: 'chest', stats: { int: 20, hitPct: 1 }, id: 1008, quality: 'epic' }, 'a robe: chest, its own stats without the enchant');
   assert.strictEqual(main.weapon, 'sword'); assert.strictEqual(main.slot, 'mainHand');
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(g.enchants.chest.custom)), { name: '+4 All Stats', stats: { int: 4, spi: 4, sta: 4, agi: 4 }, id: 1891 }, 'the robe\'s enchant');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(g.enchants.chest.custom)), { name: '+4 All Stats', stats: { int: 4, spi: 4, sta: 4 }, id: 1891 }, 'the robe\'s enchant');
   assert.deepStrictEqual(JSON.parse(JSON.stringify(g.enchants.head.custom.stats)), { sp: 18, hitPct: 1 }, 'the head enchant: what could be read');
   assert(!g.enchants.finger1, 'a ring enchant is not sent (rings take none on the website)');
   assert.strictEqual(g.ignored.length, 0, 'the website ignores nothing: ' + g.ignored.join(', '));

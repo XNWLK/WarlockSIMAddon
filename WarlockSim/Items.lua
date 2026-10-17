@@ -9,7 +9,7 @@ local copy = WL.copy
 -- its key; the tooltip shows the text stored under the name itself, e.g. "Improves spell hit by %s.".
 -- `rating`: the number may be a rating or a percentage (see WL.itemStats).
 local ITEM_STATS = {
-  { 'int', 'ITEM_MOD_INTELLECT' }, { 'spi', 'ITEM_MOD_SPIRIT' }, { 'sta', 'ITEM_MOD_STAMINA' }, { 'agi', 'ITEM_MOD_AGILITY' },
+  { 'int', 'ITEM_MOD_INTELLECT' }, { 'spi', 'ITEM_MOD_SPIRIT' }, { 'sta', 'ITEM_MOD_STAMINA' },
   { 'sp', 'ITEM_MOD_SPELL_POWER' }, { 'sp', 'ITEM_MOD_SPELL_DAMAGE_DONE' },
   { 'shadowSp', 'ITEM_MOD_SHADOW_DAMAGE_DONE' }, { 'fireSp', 'ITEM_MOD_FIRE_DAMAGE_DONE' },
   { 'hit', 'ITEM_MOD_HIT_SPELL_RATING', rating = true }, { 'hit', 'ITEM_MOD_HIT_RATING', rating = true },
@@ -29,9 +29,9 @@ local CLASSIC_LINES = {
   { 'pierce', 'Decreases the magical resistances of your spell targets by (%d+)' },
 }
 local RATING = { hit = true, crit = true, haste = true }
-WL.ITEM_STAT_ORDER = { 'sp', 'shadowSp', 'fireSp', 'hit', 'crit', 'haste', 'int', 'spi', 'sta', 'agi', 'mp5', 'pierce' }
+WL.ITEM_STAT_ORDER = { 'sp', 'shadowSp', 'fireSp', 'hit', 'crit', 'haste', 'int', 'spi', 'sta', 'mp5', 'pierce' }
 local STAT_WORDS = { sp = ' spell power', shadowSp = ' Shadow power', fireSp = ' Fire power', hit = '% hit', crit = '% crit', haste = '% haste',
-                     int = ' Intellect', spi = ' Spirit', sta = ' Stamina', agi = ' Agility', mp5 = ' mana per 5 s', pierce = ' Spell Pierce' }
+                     int = ' Intellect', spi = ' Spirit', sta = ' Stamina', mp5 = ' mana per 5 s', pierce = ' Spell Pierce' }
 
 -- Where an item goes: the game's "equip location" -> inventory slot numbers (two for rings and trinkets).
 WL.ITEM_SLOTS = {
@@ -135,16 +135,17 @@ end
 -- after "Enchanted:", e.g. "+8 Intellect", "+30 Spell Damage and Healing", "Spell Power +18",
 -- "+18 Spell Damage and Healing / +1% Spell Hit", "Mana Regen 4 per 5 sec.". Each part (split at "/" and ",") is read in
 -- the game's own item wording first, then by its words. Returns the stats and whether every part was understood.
+-- Agility is understood and gives nothing (demons crit with your spell crit only).
 local function enchantWords(p, toPct)
   local n, pct = p:match('(%d+%.?%d*)(%%?)')
   n = tonumber(n)
-  if not n then return {} end
+  if not n then return {}, false end
   local lp = p:lower()
   local w = lp:gsub('%d+%.?%d*%%?', ' ')
   local function has(x) return w:find(x, 1, true) ~= nil end
   local function rated(k) return pct == '%' and n or (toPct and toPct(k, n) or n) end
   local s = {}
-  if has('all stats') or has('all attributes') then s.int, s.spi, s.sta, s.agi = n, n, n, n
+  if has('all stats') or has('all attributes') then s.int, s.spi, s.sta = n, n, n
   elseif has('penetration') then s.pierce = n
   elseif has('mana') and (lp:find('per 5', 1, true) or lp:find('every 5', 1, true) or has('regen')) then s.mp5 = n
   elseif has('hit') then s.hit = rated('hit')
@@ -155,8 +156,8 @@ local function enchantWords(p, toPct)
   elseif has('intellect') then s.int = n
   elseif has('spirit') then s.spi = n
   elseif has('stamina') then s.sta = n
-  elseif has('agility') then s.agi = n end
-  return s
+  elseif has('agility') then return s, true end
+  return s, next(s) ~= nil
 end
 function WL.enchantStats(text, strings, toPct)
   local stats, understood = {}, true
@@ -164,8 +165,9 @@ function WL.enchantStats(text, strings, toPct)
     local p = part:gsub('|c%x%x%x%x%x%x%x%x', ''):gsub('|r', ''):gsub('^%s+', ''):gsub('%s+$', '')
     if p ~= '' then
       local s = WL.itemStats(nil, { p }, strings, toPct)
-      if next(s) == nil then s = enchantWords(p, toPct) end
-      if next(s) == nil then understood = false end
+      local known = next(s) ~= nil
+      if not known then s, known = enchantWords(p, toPct) end
+      if not known then understood = false end
       for k, v in pairs(s) do stats[k] = (stats[k] or 0) + v end
     end
   end
@@ -183,7 +185,7 @@ function WL.gearWithSwap(gear, new, olds, cfg)
     d[k] = v
   end
   g.sp = (g.sp or 0) + d.sp; g.shadowSp = (g.shadowSp or 0) + d.shadowSp; g.fireSp = (g.fireSp or 0) + d.fireSp
-  g.int = (g.int or 0) + d.int; g.spi = (g.spi or 0) + d.spi; g.sta = (g.sta or 0) + d.sta; g.agi = (g.agi or 0) + d.agi
+  g.int = (g.int or 0) + d.int; g.spi = (g.spi or 0) + d.spi; g.sta = (g.sta or 0) + d.sta
   g.hitPct = (g.hitPct or 0) + d.hit
   g.critPct = (g.critPct or 0) + d.crit + d.int * cfg.combat.critPerInt
   g.hastePct = (g.hastePct or 0) + d.haste

@@ -3,6 +3,16 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.9.1
+
+- Your demon's melee now crits with your spell crit, and only with that (the same as its spells). Before, it had a
+  crit of its own plus a melee crit from your Agility.
+- Agility no longer does anything, so it is gone: Grace of Air Totem and Scroll of Agility IV are no longer on the Buffs
+  tab, and Agility on items and enchants is not counted (an Agility enchant is no longer called unreadable). Old settings
+  codes with them load without a notice.
+- After updating, your character is read again once and the numbers on the character sheet are worked out again.
+- The addon now names its CurseForge page as its website, for addon managers.
+
 ## v0.9.0
 
 - Follows the Forever patch of 2026-10-16:

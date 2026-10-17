@@ -33,9 +33,7 @@ local BUFF_NAMES = {
   blessingOfSalvation = { 'Salvation', 'Blessing of Salvation', 'Greater Blessing of Salvation' },
   concentrationAura = { 'Concentration Aura' },
   manaSpring = { 'Mana Spring', 'Mana Spring Totem' },
-  graceOfAir = { 'Grace of Air', 'Grace of Air Totem' },
   moonkinAura = { 'Moonkin Aura', 'Moonkin Form' },
-  scrollOfAgility = { 'Agility' },
 }
 
 local function spellName(id)
@@ -137,7 +135,7 @@ function WL.readCharacter()
 
   -- the character sheet
   local sheet = {}
-  local STAT = { agi = 2, sta = 3, int = 4, spi = 5 }
+  local STAT = { sta = 3, int = 4, spi = 5 }
   for k, i in pairs(STAT) do
     local base, eff = try(UnitStat, 'player', i)
     sheet[k] = num(eff) or num(base)

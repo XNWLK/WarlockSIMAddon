@@ -9,14 +9,14 @@ local copy, indexOf = WL.copy, WL.indexOf
 
 local function round4(x) return math.floor(x * 10000 + 0.5) / 10000 end
 
--- sheet: { int, spi, sta, agi, sp, spShadow, spFire, hit, crit, haste, mp5, pierce } - totals read off the character.
+-- sheet: { int, spi, sta, sp, spShadow, spFire, hit, crit, haste, mp5, pierce } - totals read off the character.
 -- state: { raceKey, talents, pet, sacrifice, buffs = { buffKey = true }, hitHasSuppression } - as it was while reading.
 function WL.gearFromSheet(sheet, state)
   local cfg = copy(WL.DEFAULT_CONFIG)
   for k, b in pairs(cfg.buffs) do b.on = state.buffs and state.buffs[k] and true or false end
   for _, c in pairs(cfg.consumables) do c.on = false end
   local g = { name = 'From your character', sp = 0, shadowSp = 0, fireSp = 0, hitPct = 0, critPct = 0, critIncludesAll = false, hastePct = 0,
-              pierce = 0, agi = 0, int = 0, spi = 0, sta = 0, mp5 = 0 }
+              pierce = 0, int = 0, spi = 0, sta = 0, mp5 = 0 }
   cfg.gear = g
   cfg.extra = {}
   local build = { talents = state.talents or {}, pet = state.pet, sacrifice = state.sacrifice, oil = 'none', rotation = {} }
@@ -32,7 +32,6 @@ function WL.gearFromSheet(sheet, state)
   solve('int', function(s) return s.int end, sheet.int or 0)
   solve('spi', function(s) return s.spi end, sheet.spi or 0)
   solve('sta', function(s) return s.sta end, sheet.sta or 0)
-  solve('agi', function(s) return s.agi end, sheet.agi or 0)
   solve('sp', function(s) return s.sp end, sheet.sp or 0)
   g.shadowSp = math.max(0, round4((sheet.spShadow or sheet.sp or 0) - (sheet.sp or 0)))
   g.fireSp = math.max(0, round4((sheet.spFire or sheet.sp or 0) - (sheet.sp or 0)))

@@ -1041,7 +1041,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     r.casts = r.casts + 1
     local hitBonus = max(0, stats.hitPct - cb.baseHitPct - tb.hitSuppressionPct)
     local miss = max(0, tb.missPct - hitBonus)
-    local critCh = max(0, m.critPct + (m.inheritMeleeCrit and stats.meleeCritPct or 0) - tb.critSuppressionPct)
+    local critCh = max(0, (m.critPct or 0) + (m.inheritSpellCrit and stats.critPct or 0) - tb.critSuppressionPct)
     if roll >= miss + tb.dodgePct then
       r.landed = r.landed + 1
       jowProc(true)

@@ -56,7 +56,7 @@ builds.forEach(b => {
 // codes made before the patch of 2026-10-16: the removed totems and the sword box load quietly, Malediction moves to Grim Reach
 {
   const snap = norm(WL.settingsSnapshot(norm(WL.DEFAULT_CONFIG)));
-  snap.buffs = snap.buffs.concat(['windfuryTotem', 'flametongueTotem', 'tranquilAir']); snap.gear.weaponIsSword = true;
+  snap.buffs = snap.buffs.concat(['windfuryTotem', 'flametongueTotem', 'tranquilAir', 'graceOfAir', 'scrollOfAgility']); snap.gear.weaponIsSword = true; snap.gear.agi = 17;
   const r = host.eval('local o = WLX.decodeSettings(' + q('WFS1:' + b64(JSON.stringify(snap))) + '); local c = WLX.copy(WLX.DEFAULT_CONFIG); return #WLX.applySettings(c, o)');
   assert.strictEqual(r, 0, 'old settings code: names reported as unknown'); n++;
   const old = { v: 1, short: 'Old', talents: Object.assign(norm(WL.BUILDS[0].talents), { malediction: 5 }), pet: WL.BUILDS[0].pet, sacrifice: WL.BUILDS[0].sacrifice || null, oil: WL.BUILDS[0].oil, rotation: WL.BUILDS[0].rotation };
