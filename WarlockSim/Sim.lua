@@ -690,7 +690,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   end
   local function periodicTickX(ti, key, snap, i)
     local s, e, rk = SPELLS[key], tbl[key], xkey(ti, key)
-    local amt = (s.tickBase * (snap.baseMult or 1) + s.tickCoef * spNow(e)) * e.periodicMult * liveMultX(key, ti, true)
+    local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * liveMultX(key, ti, true) * (snap.castMult or 1)
     if s.ramp then amt = amt * s.ramp[i + 1] end
     amt = amt * vulnMult(s.school, ti)
     local crit = Rcrit() * 100 < e.critPct
@@ -700,7 +700,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   end
   local makeSnap, touchOfTheGrave, jowProc               -- defined below
   local P = nil                                          -- the pet
-  local function landExtra(key, eureka, baseMult, ti)
+  local function landExtra(key, eureka, castMult, ti)
     local s, e, rk = SPELLS[key], tbl[key], xkey(ti, key)
     local r = row(rk)
     if Rhit() * 100 >= stats.hitPct then r.misses = r.misses + 1; return false end
@@ -721,17 +721,17 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       deal(rk, amt, crit, false, ti)
       if key == 'shadowBolt' and crit and tv('improvedShadowBolt') ~= 0 then xdeb[ti].isb = S.t + 12 end
     end
-    if s.kind ~= 'direct' then applyDotX(ti, key, makeSnap(baseMult)) end
+    if s.kind ~= 'direct' then applyDotX(ti, key, makeSnap(castMult)) end
     touchOfTheGrave(ti)
     return true
   end
 
-  -- baseMult scales only the spell's base value, not its spell-power part (Amplify Curse).
-  makeSnap = function(baseMult) return { baseMult = baseMult or 1 } end
+  -- castMult multiplies every tick of this cast as a whole (Amplify Curse).
+  makeSnap = function(castMult) return { castMult = castMult or 1 } end
 
   local function periodicTick(key, snap, i)
     local s, e = SPELLS[key], tbl[key]
-    local amt = (s.tickBase * (snap.baseMult or 1) + s.tickCoef * spNow(e)) * e.periodicMult * liveMult(key, true)
+    local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * liveMult(key, true) * (snap.castMult or 1)
     if s.ramp then amt = amt * s.ramp[i + 1] end
     amt = amt * vulnMult(s.school)
     local crit = Rcrit() * 100 < e.critPct
@@ -759,8 +759,8 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   end
 
   -- Direct-damage landing (cast finished or instant). Returns true if it hit.
-  local function land(key, eureka, baseMult, target)
-    if (target or 0) > 1 then return landExtra(key, eureka, baseMult, target) end
+  local function land(key, eureka, castMult, target)
+    if (target or 0) > 1 then return landExtra(key, eureka, castMult, target) end
     local s, e, r = SPELLS[key], tbl[key], bySpell[key] or row(key)
     if Rhit() * 100 >= stats.hitPct then r.misses = r.misses + 1; return false end
     r.landed = r.landed + 1
@@ -769,7 +769,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       jowProc(false)
       return true
     end
-    if s.kind == 'dot' then applyDot(key, makeSnap(baseMult)); touchOfTheGrave(); jowProc(false); return true end
+    if s.kind == 'dot' then applyDot(key, makeSnap(castMult)); touchOfTheGrave(); jowProc(false); return true end
     -- direct or hybrid
     local sp = spNow(e)
     local amt = (s.base + s.coef * sp) * e.directMult * liveMult(key, false) * (eureka and eurekaMult(key, false) or 1)
@@ -795,7 +795,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       buffs.snfFire = S.t + 20
       if Rproc() * 100 < tv('shadowAndFlame', 'procPct') then S.shards = S.shards + 1 end
     end
-    if s.kind == 'hybrid' then applyDot(key, makeSnap(baseMult)) end
+    if s.kind == 'hybrid' then applyDot(key, makeSnap(castMult)) end
     touchOfTheGrave()
     jowProc(false)
     return true
@@ -886,10 +886,10 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if paid > 0 then
       if castT > EPS and s.kind ~= 'channel' then S.spendAt = S.t + castT else S.lastSpend = S.t end
     end
-    -- Amplify Curse: off the GCD, next Bane of Agony +50% of its base value; 3 min cooldown.
-    local baseMult = 1
+    -- Amplify Curse: off the GCD, next Bane of Agony +50% (its final tick value after all calculations x 1.5); 3 min cooldown.
+    local castMult = 1
     if key == 'baneOfAgony' and tv('amplifyCurse') ~= 0 and ready('amplifyCurse') and slotGate('amplifyCurse') ~= 0 then
-      baseMult = 1 + tv('amplifyCurse', 'boaPct') / 100; cds.amplifyCurse = S.t + 180; slotUsed('amplifyCurse')
+      castMult = 1 + tv('amplifyCurse', 'boaPct') / 100; cds.amplifyCurse = S.t + 180; slotUsed('amplifyCurse')
     end
     if s.shards and not (key == 'soulFire' and buff('decimation')) then S.shards = S.shards - s.shards end
     if key == 'soulFire' and buff('decimation') then buffs.decimation = nil end
@@ -921,7 +921,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     elseif castT > EPS then
       S.busyUntil = S.t + castT; S.gcdReady = S.t + gcdT
       rr.castTime = rr.castTime + castT
-      local ce = { t = S.busyUntil + (s.projectile and TRAVEL or 0), o = 1, type = 'castEnd', key = key, baseMult = baseMult, target = target, tl = fromTL }
+      local ce = { t = S.busyUntil + (s.projectile and TRAVEL or 0), o = 1, type = 'castEnd', key = key, castMult = castMult, target = target, tl = fromTL }
       push(ce)
       S.cast = { key = key, rk = rk, full = castT, finish = S.busyUntil, ev = ce, n = 0 }
       scheduleDecide(max(S.busyUntil, S.gcdReady))
@@ -929,9 +929,9 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       S.busyUntil = S.t; S.gcdReady = S.t + gcdT
       rr.castTime = rr.castTime + gcdT
       if s.projectile and TRAVEL > EPS then
-        push({ t = S.t + TRAVEL, o = 1, type = 'castEnd', key = key, baseMult = baseMult, target = target, tl = fromTL })
+        push({ t = S.t + TRAVEL, o = 1, type = 'castEnd', key = key, castMult = castMult, target = target, tl = fromTL })
       else
-        if not land(key, eurekaAt(key, S.t), baseMult, target) and fromTL then TL.turn = true end
+        if not land(key, eurekaAt(key, S.t), castMult, target) and fromTL then TL.turn = true end
       end
       scheduleDecide(S.gcdReady)
     end
@@ -1170,8 +1170,8 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local fRate = f and expCast(f, 0, key == 'immolate') / (occupies(f) + LAT) or 0
     local cost = (occupies(key) + LAT) * fRate
     local finish, g, value = min(dur, tL + s.duration), gcd(), 0
-    local baseMult = (key == 'baneOfAgony' and tv('amplifyCurse') ~= 0 and ready('amplifyCurse') and slotGate('amplifyCurse') ~= 0) and 1 + tv('amplifyCurse', 'boaPct') / 100 or 1
-    local tickAmt = (s.tickBase * baseMult + s.tickCoef * spNow(e)) * e.periodicMult * lmult(key, ti, true) * expVuln(s.school, ti) * expCrit(e.critPct, e.critMult)
+    local castMult = (key == 'baneOfAgony' and tv('amplifyCurse') ~= 0 and ready('amplifyCurse') and slotGate('amplifyCurse') ~= 0) and 1 + tv('amplifyCurse', 'boaPct') / 100 or 1
+    local tickAmt = (s.tickBase + s.tickCoef * spNow(e)) * castMult * e.periodicMult * lmult(key, ti, true) * expVuln(s.school, ti) * expCrit(e.critPct, e.critMult)
     if f == 'wrack' and WRACK_SET[key] then tickAmt = tickAmt * (1 + SPELLS.wrack.debuffPct / 100) end
     local hit, tConf, keep = hitChance(), huge, 1
     local cfx = indexOf(ROT, 'conflagrateExpire') ~= nil and indexOf(ROT, 'conflagrate') == nil
@@ -1360,7 +1360,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     S.gcdReady = preGcd
     local r = row(PRE); r.casts = r.casts + 1; r.castTime = r.castTime + preGcd
     minManaCheck()
-    push({ t = SPELLS[PRE].projectile and TRAVEL or 0, o = -1, type = 'castEnd', key = PRE, baseMult = 1, target = 0 })
+    push({ t = SPELLS[PRE].projectile and TRAVEL or 0, o = -1, type = 'castEnd', key = PRE, castMult = 1, target = 0 })
     decideToken = decideToken + 1
     push({ t = preGcd + LAT, o = 2, type = 'decide', token = decideToken })
   else scheduleDecide(0) end
@@ -1394,7 +1394,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     elseif ty == 'castEnd' then
       if not ev.dead then                                  -- pushed back: a later copy of this event lands it
         local fin = ev.t - ((SPELLS[ev.key].projectile and TRAVEL > EPS) and TRAVEL or 0)   -- when the cast finished (a projectile flies on)
-        if not land(ev.key, eurekaAt(ev.key, fin), ev.baseMult, ev.target) and ev.tl and TL then TL.turn = true end
+        if not land(ev.key, eurekaAt(ev.key, fin), ev.castMult, ev.target) and ev.tl and TL then TL.turn = true end
       end
     elseif ty == 'chanTick' then
       chanTick(ev)

@@ -3,6 +3,12 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.9.2
+
+- Amplify Curse now makes your whole next Bane of Agony 50% stronger, its spell power part included. Before, it only
+  raised the spell's base damage.
+- After updating, your character is read again once and the numbers on the character sheet are worked out again.
+
 ## v0.9.1
 
 - Your demon's melee now crits with your spell crit, and only with that (the same as its spells). Before, it had a
