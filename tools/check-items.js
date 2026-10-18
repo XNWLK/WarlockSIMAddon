@@ -35,8 +35,10 @@ local st, unknown = WL.itemStats(nil, { 'Robe of Tests', 'Cloth', '+20 Stamina',
   'Equip: Improves your chance to hit with spells by 1%.', 'Equip: Improves your chance to get a critical strike with spells by 2%.', 'Equip: Restores 6 mana per 5 sec.',
   'Equip: Increases damage done by Shadow spells and effects by up to 19.', 'Equip: Decreases the magical resistances of your spell targets by 10.',
   'Use: Does something odd. (2 Min Cooldown)', 'Equip: Increases your pet\\'s happiness.', '"A flavour text."' }, S, pct)
-if ${haveRef ? 'true' : 'false'} then check('classic wording', st, { sta = 20, sp = 40, hit = 1, crit = 2, mp5 = 6, shadowSp = 19, pierce = 10 })
-else check('classic wording', st, { sp = 40, hit = 1, crit = 2, mp5 = 6, shadowSp = 19, pierce = 10 }) end
+if ${haveRef ? 'true' : 'false'} then check('classic wording', st, { sta = 20, sp = 40, hit = 1, crit = 2, mp5 = 6, shadowSp = 19, spellPen = 10 })
+else check('classic wording', st, { sp = 40, hit = 1, crit = 2, mp5 = 6, shadowSp = 19, spellPen = 10 }) end
+-- by the words: "Spell Penetration" is Spell Penetration, "spell piercing" (the client's ITEM_MOD_SPELL_PENETRATION) Spell Pierce
+check('spell penetration wording', (WL.itemStats(nil, { '+13 Spell Penetration', 'Equip: Increases your spell penetration by 7.' }, S, pct)), { spellPen = 20 })
 n = n + 1; if #unknown ~= 2 then bad[#bad + 1] = 'lines not understood: ' .. #unknown .. ' (' .. table.concat(unknown, ' | ') .. ')' end
 if ${haveRef ? 'true' : 'false'} then
   -- the Forever client's own wording, a percentage in the text is taken as it stands, a bare number as a rating
@@ -50,9 +52,9 @@ if ${haveRef ? 'true' : 'false'} then
 end
 -- a swap: gear + new - old, Intellect also moves the sheet's crit
 local cfg = WL.copy(WL.DEFAULT_CONFIG)
-local g, d = WL.gearWithSwap({ sp = 500, shadowSp = 0, fireSp = 0, hitPct = 5, critPct = 10, hastePct = 0, pierce = 0, int = 148, spi = 54, sta = 160, mp5 = 0 },
+local g, d = WL.gearWithSwap({ sp = 500, shadowSp = 0, fireSp = 0, hitPct = 5, critPct = 10, hastePct = 0, pierce = 0, spellPen = 0, int = 148, spi = 54, sta = 160, mp5 = 0 },
   { sp = 30, int = 12, hit = 1 }, { { sp = 10, sta = 8 }, { crit = 1, int = 6 } }, cfg)
-check('gear after a swap', g, { sp = 520, shadowSp = 0, fireSp = 0, hitPct = 6, critPct = 10 - 1 + 6 / 60, hastePct = 0, pierce = 0, int = 154, spi = 54, sta = 152, mp5 = 0 })
+check('gear after a swap', g, { sp = 520, shadowSp = 0, fireSp = 0, hitPct = 6, critPct = 10 - 1 + 6 / 60, hastePct = 0, pierce = 0, spellPen = 0, int = 154, spi = 54, sta = 152, mp5 = 0 })
 n = n + 1; local text = WL.describeStats(d, true)
 if text ~= '+20 spell power, +1% hit, -1% crit, +6 Intellect, -8 Stamina' then bad[#bad + 1] = 'difference text: ' .. text end
 n = n + 1; if WL.describeStats({}, true) ~= 'nothing the sim counts' then bad[#bad + 1] = 'empty difference text' end
@@ -68,6 +70,8 @@ ench('spell power after', 'Spell Power +18', { sp = 18 }, true)
 ench('two parts', '+18 Spell Damage and Healing / +1% Spell Hit', { sp = 18, hit = 1 }, true)
 ench('mana regen', 'Mana Regen 4 per 5 sec.', { mp5 = 4 }, true)
 ench('all stats', '+4 All Stats', { int = 4, spi = 4, sta = 4 }, true)
+ench('spell penetration', '+12 Spell Penetration', { spellPen = 12 }, true)
+ench('spell piercing', '+8 Spell Piercing', { pierce = 8 }, true)
 ench('agility: read, counts as nothing', '+7 Agility', {}, true)
 ench('shadow', '+20 Shadow Spell Damage', { shadowSp = 20 }, true)
 ench('crit rating', '+14 Spell Critical Strike Rating', { crit = 1 }, true)

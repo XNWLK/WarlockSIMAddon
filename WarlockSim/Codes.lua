@@ -217,7 +217,9 @@ function WL.settingsSnapshot(c)
   }
 end
 -- Gear codes ("WFG1:", the website's gear builder): the addon only makes them, from what you wear (ItemUI.lua, WL.gearCode).
--- { v = 1, items = { <slot key> = { id, name, slot, quality, weapon, stats } }, enchants = { <slot key> = { id, name, stats } } }
+-- { v = 1, items = { <slot key> = { id, name, slot, quality, weapon, stats, ilvl, req, icon or iconId, set, raw } },
+--   enchants = { <slot key> = { id, name, stats } }, bag = { { id, name, slot, ... as items } } (only when asked for) }
+-- raw = the stats as the game gives them, by its ITEM_MOD_* names; stats = the sim's Sheet (gear) names.
 WL.GEAR_CODE_PREFIX = 'WFG1:'
 function WL.encodeGear(o)
   return WL.GEAR_CODE_PREFIX .. WL.base64Encode(WL.jsonEncode(o))

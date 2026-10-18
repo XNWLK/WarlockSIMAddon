@@ -9,14 +9,15 @@ local copy, indexOf = WL.copy, WL.indexOf
 
 local function round4(x) return math.floor(x * 10000 + 0.5) / 10000 end
 
--- sheet: { int, spi, sta, sp, spShadow, spFire, hit, crit, haste, mp5, pierce } - totals read off the character.
+-- sheet: { int, spi, sta, sp, spShadow, spFire, hit, crit, haste, mp5, pierce, spellPen } - totals read off the character
+-- (spellPen: added up from the items worn).
 -- state: { raceKey, talents, pet, sacrifice, buffs = { buffKey = true }, hitHasSuppression } - as it was while reading.
 function WL.gearFromSheet(sheet, state)
   local cfg = copy(WL.DEFAULT_CONFIG)
   for k, b in pairs(cfg.buffs) do b.on = state.buffs and state.buffs[k] and true or false end
   for _, c in pairs(cfg.consumables) do c.on = false end
   local g = { name = 'From your character', sp = 0, shadowSp = 0, fireSp = 0, hitPct = 0, critPct = 0, critIncludesAll = false, hastePct = 0,
-              pierce = 0, int = 0, spi = 0, sta = 0, mp5 = 0 }
+              pierce = 0, spellPen = 0, int = 0, spi = 0, sta = 0, mp5 = 0 }
   cfg.gear = g
   cfg.extra = {}
   local build = { talents = state.talents or {}, pet = state.pet, sacrifice = state.sacrifice, oil = 'none', rotation = {} }
@@ -40,6 +41,7 @@ function WL.gearFromSheet(sheet, state)
   solve('hastePct', function(s) return s.hastePct end, sheet.haste or 0)
   solve('mp5', function(s) return s.mp5 end, sheet.mp5 or 0)
   solve('pierce', function(s) return s.pierce end, sheet.pierce or 0)
+  solve('spellPen', function(s) return s.spellPen end, sheet.spellPen or 0)
   solve('critPct', function(s) return s.critPct end, sheet.crit or 0)     -- last: it depends on the Intellect found above
   return g
 end

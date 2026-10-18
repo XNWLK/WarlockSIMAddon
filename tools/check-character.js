@@ -9,9 +9,9 @@ host.loadAddon(['Data.lua', 'Engine.lua', 'Sim.lua', 'Codes.lua', 'Character.lua
 const out = host.eval(`
 local WL, n, bad = WLX, 0, {}
 local buffSets = { {}, { arcaneIntellect = true, blessingOfKings = true, markOfTheWild = true, fortitude = true, divineSpirit = true, blessingOfWisdom = true, moonkinAura = true }, { blessingOfKings = true, blessingOfSalvation = true, manaSpring = true } }
-local gears = { WL.DEFAULT_CONFIG.gear, { sp = 1000, shadowSp = 21, fireSp = 40, hitPct = 17, critPct = 20.5, hastePct = 6, pierce = 40, int = 250, spi = 100, sta = 300, mp5 = 14, weaponIsSword = false },
-  { sp = 37, shadowSp = 0, fireSp = 0, hitPct = 0, critPct = 3.2, hastePct = 0, pierce = 0, int = -40, spi = -30, sta = -10, mp5 = 0 } }
-local fields = { 'sp', 'shadowSp', 'fireSp', 'hitPct', 'critPct', 'hastePct', 'pierce', 'int', 'spi', 'sta', 'mp5' }
+local gears = { WL.DEFAULT_CONFIG.gear, { sp = 1000, shadowSp = 21, fireSp = 40, hitPct = 17, critPct = 20.5, hastePct = 6, pierce = 40, spellPen = 25, int = 250, spi = 100, sta = 300, mp5 = 14, weaponIsSword = false },
+  { sp = 37, shadowSp = 0, fireSp = 0, hitPct = 0, critPct = 3.2, hastePct = 0, pierce = 0, spellPen = 0, int = -40, spi = -30, sta = -10, mp5 = 0 } }
+local fields = { 'sp', 'shadowSp', 'fireSp', 'hitPct', 'critPct', 'hastePct', 'pierce', 'spellPen', 'int', 'spi', 'sta', 'mp5' }
 for bi = 1, #WL.BUILDS do
   local b = WL.BUILDS[bi]
   for _, race in ipairs({ 'human', 'gnome', 'orc', 'undead', 'troll' }) do
@@ -26,7 +26,7 @@ for bi = 1, #WL.BUILDS do
           local s = WL.computeStats(build, race, cfg)
           local supp = WL.talentValue(build, 'suppression', 'hitPct')
           local sheet = { int = s.int, spi = s.spi, sta = s.sta, sp = s.sp, spShadow = s.sp + s.schoolSp.shadow, spFire = s.sp + s.schoolSp.fire,
-            hit = s.hitPctUncapped - cfg.combat.baseHitPct - (withSupp and 0 or supp), crit = s.critPct, haste = s.hastePct, mp5 = s.mp5, pierce = s.pierce }
+            hit = s.hitPctUncapped - cfg.combat.baseHitPct - (withSupp and 0 or supp), crit = s.critPct, haste = s.hastePct, mp5 = s.mp5, pierce = s.pierce, spellPen = s.spellPen }
           local g = WL.gearFromSheet(sheet, { raceKey = race, talents = build.talents, pet = build.pet, sacrifice = build.sacrifice, buffs = buffSets[si], hitHasSuppression = withSupp })
           for _, f in ipairs(fields) do
             n = n + 1

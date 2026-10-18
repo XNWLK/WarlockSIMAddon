@@ -508,7 +508,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     end
     local c = resCache[coe]
     local pr = c[school]
-    if not pr then pr = WL.resistProfile(cfg, stats.pierce, school, coe); c[school] = pr end
+    if not pr then pr = WL.resistProfile(cfg, stats.pierce, school, coe, stats.spellPen); c[school] = pr end
     return pr
   end
   local function vulnMult(school, ti)

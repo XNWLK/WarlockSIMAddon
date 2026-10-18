@@ -3,6 +3,20 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.9.3
+
+- Gear codes tell the website more about each item: its item level, the level needed to wear it, its icon, its item set
+  and its stats exactly as the game gives them. That way the website's gear builder can learn items it does not know yet.
+- Spell Penetration and Spell Pierce are two stats now, as on the website. Spell Penetration lowers the boss's resistance
+  down to 0, Spell Pierce can take it below 0. Which one an item has goes by its own words: a line that says "Spell
+  Piercing" is Spell Pierce, one that says "Spell Penetration" is Spell Penetration. Item sims count both.
+- Enchants on your necklace, belt and off-hand item are in the gear code too (Forever has them).
+- Spell Penetration on the items you wear now counts when your character is read. The character sheet has no number
+  for it, so the addon adds it up from your items and enchants.
+- New on the Codes tab: "Bags too". With it ticked, "My gear as a code" also lists the items in your bags that you can
+  wear.
+- After updating, your character is read again once and the numbers on the character sheet are worked out again.
+
 ## v0.9.2
 
 - Amplify Curse now makes your whole next Bane of Agony 50% stronger, its spell power part included. Before, it only

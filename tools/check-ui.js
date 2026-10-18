@@ -180,7 +180,22 @@ step('stop early: What if and an item stop long before the fights set; switched 
 const gearCode = step('gear code: what you wear, for the website\'s gear builder', `MOCK.equipped[1] = 1009; MOCK.equipped[5] = 1008
   MOCK.combat = true; MOCK.click("My gear as a code"); MOCK.combat = false; assert(MOCK.findLike("FontString", "You are in combat"), "refused in combat")
   MOCK.click("My gear as a code"); local box; for _, f in ipairs(MOCK.frames) do if f.__kind == "EditBox" and not f.template then box = f end end
-  assert(box:GetText():sub(1, 5) == "WFG1:", "no gear code in the box"); assert(MOCK.findLike("FontString", "Gear code made: 6 items, 2 enchants"), "the count")
+  assert(box:GetText():sub(1, 5) == "WFG1:", "no gear code in the box"); assert(MOCK.findLike("FontString", "Gear code made: 6 items, 3 enchants%."), "the count")
+  local o = WLX.jsonDecode(WLX.base64Decode(box:GetText():sub(6)))
+  local h = o.items.head
+  assert(h.ilvl == 83 and h.req == 60 and h.iconId == 133136 and h.set == 211, "level, required level, icon, set: " .. tostring(h.ilvl) .. " " .. tostring(h.req) .. " " .. tostring(h.iconId) .. " " .. tostring(h.set))
+  assert(h.raw.ITEM_MOD_SPELL_POWER == 35 and h.raw.ITEM_MOD_HIT_RATING == 10 and h.raw.ITEM_MOD_SPELL_PENETRATION == 13, "raw: the game's own stats")
+  assert(h.stats.pierce == 13 and h.stats.spellPen == nil, "the game's Spell Piercing goes as pierce")
+  assert(o.items.finger1.stats.spellPen == 10 and o.items.finger1.stats.pierce == nil, "a Spell Penetration line goes as spellPen")
+  assert(o.items.chest.set == nil and o.items.chest.req == nil and o.items.chest.ilvl == 60, "no set, no required level")
+  assert(o.enchants.offHand and o.enchants.offHand.id == 2650 and o.enchants.offHand.stats.int == 8, "the off-hand enchant")
+  assert(o.bag == nil, "no bags unless asked for")
+  local cb; for _, f in ipairs(MOCK.frames) do if f.label and f.label.text == "Bags too" then cb = f end end; assert(cb, "the Bags too box")
+  cb:SetChecked(true); cb:GetScript("OnClick")(cb); assert(WLX.db.options.gearBags == true, "the box sets the option")
+  MOCK.click("My gear as a code"); assert(MOCK.findLike("FontString", "Gear code made: 6 items, 3 enchants, 2 from your bags%."), "the count with bags")
+  local ob = WLX.jsonDecode(WLX.base64Decode(box:GetText():sub(6)))
+  assert(#ob.bag == 2 and ob.bag[1].id == 1004 and ob.bag[1].slot == "twoHand" and ob.bag[1].stats.sp == 60 and ob.bag[2].id == 1002, "the bags: the staff and the band, not the bread")
+  cb:SetChecked(false); cb:GetScript("OnClick")(cb); MOCK.click("My gear as a code")
   assert(MOCK.findLike("FontString", "Enchant not understood, counted as 0: %+18 Spell Damage and Healing / %+1%% Spell Hit / Minor Glow"), "the enchant part it cannot read is named")
   local code = box:GetText(); box:SetText(code); MOCK.click("Load the code"); assert(MOCK.findLike("FontString", "That is a gear code"), "loading a gear code says what it is for")
   assert(WLX.db.lastGear.chest.understood == true and WLX.db.lastGear.head.understood == false, "kept for the dump")
@@ -202,8 +217,11 @@ const gearCode = step('gear code: what you wear, for the website\'s gear builder
   assert.deepStrictEqual(JSON.parse(JSON.stringify(g.enchants.chest.custom)), { name: '+4 All Stats', stats: { int: 4, spi: 4, sta: 4 }, id: 1891 }, 'the robe\'s enchant');
   assert.deepStrictEqual(JSON.parse(JSON.stringify(g.enchants.head.custom.stats)), { sp: 18, hitPct: 1 }, 'the head enchant: what could be read');
   assert(!g.enchants.finger1, 'a ring enchant is not sent (rings take none on the website)');
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(g.enchants.offHand.custom)), { name: '+8 Intellect', stats: { int: 8 }, id: 2650 }, 'the off-hand enchant');
+  assert.strictEqual(head.stats.pierce, 13, 'Spell Piercing reaches the website as pierce');
+  assert.strictEqual(g.slots.finger1.custom.stats.spellPen, 10, 'Spell Penetration reaches the website as spellPen');
   assert.strictEqual(g.ignored.length, 0, 'the website ignores nothing: ' + g.ignored.join(', '));
-  console.log('ok   gear code: the website\'s gear builder reads it: ' + Object.keys(g.slots).length + ' items, ' + Object.keys(g.enchants).length + ' enchants');
+  console.log('ok   gear code: the website\'s gear builder reads it: ' + Object.keys(g.slots).length + ' items, ' + Object.keys(g.enchants).length + ' enchants, the new fields (level, icon, set, raw stats, bags) are left to it');
 }
 step('Escape closes the window (the list the game walks), and the game\'s own Escape handlers are left alone', `assert(#MOCK.escHandlers == 0, "an entry of the addon's in the game's Escape handlers taints every Escape")
   local n = 0; for _, name in ipairs(UISpecialFrames) do if name == "WarlockSimFrame" then n = n + 1 end end; assert(n == 1, "on the list of windows Escape closes: " .. n .. " times")

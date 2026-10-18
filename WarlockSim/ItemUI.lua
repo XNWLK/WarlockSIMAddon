@@ -32,8 +32,14 @@ local function gameString(name) local v = _G[name]; return type(v) == 'string' a
 local function readItem(link)
   local item = { link = link }
   item.name = try(C_Item.GetItemNameByID, link) or link:match('%[(.-)%]') or 'this item'
-  local _, _, _, equipLoc, _, classID, subclassID = try(C_Item.GetItemInfoInstant, link)
-  item.equipLoc, item.classID, item.subclassID = equipLoc, classID, subclassID
+  local _, _, _, equipLoc, icon, classID, subclassID = try(C_Item.GetItemInfoInstant, link)
+  item.equipLoc, item.classID, item.subclassID, item.icon = equipLoc, classID, subclassID, icon
+  -- item level, required level, icon and item set (GetItemInfo: 4th, 5th, 10th and 16th value); the level the item really has
+  local info = { try(C_Item.GetItemInfo, link) }
+  item.ilvl, item.req, item.setID = info[4], info[5], info[16]
+  if info[10] ~= nil then item.icon = info[10] end
+  local eff = try(C_Item.GetDetailedItemLevelInfo, link)
+  if type(eff) == 'number' and eff > 0 then item.ilvl = eff end
   local api = try(C_Item.GetItemStats, link)
   local lines, enchants = {}, {}
   local data = C_TooltipInfo and try(C_TooltipInfo.GetHyperlink, link)
@@ -72,7 +78,8 @@ local function itemID(link) return link and tonumber(link:match('item:(%d+)')) e
 -- ---------------------------------------------------------------------------------------------------------------------
 local GEAR_KEYS = { 'head', 'neck', 'shoulder', 'shirt', 'chest', 'waist', 'legs', 'feet', 'wrist', 'hands', 'finger1', 'finger2',
                     'trinket1', 'trinket2', 'back', 'mainHand', 'offHand', 'ranged', 'tabard' }   -- = the game's inventory slots 1 to 19
-local ENCHANTABLE = { head = true, shoulder = true, back = true, chest = true, wrist = true, hands = true, legs = true, feet = true, mainHand = true }
+local ENCHANTABLE = { head = true, neck = true, shoulder = true, back = true, chest = true, wrist = true, hands = true, waist = true, legs = true, feet = true,
+                      mainHand = true, offHand = true }   -- Forever: necklace enchants, belt augments, off-hand enchants
 local ITEM_TYPE = { INVTYPE_HEAD = 'head', INVTYPE_NECK = 'neck', INVTYPE_SHOULDER = 'shoulder', INVTYPE_CLOAK = 'back', INVTYPE_CHEST = 'chest',
   INVTYPE_ROBE = 'chest', INVTYPE_BODY = 'shirt', INVTYPE_TABARD = 'tabard', INVTYPE_WRIST = 'wrist', INVTYPE_HAND = 'hands', INVTYPE_WAIST = 'waist',
   INVTYPE_LEGS = 'legs', INVTYPE_FEET = 'feet', INVTYPE_FINGER = 'finger', INVTYPE_TRINKET = 'trinket', INVTYPE_WEAPON = 'oneHand',
@@ -80,13 +87,53 @@ local ITEM_TYPE = { INVTYPE_HEAD = 'head', INVTYPE_NECK = 'neck', INVTYPE_SHOULD
   INVTYPE_SHIELD = 'offHand', INVTYPE_RANGED = 'ranged', INVTYPE_RANGEDRIGHT = 'ranged', INVTYPE_THROWN = 'ranged', INVTYPE_RELIC = 'ranged' }
 local WEAPON_TYPE = { [7] = 'sword', [8] = 'sword', [15] = 'dagger', [10] = 'staff', [4] = 'mace', [5] = 'mace' }   -- weapon sub-classes
 local QUALITY = { [0] = 'poor', [1] = 'common', [2] = 'uncommon', [3] = 'rare', [4] = 'epic', [5] = 'legendary' }
-local CODE_STAT = { hit = 'hitPct', crit = 'critPct', haste = 'hastePct' }   -- the addon's item stats -> the sim's Sheet (gear) names
+-- the addon's item stats -> the sim's Sheet (gear) names (pierce = Spell Pierce, spellPen = Spell Penetration: the same keys)
+local CODE_STAT = { hit = 'hitPct', crit = 'critPct', haste = 'hastePct' }
 local function codeStats(s)
   local o = {}
   for k, v in pairs(s or {}) do if v ~= 0 then o[CODE_STAT[k] or k] = math.floor(v * 100 + 0.5) / 100 end end
   return o
 end
--- Returns the code, the number of items and enchants, and notes (enchants not understood), or nil and a plain sentence.
+-- the stats exactly as the game gives them: { ITEM_MOD_SPELL_POWER = 36, ... } (the game's keys without "_SHORT")
+local function rawStats(api)
+  if type(api) ~= 'table' then return nil end
+  local o, any = {}, false
+  for k, v in pairs(api) do
+    if type(k) == 'string' and type(v) == 'number' and v ~= 0 then o[(k:gsub('_SHORT$', ''))] = v; any = true end
+  end
+  return any and o or nil
+end
+-- one item of the code: id, name, slot, quality, stats, and what the game says besides (level, icon, set, raw stats)
+local function codeItem(item, link)
+  local e = { id = itemID(link), name = item.name, slot = ITEM_TYPE[item.equipLoc or ''], stats = codeStats(item.stats) }
+  e.quality = QUALITY[try(C_Item.GetItemQualityByID, link) or -1]
+  if item.classID == 2 then e.weapon = WEAPON_TYPE[item.subclassID or -1] or 'other' end
+  if type(item.ilvl) == 'number' and item.ilvl > 0 then e.ilvl = item.ilvl end
+  if type(item.req) == 'number' and item.req > 0 then e.req = item.req end
+  if type(item.icon) == 'number' then e.iconId = item.icon
+  elseif type(item.icon) == 'string' and item.icon ~= '' then e.icon = (item.icon:match('([^\\/]+)$') or item.icon):gsub('%.%a+$', ''):lower() end
+  if type(item.setID) == 'number' and item.setID > 0 then e.set = item.setID end
+  e.raw = rawStats(item.raw and item.raw.api)
+  return e
+end
+-- the bags the game counts (0 = the backpack); a bag slot without a bag has no slots
+local function bagItems()
+  local list = {}
+  if not (C_Container and C_Container.GetContainerNumSlots) then return list end
+  for bag = 0, 4 do                                       -- the backpack and the four bag slots
+    local n = try(C_Container.GetContainerNumSlots, bag)
+    for slot = 1, (type(n) == 'number' and n or 0) do
+      local link = try(C_Container.GetContainerItemLink, bag, slot)
+      if type(link) == 'string' then
+        local item = readItem(link)
+        if ITEM_TYPE[item.equipLoc or ''] then list[#list + 1] = codeItem(item, link) end
+      end
+    end
+  end
+  return list
+end
+-- Returns the code, the number of items and enchants, notes (enchants not understood) and the number of items from the
+-- bags (options.gearBags), or nil and a plain sentence.
 function WL.gearCode()
   if InCombatLockdown and InCombatLockdown() then return nil, 'You are in combat. The game hides item details from addons then - make the code after the fight.' end
   local out, notes, items, enchants, seen = { v = 1, items = {}, enchants = {} }, {}, 0, 0, {}
@@ -94,10 +141,7 @@ function WL.gearCode()
     local key, link = GEAR_KEYS[inv], try(GetInventoryItemLink, 'player', inv)
     if type(link) == 'string' then
       local item = readItem(link)
-      local e = { id = itemID(link), name = item.name, slot = ITEM_TYPE[item.equipLoc or ''], stats = codeStats(item.stats) }
-      e.quality = QUALITY[try(C_Item.GetItemQualityByID, link) or -1]
-      if item.classID == 2 then e.weapon = WEAPON_TYPE[item.subclassID or -1] or 'other' end
-      out.items[key] = e
+      out.items[key] = codeItem(item, link)
       items = items + 1
       local ench = { link = link }
       if ENCHANTABLE[key] and #item.enchantLines > 0 then
@@ -112,7 +156,13 @@ function WL.gearCode()
     end
   end
   WL.db.lastGear = seen                                   -- for /wsim dump: the links and how each enchant was read
-  return WL.encodeGear(out), items, enchants, notes
+  local bags = 0
+  if WL.db.options.gearBags then
+    out.bag = bagItems()
+    bags = #out.bag
+    if bags == 0 then out.bag = nil end
+  end
+  return WL.encodeGear(out), items, enchants, notes, bags
 end
 
 -- An item you wear against an empty slot: what it is worth.
@@ -160,6 +210,21 @@ local results = {}                                        -- what was shown for 
 
 local function itemFights() return math.max(20, math.min(2000, math.floor(tonumber(WL.db.options.itemFights) or 150))) end
 WL.readItemInfo, WL.itemFights = readItem, itemFights     -- also used by the numbers on the character sheet (SheetUI.lua)
+
+-- Spell Penetration on what you wear, items and enchants: the character sheet has no number for it (its "Spell
+-- Piercing" is Spell Pierce), so reading the character adds it up from the items (Reader.lua).
+function WL.wornSpellPen()
+  local sum = 0
+  for inv = 1, 19 do
+    local link = try(GetInventoryItemLink, 'player', inv)
+    if type(link) == 'string' then
+      local item = readItem(link)
+      sum = sum + (item.stats.spellPen or 0)
+      if #item.enchantLines > 0 then sum = sum + (WL.enchantStats(table.concat(item.enchantLines, ' / '), gameString, toPct).spellPen or 0) end
+    end
+  end
+  return sum
+end
 
 -- worn = the item was clicked on the character sheet (sim it against an empty slot).
 -- Returns true when a sim was started, or false and a plain sentence.

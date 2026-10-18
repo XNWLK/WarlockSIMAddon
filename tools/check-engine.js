@@ -43,6 +43,7 @@ const scenes = [
   S('engineering', [['professions.engineering', true], ['consumables.goblinSapper.on', true], ['consumables.denseDynamite.on', true]]),
   S('book ranks, old dot rule, no curse', [['options.bookRanks', true], ['options.dotEndCheck', false], ['options.useCurseOfElements', false], ['debuffs.coeOther.on', true]]),
   S('spell pierce + resist', [['gear.pierce', 60], ['combat.targetResist.shadow', 30], ['combat.targetResist.fire', 70]]),
+  S('spell penetration + pierce + resist', [['gear.spellPen', 50], ['gear.pierce', 20], ['combat.targetResist.shadow', 30], ['combat.targetResist.fire', 120]]),
   S('no level resist, no 5s rule, no heal', [['combat.levelResist.on', false], ['combat.fsrSeconds', 0], ['fight.healAmount', 0]]),
   S('crit includes all, no pets', [['gear.critIncludesAll', true], ['options.includePetDamage', false]]),
   S('custom cooldown timeline', [['options.activesPolicy', 'custom'], ['options.activesTimeline', { racial: [10, 'exec'], pi: ['doom'], majorSpellblasting: [0, 130], demonicRune: [40] }],
@@ -118,7 +119,7 @@ builds.concat([reach]).forEach(b => {
   RACES.forEach(race => {
     const stats = WL.computeStats(b, race, WL.DEFAULT_CONFIG), table = WL.buildSpellTable(b, stats, WL.DEFAULT_CONFIG);
     const o = JSON.parse(host.eval('return CHK.table("' + race + '")'));
-    ['int', 'spi', 'sta', 'maxMana', 'maxHealth', 'sp', 'hitPct', 'critPct', 'hastePct', 'mp5', 'pierce'].forEach(k => { if (!near(stats[k], o.stats[k])) { tableBad++; if (!firstBad) firstBad = 'stats ' + b.key + ' ' + race + ' ' + k + ': sim ' + stats[k] + ' addon ' + o.stats[k]; } });
+    ['int', 'spi', 'sta', 'maxMana', 'maxHealth', 'sp', 'hitPct', 'critPct', 'hastePct', 'mp5', 'pierce', 'spellPen'].forEach(k => { if (!near(stats[k], o.stats[k])) { tableBad++; if (!firstBad) firstBad = 'stats ' + b.key + ' ' + race + ' ' + k + ': sim ' + stats[k] + ' addon ' + o.stats[k]; } });
     Object.keys(table).forEach(k => ['cast', 'cd', 'range', 'cost', 'sp', 'critPct', 'critMult', 'directMult', 'periodicMult', 'ticks'].forEach(f => {
       const a = table[k][f], bb = o.table[k] && o.table[k][f];
       if (a !== undefined && !near(a, bb)) { tableBad++; if (!firstBad) firstBad = 'spell table ' + b.key + ' ' + race + ' ' + k + '.' + f + ': sim ' + a + ' addon ' + bb; }

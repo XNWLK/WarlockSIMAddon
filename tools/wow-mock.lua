@@ -147,18 +147,20 @@ MOCK.items = {
   [1001] = { name = 'Ring of Tests', loc = 'INVTYPE_FINGER', class = 4, sub = 0, api = { ITEM_MOD_INTELLECT_SHORT = 10, ITEM_MOD_SPELL_POWER_SHORT = 20 },
              lines = { 'Ring of Tests', 'Finger', '+10 Intellect', 'Equip: Increases spell power by 20.', 'Equip: Improves spell hit by 1%.' } },
   [1002] = { name = 'Old Band', loc = 'INVTYPE_FINGER', class = 4, sub = 0, api = { ITEM_MOD_STAMINA_SHORT = 8 },
-             lines = { 'Old Band', '+8 Stamina', 'Equip: Increases damage and healing done by magical spells and effects by up to 12.', 'Enchanted: +30 Spell Power' } },
+             lines = { 'Old Band', '+8 Stamina', 'Equip: Increases damage and healing done by magical spells and effects by up to 12.', 'Equip: Decreases the magical resistances of your spell targets by 10.', 'Enchanted: +30 Spell Power' } },
   [1003] = { name = 'Plain Loop', loc = 'INVTYPE_FINGER', class = 4, sub = 0, api = {}, lines = { 'Plain Loop', '+3 Spirit', 'Use: Summons a cat. (10 Min Cooldown)' } },
   [1004] = { name = 'Great Staff', loc = 'INVTYPE_2HWEAPON', class = 2, sub = 10, api = { ITEM_MOD_SPELL_POWER_SHORT = 60, ITEM_MOD_CRIT_SPELL_RATING_SHORT = 14 }, lines = { 'Great Staff', 'Two-Hand' } },
   [1005] = { name = 'Short Blade', loc = 'INVTYPE_WEAPONMAINHAND', class = 2, sub = 7, api = { ITEM_MOD_SPELL_POWER_SHORT = 30 }, lines = { 'Short Blade' } },
-  [1006] = { name = 'Orb', loc = 'INVTYPE_HOLDABLE', class = 4, sub = 0, api = { ITEM_MOD_SPELL_POWER_SHORT = 15 }, lines = { 'Orb' } },
+  [1006] = { name = 'Orb', loc = 'INVTYPE_HOLDABLE', class = 4, sub = 0, ench = 2650, api = { ITEM_MOD_SPELL_POWER_SHORT = 15 }, lines = { 'Orb', 'Enchanted: +8 Intellect' } },
   [1007] = { name = 'Bread', loc = '', class = 0, sub = 0, api = {}, lines = { 'Bread' } },
   [1008] = { name = 'Robe of Tests', loc = 'INVTYPE_ROBE', class = 4, sub = 1, ench = 1891, api = { ITEM_MOD_INTELLECT_SHORT = 20 },
              lines = { 'Robe of Tests', '+20 Intellect', 'Equip: Improves spell hit by 1%.', 'Enchanted: +4 All Stats' } },
-  [1009] = { name = 'Mish\226\128\153undare, Circlet of the Mind Flayer', loc = 'INVTYPE_HEAD', class = 4, sub = 1, ench = 2588, api = { ITEM_MOD_SPELL_POWER_SHORT = 35 },
+  [1009] = { name = 'Mish\226\128\153undare, Circlet of the Mind Flayer', loc = 'INVTYPE_HEAD', class = 4, sub = 1, ench = 2588, ilvl = 83, req = 60, icon = 133136, set = 211,
+             api = { ITEM_MOD_SPELL_POWER_SHORT = 35, ITEM_MOD_HIT_RATING_SHORT = 10, ITEM_MOD_SPELL_PENETRATION_SHORT = 13 },
              lines = { 'Mish\226\128\153undare, Circlet of the Mind Flayer', 'Enchanted: +18 Spell Damage and Healing / +1% Spell Hit', 'Enchanted: Minor Glow' } },
 }
 MOCK.equipped = { [11] = 1002, [12] = 1003, [16] = 1005, [17] = 1006 }
+MOCK.bags = { [0] = { [2] = 1004, [5] = 1007 }, [1] = {}, [3] = { [1] = 1002 } }   -- a staff, bread (not wearable), a second band; bag 2 and 4: no bag
 local function mockItem(info)
   if type(info) == 'number' then return MOCK.items[info], info end
   local id = tonumber(tostring(info):match('item:(%d+)'))
@@ -174,6 +176,12 @@ C_Item.GetItemInfoInstant = function(info) local it, id = mockItem(info); if not
 C_Item.GetItemStats = function(link) local it = mockItem(link); return it and it.api end
 C_Item.GetItemNameByID = function(info) local it = mockItem(info); return it and it.name end
 C_Item.GetItemQualityByID = function(info) local it = mockItem(info); return it and 4 end
+-- name, link, quality, item level, required level, type, sub-type, stack, equip location, icon, sell price, class, sub-class, bind, expansion, set
+C_Item.GetItemInfo = function(info) local it, id = mockItem(info); if not it then return nil end
+  return it.name, MOCK.link(id), 4, it.ilvl or 60, it.req or 0, 'Type', 'Sub', 1, it.loc, it.icon or 134400, 0, it.class, it.sub, 1, 0, it.set end
+C_Item.GetDetailedItemLevelInfo = function(info) local it = mockItem(info); return it and (it.ilvl or 60), false, it and (it.ilvl or 60) end
+C_Container = { GetContainerNumSlots = function(bag) local b = MOCK.bags[bag]; return b and 16 or 0 end,
+  GetContainerItemLink = function(bag, slot) local id = MOCK.bags[bag] and MOCK.bags[bag][slot]; return id and MOCK.link(id) or nil end }
 C_TooltipInfo = { GetHyperlink = function(link)
   local it = mockItem(link); if not it then return nil end
   local lines = {}

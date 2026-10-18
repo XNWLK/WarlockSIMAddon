@@ -634,12 +634,12 @@ local function buildCodesPage(p)
   end, 'Makes a settings code of everything set here, with your character\'s gear numbers if one is read. The website opens it under "Input / output".')
   s:SetPoint('LEFT', load, 'RIGHT', 6, 0)
   local g = Button(p, 'My gear as a code', 124, function()
-    local code, items, enchants, notes = WL.gearCode()
+    local code, items, enchants, notes, bags = WL.gearCode()
     if not code then say(items, true); return end
     show(code)
-    say(string.format('Gear code made: %d items, %d enchants. Copy it with Ctrl+C and paste it on the website in the gear builder.%s', items, enchants,
-      #notes > 0 and (' ' .. table.concat(notes, ' ')) or ''), #notes > 0)
-  end, 'Makes a gear code of everything you wear: each item with its name, game id and stats, and the enchants (by their text). The website\'s gear builder loads it, so you can look at your own gear there.\n\n"Use:" and "Chance on hit:" effects are not in it; an enchant whose text the addon cannot read is counted as 0 and named.')
+    say(string.format('Gear code made: %d items, %d enchants%s. Copy it with Ctrl+C and paste it on the website in the gear builder.%s', items, enchants,
+      WL.db.options.gearBags and string.format(', %d from your bags', bags) or '', #notes > 0 and (' ' .. table.concat(notes, ' ')) or ''), #notes > 0)
+  end, 'Makes a gear code of everything you wear: each item with its name, game id, item level, icon and stats, and the enchants (by their text). The website\'s gear builder loads it, so you can look at your own gear there, and it learns items it does not know yet.\n\n"Use:" and "Chance on hit:" effects are not in it; an enchant whose text the addon cannot read is counted as 0 and named.')
   g:SetPoint('LEFT', s, 'RIGHT', 6, 0)
   local b = Button(p, 'My character as a build code', 190, function()
     local build, notes = WL.characterBuildNow()
@@ -649,12 +649,16 @@ local function buildCodesPage(p)
     say('Build code made. ' .. (points ~= 51 and 'The website only takes builds with exactly 51 talent points (yours has ' .. points .. ').' or 'Paste it on the website under "Input / output".'), points ~= 51)
   end, 'Your talents, demon and priority list as a build code for the website.')
   b:SetPoint('BOTTOMLEFT', 0, 0)
-  local forget = Button(p, 'Forget loaded builds', 150, function()
+  local forget = Button(p, 'Forget loaded builds', 136, function()
     WL.db.builds = {}; WL.imported = {}
     if not WL.findTemplate(WL.db.options.template) then WL.db.options.template = nil end
     say('Loaded builds removed.'); WL.refresh()
   end, 'Removes every build that was loaded from a build code.')
   forget:SetPoint('LEFT', b, 'RIGHT', 6, 0)
+  local bagsBox = keep(Check(p, 'Bags too', function() return WL.db.options.gearBags end, function(v) WL.db.options.gearBags = v end,
+    '"My gear as a code" also lists the items in your bags that you can wear, so you can send the website everything you have.'))
+  bagsBox:SetPoint('LEFT', forget, 'RIGHT', 4, 0)
+  p.bagsBox = bagsBox
 end
 
 -- ---------------------------------------------------------------------------------------------------------------------

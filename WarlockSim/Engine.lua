@@ -303,6 +303,7 @@ function WL.computeStats(build, raceKey, cfg)
                + add('hastePct', 'Stat-weight test', ex.hastePct or 0)
                + oilStat('hastePct') + conStat('hastePct')
   local pierce = add('pierce', 'Gear', gear.pierce or 0) + add('pierce', 'Stat-weight test', ex.pierce or 0)
+  local spellPen = add('spellPen', 'Gear', gear.spellPen or 0)          -- lowers resistance down to 0 (Spell Pierce goes below)
   local mp5 = add('mp5', 'Gear', gear.mp5 or 0) + buffStat('mp5') + conStat('mp5') + oilStat('mp5')
 
   -- Static caster damage auras per school (they multiply with each other and with the talent spell modifiers).
@@ -320,7 +321,7 @@ function WL.computeStats(build, raceKey, cfg)
   for i = 1, #oils do oilNames[i] = oils[i].name end
   return {
     race = raceKey, int = int, spi = spi, sta = sta, maxMana = maxMana, maxHealth = maxHealth,
-    sp = sp, dkSp = dkSp, schoolSp = schoolSp, hitPct = hitPct, hitPctUncapped = hitRaw, critPct = critPct, hastePct = hastePct, mp5 = mp5, pierce = pierce,
+    sp = sp, dkSp = dkSp, schoolSp = schoolSp, hitPct = hitPct, hitPctUncapped = hitRaw, critPct = critPct, hastePct = hastePct, mp5 = mp5, pierce = pierce, spellPen = spellPen,
     mult = mult, petActive = petActive, sacrificeActive = sacrificeActive,
     oilName = #oils > 0 and table.concat(oilNames, ' + ') or WL.OILS.none.name, breakdown = bd,
   }
@@ -397,10 +398,11 @@ function WL.levelResist(cfg)
   local lr = cfg.combat.levelResist
   return (lr and lr.on) and lr.perLevel * lr.levelDiff or 0
 end
-function WL.effectiveResist(cfg, pierce, school, coeActive)
+-- R = max(0, resistance - Curse of the Elements - Spell Penetration) - Spell Pierce: only Spell Pierce goes below 0.
+function WL.effectiveResist(cfg, pierce, school, coeActive, pen)
   local cb = cfg.combat
   local base = ((cb.targetResist and cb.targetResist[school]) or 0) + WL.levelResist(cfg)
-  return max(0, base - (coeActive and cb.coeResistReduction or 0)) - (pierce or 0)
+  return max(0, base - (coeActive and cb.coeResistReduction or 0) - (pen or 0)) - (pierce or 0)
 end
 
 -- weights over the steps k = 0 .. maxK (list index k + 1) of a triangle around c
@@ -438,8 +440,8 @@ function WL.partialResistDist(m)
   end
   return out
 end
-function WL.resistProfile(cfg, pierce, school, coeActive)
-  local cb, R = cfg.combat, WL.effectiveResist(cfg, pierce, school, coeActive)
+function WL.resistProfile(cfg, pierce, school, coeActive, pen)
+  local cb, R = cfg.combat, WL.effectiveResist(cfg, pierce, school, coeActive, pen)
   if R > 0 then
     local mr = min(0.75, cb.pierceAvgPerPoint * R)
     return { R = R, flat = 1, dist = WL.partialResistDist(mr), mean = -mr }

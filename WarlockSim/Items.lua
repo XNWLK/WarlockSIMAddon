@@ -8,6 +8,8 @@ local copy = WL.copy
 -- The sim's stat, and the game's name for it on items. The game's stat list (GetItemStats) uses the name + "_SHORT" as
 -- its key; the tooltip shows the text stored under the name itself, e.g. "Improves spell hit by %s.".
 -- `rating`: the number may be a rating or a percentage (see WL.itemStats).
+-- ITEM_MOD_SPELL_PENETRATION is "Spell Piercing" in Forever's own texts, so it is Spell Pierce (pierce); a line that says
+-- "Spell Penetration" is Spell Penetration (spellPen). The words the game shows decide.
 local ITEM_STATS = {
   { 'int', 'ITEM_MOD_INTELLECT' }, { 'spi', 'ITEM_MOD_SPIRIT' }, { 'sta', 'ITEM_MOD_STAMINA' },
   { 'sp', 'ITEM_MOD_SPELL_POWER' }, { 'sp', 'ITEM_MOD_SPELL_DAMAGE_DONE' },
@@ -26,12 +28,13 @@ local CLASSIC_LINES = {
   { 'hit', 'Improves your chance to hit with spells by (%d+)%%', pct = true },
   { 'crit', 'Improves your chance to get a critical strike with spells by (%d+)%%', pct = true },
   { 'mp5', 'Restores (%d+) mana per 5 sec' },
-  { 'pierce', 'Decreases the magical resistances of your spell targets by (%d+)' },
+  { 'spellPen', 'Decreases the magical resistances of your spell targets by (%d+)' },
+  { 'spellPen', '[Ss]pell [Pp]enetration by (%d+)' }, { 'spellPen', '^%+(%d+) [Ss]pell [Pp]enetration' }, { 'spellPen', '[Ss]pell [Pp]enetration %+(%d+)' },
 }
 local RATING = { hit = true, crit = true, haste = true }
-WL.ITEM_STAT_ORDER = { 'sp', 'shadowSp', 'fireSp', 'hit', 'crit', 'haste', 'int', 'spi', 'sta', 'mp5', 'pierce' }
+WL.ITEM_STAT_ORDER = { 'sp', 'shadowSp', 'fireSp', 'hit', 'crit', 'haste', 'int', 'spi', 'sta', 'mp5', 'pierce', 'spellPen' }
 local STAT_WORDS = { sp = ' spell power', shadowSp = ' Shadow power', fireSp = ' Fire power', hit = '% hit', crit = '% crit', haste = '% haste',
-                     int = ' Intellect', spi = ' Spirit', sta = ' Stamina', mp5 = ' mana per 5 s', pierce = ' Spell Pierce' }
+                     int = ' Intellect', spi = ' Spirit', sta = ' Stamina', mp5 = ' mana per 5 s', pierce = ' Spell Pierce', spellPen = ' Spell Penetration' }
 
 -- Where an item goes: the game's "equip location" -> inventory slot numbers (two for rings and trinkets).
 WL.ITEM_SLOTS = {
@@ -146,7 +149,8 @@ local function enchantWords(p, toPct)
   local function rated(k) return pct == '%' and n or (toPct and toPct(k, n) or n) end
   local s = {}
   if has('all stats') or has('all attributes') then s.int, s.spi, s.sta = n, n, n
-  elseif has('penetration') then s.pierce = n
+  elseif has('penetration') then s.spellPen = n
+  elseif has('pierc') then s.pierce = n
   elseif has('mana') and (lp:find('per 5', 1, true) or lp:find('every 5', 1, true) or has('regen')) then s.mp5 = n
   elseif has('hit') then s.hit = rated('hit')
   elseif has('crit') then s.crit = rated('crit')
@@ -189,7 +193,7 @@ function WL.gearWithSwap(gear, new, olds, cfg)
   g.hitPct = (g.hitPct or 0) + d.hit
   g.critPct = (g.critPct or 0) + d.crit + d.int * cfg.combat.critPerInt
   g.hastePct = (g.hastePct or 0) + d.haste
-  g.mp5 = (g.mp5 or 0) + d.mp5; g.pierce = (g.pierce or 0) + d.pierce
+  g.mp5 = (g.mp5 or 0) + d.mp5; g.pierce = (g.pierce or 0) + d.pierce; g.spellPen = (g.spellPen or 0) + d.spellPen
   return g, d
 end
 

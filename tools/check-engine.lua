@@ -43,7 +43,7 @@ function CHK.table(race)
   local stats = WL.computeStats(build, race, cfg)
   local tbl = WL.buildSpellTable(build, stats, cfg)
   local s, t = {}, {}
-  for _, k in ipairs({ 'int', 'spi', 'sta', 'maxMana', 'maxHealth', 'sp', 'hitPct', 'critPct', 'hastePct', 'mp5', 'pierce' }) do
+  for _, k in ipairs({ 'int', 'spi', 'sta', 'maxMana', 'maxHealth', 'sp', 'hitPct', 'critPct', 'hastePct', 'mp5', 'pierce', 'spellPen' }) do
     s[#s + 1] = string.format('%q:%s', k, num(stats[k]))
   end
   for k, e in pairs(tbl) do

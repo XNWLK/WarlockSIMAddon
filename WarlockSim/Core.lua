@@ -2,7 +2,7 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.9.2'
+WL.VERSION = '0.9.3'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -17,7 +17,7 @@ end
 -- WL.cfg       the settings the sim runs with (the sim's defaults + what you changed)
 -- WL.char      the character read from the game (nil until "Read my character")
 local DEFAULT_OPTIONS = { fights = 300, weights = true, speed = 'auto', speedDefault = 2, template = nil, stone = 'sheet', race = nil, pet = 'auto', sacrifice = 'auto', minimapHint = true,
-                          itemClick = 'shift-right', itemClickDefault = 2, itemFights = 150, sheetNumbers = true, minimapButton = true, minimapAngle = 200, stopEarly = true }
+                          itemClick = 'shift-right', itemClickDefault = 2, itemFights = 150, sheetNumbers = true, minimapButton = true, minimapAngle = 200, stopEarly = true, gearBags = false }
 -- The click that sims an item (options.itemClick). 'off' also hides the button under the item link window.
 WL.ITEM_CLICKS = {
   { value = 'shift-right', label = 'Shift + right-click' }, { value = 'alt-right', label = 'Alt + right-click' }, { value = 'alt-left', label = 'Alt + left-click' },

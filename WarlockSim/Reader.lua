@@ -162,7 +162,8 @@ function WL.readCharacter()
   local regenBase, regenCasting = try(GetManaRegen)
   raw.manaRegen = { num(regenBase), num(regenCasting) }
   sheet.mp5 = num(regenCasting) and regenCasting * 5 or nil
-  sheet.pierce = num((try(GetSpellPenetration)))
+  sheet.pierce = num((try(GetSpellPenetration)))                     -- the client's "Spell Piercing" = the sim's Spell Pierce
+  sheet.spellPen = WL.wornSpellPen and WL.wornSpellPen() or 0       -- Spell Penetration: from the items you wear (no sheet number)
   sheet.maxHealth, sheet.maxMana = num((try(UnitHealthMax, 'player'))), num((try(UnitPowerMax, 'player', 0)))
   c.sheet = sheet
   local missing = {}
