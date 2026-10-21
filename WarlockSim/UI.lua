@@ -529,6 +529,7 @@ local function buildFightPage(p)
   ic:SetPoint('BOTTOMLEFT', 284, 1)
 end
 
+local COUNT_WHO = { innervate = 'Druids', powerInfusion = 'Priests' }
 local function buildBuffsPage(p)
   local scroll = CreateFrame('ScrollFrame', 'WarlockSimBuffScroll', p, 'UIPanelScrollFrameTemplate')
   scroll:SetPoint('TOPLEFT', 0, -26); scroll:SetPoint('BOTTOMRIGHT', -24, 0)
@@ -547,9 +548,20 @@ local function buildBuffsPage(p)
       if v then others(key) end
     end, e.name .. '\n' .. (e.desc or ''))
     cb:SetPoint('TOPLEFT', 0, y)
-    cb.label:SetWidth(W - 2 * PAD - 60)
+    cb.label:SetWidth(W - 2 * PAD - (e.count ~= nil and 100 or 60))
     if cb.label.SetWordWrap then cb.label:SetWordWrap(false) end
     checks[#checks + 1] = cb
+    if e.count ~= nil then                                     -- Innervate / Power Infusion: how many Druids / Priests
+      local most = e.maxCount or 5
+      local who = COUNT_WHO[key] or 'players'
+      local n = Edit(child, 28, function() return WL.cfg[tbl][key].count or 1 end, function(v)
+        WL.cfg[tbl][key].count = math.max(1, math.min(most, math.floor(v + 0.5)))
+      end, 'How many ' .. who .. ' give you theirs (1 to ' .. most .. '). The next one comes when the last one is over.')
+      n:SetPoint('TOPRIGHT', child, 'TOPRIGHT', -6, y - 1)
+      local x = Text(child, 'GameFontHighlightSmall', 'how many')
+      x:SetPoint('RIGHT', n, 'LEFT', -8, 0)
+      checks[#checks + 1] = n
+    end
     y = y - 20
   end
   header('Raid buffs')
@@ -583,7 +595,7 @@ local function buildBuffsPage(p)
   none:SetPoint('TOPLEFT', 0, 0)
   local def = Button(p, 'The sim\'s defaults', 140, function()
     local d = WL.DEFAULT_CONFIG
-    for k, b in pairs(WL.cfg.buffs) do b.on = d.buffs[k].on end
+    for k, b in pairs(WL.cfg.buffs) do b.on = d.buffs[k].on; b.count = d.buffs[k].count end
     for k, x in pairs(WL.cfg.debuffs) do x.on = d.debuffs[k].on end
     for k, c in pairs(WL.cfg.consumables) do c.on = d.consumables[k].on end
     WL.refresh()

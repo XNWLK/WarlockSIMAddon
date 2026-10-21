@@ -44,6 +44,16 @@ step('every tab, every tooltip', `for _, name in ipairs({ "Builds", "Fight", "Bu
   local tips = 0
   for _, f in ipairs(MOCK.frames) do if f.scripts.OnEnter then f.scripts.OnEnter(f); tips = tips + 1; if f.scripts.OnLeave then f.scripts.OnLeave(f) end end end
   return tips .. " tooltips"`);
+step('how many Druids and Priests', `local boxes = {}
+  for _, f in ipairs(MOCK.frames) do if f.__kind == "EditBox" and f.width == 28 and f.scripts.OnEnterPressed then boxes[#boxes + 1] = f end end
+  assert(#boxes == 2, "count boxes: " .. #boxes)
+  boxes[1]:SetText("3"); boxes[1].scripts.OnEnterPressed(boxes[1]); boxes[2]:SetText("9"); boxes[2].scripts.OnEnterPressed(boxes[2])
+  local b = WLX.cfg.buffs
+  assert(b.innervate.count == 3 and b.powerInfusion.count == 5, "counts " .. tostring(b.innervate.count) .. " " .. tostring(b.powerInfusion.count))
+  b.innervate.on = true; b.powerInfusion.on = true
+  local snap = WLX.settingsSnapshot(WLX.cfg); assert(snap.counts and snap.counts.innervate == 3 and snap.counts.powerInfusion == 5, "not in the settings")
+  MOCK.click("The sim's defaults"); assert(b.innervate.count == 1 and b.powerInfusion.count == 1, "defaults keep the counts")
+  return "Innervate 3, Power Infusion 9 -> 5, the defaults set 1"`);
 step('sim builds with your gear', 'WLX.db.options.weights = false; MOCK.click("Sim builds with your gear"); ' + pump + '; local r = WLX.lastResult; WLX.lastRank = r; assert(r.kind == "rank" and #r.rows == 8, "rows " .. tostring(r.rows and #r.rows)); return r.rows[1].build.short .. " first with " .. string.format("%.1f", r.rows[1].res.dps) .. ", my character at place " .. (function() for i = 1, #r.rows do if r.rows[i].build.key == "character" then return i end end end)()');
 step('click a ranking row and go back', `local row; for _, f in ipairs(MOCK.frames) do if f.__kind == "Button" and f.onClick and f.shown then row = f; break end end
   assert(row, "no clickable row"); row.scripts.OnClick(row); assert(MOCK.findLike("FontString", "back to the ranking"), "no way back shown")

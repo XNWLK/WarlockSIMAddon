@@ -40,6 +40,11 @@ const scenes = [
   S('every race, pushback', [['fight.hitEvery', 1.5]], { builds: ['demo_pact_fire', 'wrack_succubus', 'destro_incin_imp'] }),
   S('mana buffs + potions', [['buffs.manaTide.on', true], ['buffs.innervate.on', true], ['buffs.powerInfusion.on', true], ['buffs.manaSpring.on', true], ['buffs.restorativeTotems.on', true],
     ['consumables.majorManaPotion.on', true], ['gear.int', 20], ['gear.spi', 0], ['fight.duration', 240]]),
+  S('several Druids and Priests', [['buffs.innervate.on', true], ['buffs.innervate.count', 3], ['buffs.powerInfusion.on', true], ['buffs.powerInfusion.count', 3],
+    ['gear.int', 20], ['gear.spi', 0], ['fight.duration', 400]]),
+  S('party auras', [['buffs.atieshWarlock.on', true], ['buffs.atieshMage.on', true], ['buffs.atieshDruid.on', true], ['buffs.bloodPact.on', true]]),
+  S('stat-weight test slots', [['extra.spi', 40], ['extra.mp5', 10], ['extra.spellPen', 20], ['combat.targetResist.shadow', 30], ['combat.targetResist.fire', 30], ['gear.spi', 0]]),
+  S('pet melee hit, part of the misses left', [['gear.hitPct', 11]], { builds: ['demo_pact_succ_sb', 'wrack_succubus'] }),
   S('engineering', [['professions.engineering', true], ['consumables.goblinSapper.on', true], ['consumables.denseDynamite.on', true]]),
   S('book ranks, old dot rule, no curse', [['options.bookRanks', true], ['options.dotEndCheck', false], ['options.useCurseOfElements', false], ['debuffs.coeOther.on', true]]),
   S('spell pierce + resist', [['gear.pierce', 60], ['combat.targetResist.shadow', 30], ['combat.targetResist.fire', 70]]),
@@ -52,6 +57,25 @@ const scenes = [
   S('rain of fire filler 2 targets', [['fight.targets', 2]], { builds: ['destro_incin_imp'], rotation: r => r.slice(0, -1).concat(['rainOfFire']) }),
   S('drain life filler', [], { builds: ['sm_ruin_classic', 'wrack_succubus'], rotation: r => r.slice(0, -1).concat(['drainLife']) }),
   S('pet swap at execute', [], { builds: ['demo_pact_succ_sb'], rotation: r => ['swapToImp'].concat(r) }),
+  // a build's own rules, groups and variables (they come in build codes): the sim's own test build, and one with every condition
+  S('rules, groups and variables', [], { builds: ['sm_ruin_classic'], mod: b => {
+    b.rules = [{ spell: 'shadowBolt', name: 'Nightfall', when: { t: 'aura', aura: 'shadowTrance', op: '>', v: 0 } },
+      { spell: 'corruption', when: { t: 'all', c: [{ t: 'dot', spell: 'corruption', op: '<=', v: 0 }, { t: 'var', name: 'Not ending' }] } }];
+    b.vars = { 'Not ending': { cond: { t: 'fight', what: 'remaining', op: '>', v: { var: 'Min left' } } }, 'Min left': { num: 12 } };
+    b.groups = { DoTs: ['rule:1', 'siphonLife'] };
+    b.rotation = b.rotation.map(a => a === 'shadowTrance' ? 'rule:0' : a === 'corruption' ? 'group:DoTs' : a).filter(a => a !== 'siphonLife');
+  } }),
+  S('rules: every condition', [['fight.targets', 2], ['fight.multiDot', true]], { builds: ['destro_incin_imp', 'demo_pact_fire', 'wrack_succubus'], mod: b => {
+    b.rules = [{ spell: 'lifeTap', when: { t: 'all', c: [{ t: 'mana', op: '<', v: 30 }, { t: 'fight', what: 'remaining', op: '>', v: { var: 'Ten' } }] } },
+      { spell: 'deathCoil', when: { t: 'any', c: [{ t: 'fight', what: 'bossHp', op: '<', v: 20 }, { t: 'cd', spell: 'shadowburn', op: '>', v: 5 }, { t: 'any', c: [] }] } },
+      { spell: 'searingPain', when: { t: 'all', c: [{ t: 'brand', op: '<=', v: 1 }, { t: 'not', c: { t: 'shards', op: '=', v: 0 } }, { t: 'dot', spell: 'immolate', op: '>=', v: 3 }] } },
+      { spell: 'shadowburn', when: { t: 'var', name: 'Late' } },
+      { spell: 'immolate', when: { t: 'all', c: [{ t: 'dot', spell: 'immolate', op: '=', v: 0 }, { t: 'aura', aura: 'coe', op: '>', v: 2 }] } },
+      { spell: 'shadowBolt' }];
+    b.vars = { Ten: { num: 10 }, Late: { cond: { t: 'fight', what: 'elapsed', op: '>=', v: 60 } } };
+    b.groups = { Top: ['rule:0', 'rule:1'], Empty: [] };
+    b.rotation = ['group:Top', 'group:Empty', 'rule:2', 'rule:3', 'rule:4'].concat(b.rotation.slice(0, -1)).concat(['rule:5']);
+  } }),
   S('timeline', [], { builds: ['demo_pact_fire', 'sm_ruin_classic'], timeline: [{ t: 0, k: 'curseOfElements' }, { t: 1.5, k: 'corruption' }, { t: 3.5, k: 'immolate' }, { t: 30, k: 'lifeTap' }, { t: 45, k: 'soulFire' }, { t: 60, k: 'drainLife' }] }),
 ];
 
@@ -78,6 +102,7 @@ scenes.filter(s => !ONLY || s.name.indexOf(ONLY) >= 0).forEach(sc => {
     const b = JSON.parse(JSON.stringify(b0));
     if (sc.rotation) b.rotation = sc.rotation(b.rotation);
     if (sc.timeline) b.timeline = sc.timeline;
+    if (sc.mod) sc.mod(b);
     host.run('CHK.setBuild(' + toLua(b) + ')');
     const races = sc.builds ? RACES : [RACES[(bi + scenes.indexOf(sc)) % RACES.length], RACES[(bi + scenes.indexOf(sc) + 3) % RACES.length]];
     races.forEach(race => {

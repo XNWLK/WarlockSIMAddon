@@ -34,7 +34,11 @@ local BUFF_NAMES = {
   concentrationAura = { 'Concentration Aura' },
   manaSpring = { 'Mana Spring', 'Mana Spring Totem' },
   moonkinAura = { 'Moonkin Aura', 'Moonkin Form' },
+  atieshWarlock = {}, atieshMage = {}, atieshDruid = {},
 }
+-- The Atiesh auras share one name, so only their spell id tells them apart. Blood Pact is not looked for: it can be
+-- your own Imp's, which the sim does not add, so it stays part of your numbers.
+local ID_ONLY = { atieshWarlock = true, atieshMage = true, atieshDruid = true }
 
 local function spellName(id)
   if not id then return nil end
@@ -194,7 +198,7 @@ function WL.readCharacter()
   local buffs, used = {}, {}
   for key, names in pairs(BUFF_NAMES) do
     local b = WL.DEFAULT_CONFIG.buffs[key]
-    local own = b and spellName(b.id)
+    local own = b and not ID_ONLY[key] and spellName(b.id)
     for i = 1, #auras do
       local a = auras[i]
       local hit = (b and a.id == b.id) or (own and a.name == own)

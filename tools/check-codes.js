@@ -5,6 +5,10 @@ const ROOT = path.join(__dirname, '..');
 const SIM = process.env.SIM_DIR || path.join(ROOT, '..', 'wow-forever-warlock-sim');
 const WL = require(path.join(SIM, 'tools', 'load-wl.js')).load(SIM, ['engine/settings-code.js', 'tests/retired-builds.js']);
 const { newLua } = require('./lua-host.js');
+{ // the page's btoa / atob (a browser has them; the sim's engine runs here in a context of its own)
+  const g = WL.validateBuild.constructor('return this')();
+  g.btoa = x => Buffer.from(x, 'binary').toString('base64'); g.atob = x => Buffer.from(x, 'base64').toString('binary');
+}
 const host = newLua();
 host.loadAddon(['Data.lua', 'Engine.lua', 'Sim.lua', 'Codes.lua']);
 const b64 = s => Buffer.from(s, 'utf8').toString('base64'), unb64 = s => Buffer.from(s, 'base64').toString('utf8');
@@ -15,7 +19,8 @@ let n = 0;
 // settings: page -> addon -> page
 const variants = [c => {}, c => { Object.keys(c.buffs).forEach(k => { c.buffs[k].on = !c.buffs[k].on; }); c.gear.sp = 812.5; c.fight.precast = 'soulFire'; c.professions.engineering = true; },
   c => { Object.keys(c.buffs).forEach(k => { c.buffs[k].on = false; }); Object.keys(c.debuffs).forEach(k => { c.debuffs[k].on = false; }); Object.keys(c.consumables).forEach(k => { c.consumables[k].on = false; });
-         c.options.activesPolicy = 'custom'; c.options.activesTimeline = { racial: [10, 'exec'], pi: ['doom'] }; c.combat.targetResist.fire = 15; c.combat.levelResist.on = false; c.petSpPct = 12.5; c.fight.seed = 4000000000; }];
+         c.options.activesPolicy = 'custom'; c.options.activesTimeline = { racial: [10, 'exec'], pi: ['doom'] }; c.combat.targetResist.fire = 15; c.combat.levelResist.on = false; c.petSpPct = 12.5; c.fight.seed = 4000000000; },
+  c => { c.buffs.innervate.on = true; c.buffs.innervate.count = 3; c.buffs.powerInfusion.on = true; c.buffs.powerInfusion.count = 2; c.buffs.atieshWarlock.on = true; c.options.weightStats = ['sp', 'spi', 'mp5']; c.options.weightPrecision = 2; }];
 variants.forEach((v, i) => {
   const cfg = norm(WL.DEFAULT_CONFIG); v(cfg);
   const snap = norm(WL.settingsSnapshot(cfg));
@@ -53,6 +58,37 @@ builds.forEach(b => {
   if (!b.timeline) assert.strictEqual(back.split('|')[1], String(WL.validateBuild(Object.assign(norm(b), { rotation: rot })).length), b.key + ': the addon and the page find the same number of problems');
   n++;
 });
+// a build's own rules, groups and variables: page -> addon -> page, and the same problems found
+{
+  const sorted = x => JSON.stringify(x, (k, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.keys(v).sort().reduce((o, kk) => { o[kk] = v[kk]; return o; }, {}) : v);
+  const sm = () => norm(WL.BUILDS.filter(b => b.key === 'sm_ruin_classic')[0]);
+  const b = sm();
+  b.rules = [{ spell: 'shadowBolt', name: 'Nightfall', when: { t: 'aura', aura: 'shadowTrance', op: '>', v: 0 } },
+    { spell: 'corruption', when: { t: 'all', c: [{ t: 'dot', spell: 'corruption', op: '<=', v: 0 }, { t: 'var', name: 'Not ending' }, { t: 'any', c: [] }, { t: 'not', c: { t: 'mana', op: '<', v: 2.5 } }] } }];
+  b.vars = { 'Not ending': { cond: { t: 'fight', what: 'remaining', op: '>', v: { var: 'Min left' } } }, 'Min left': { num: 12 } };
+  b.groups = { DoTs: ['rule:1', 'siphonLife'] };
+  b.rotation = b.rotation.map(a => a === 'shadowTrance' ? 'rule:0' : a === 'corruption' ? 'group:DoTs' : a).filter(a => a !== 'siphonLife');
+  assert.strictEqual(WL.validateBuild(b).join(' | '), '', 'the rules build is legal on the page');
+  const back = host.eval('local b, err = WLX.decodeBuild(' + q(WL.encodeBuild(b)) + '); if not b then return "ERR " .. err end; return WLX.encodeBuild(b) .. "|" .. table.concat(WLX.validateBuild(b), "/") .. "|" .. WLX.actionLabel(b, "rule:0") .. "|" .. WLX.actionLabel(b, "group:DoTs") .. "|" .. WLX.actionLabel(b, "rule:1")');
+  assert(back.indexOf('ERR') !== 0, back);
+  const [code2, errs, l0, lg, l1] = back.split('|');
+  assert.strictEqual(errs, '', 'the addon finds no problem in the rules build');
+  const d = WL.decodeBuild(code2);
+  assert.strictEqual(sorted(d.rules), sorted(b.rules), 'rules come back unchanged'); assert.strictEqual(sorted(d.vars), sorted(b.vars), 'variables'); assert.strictEqual(sorted(d.groups), sorted(b.groups), 'groups');
+  assert.strictEqual(JSON.stringify(d.rotation), JSON.stringify(b.rotation), 'rotation with rules and groups');
+  assert.strictEqual(l0, WL.actionLabel(b, 'rule:0')); assert.strictEqual(lg, WL.actionLabel(b, 'group:DoTs')); assert.strictEqual(l1, WL.actionLabel(b, 'rule:1'));
+  n += 3;
+  const bad = sm();
+  bad.rules = [{ spell: 'shadowfury' }, { spell: 'conflagrate' }, { spell: 'shadowBolt', when: { t: 'dot', spell: 'shadowBolt', op: '>', v: 0 } }, { spell: 'shadowBolt', when: { t: 'fight', what: 'remaining', op: '>', v: { var: 'Nope' } } },
+    { spell: 'shadowBolt', when: { t: 'aura', aura: 'nothing', op: '!', v: 1 } }, { spell: 'shadowBolt', when: { t: 'var', name: 'Gone' } }, { spell: 'shadowBolt', when: { t: 'odd' } }];
+  bad.vars = { '9 lives': { num: 1 }, Empty: {} };
+  bad.groups = { Nest: ['group:Nest', 'shadowBolt'], Hollow: [] };
+  bad.rotation = bad.rotation.concat(['group:None', 'group:Nest', 'group:Hollow', 'rule:99']);
+  const e1 = norm(WL.validateBuild(WL.decodeBuild(WL.encodeBuild(bad)))).sort();
+  const e2 = host.eval('local b = WLX.decodeBuild(' + q(WL.encodeBuild(bad)) + '); return table.concat(WLX.validateBuild(b), "\\n")').split('\n').sort();
+  assert.deepStrictEqual(e2.map(x => x.replace(/ - /g, ' — ').replace(/\.\.\./g, '…')), e1, 'the same problems in a build with faulty rules');
+  n++;
+}
 // codes made before the patch of 2026-10-16: the removed totems and the sword box load quietly, Malediction moves to Grim Reach
 {
   const snap = norm(WL.settingsSnapshot(norm(WL.DEFAULT_CONFIG)));

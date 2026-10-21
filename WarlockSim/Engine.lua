@@ -237,7 +237,7 @@ function WL.computeStats(build, raceKey, cfg)
   local int = intFlat * (1 + kingsPct / 100)
   if kingsPct ~= 0 then add('int', 'Blessing of Kings', int - intFlat) end
   local spiFlat = add('spi', 'Base (level 60 Warlock)', base.spi) + add('spi', race.name, race.offset.spi)
-          + add('spi', 'Gear', gear.spi) + buffStat('spi') + conStat('spi')
+          + add('spi', 'Gear', gear.spi) + buffStat('spi') + conStat('spi') + add('spi', 'Stat-weight test', ex.spi or 0)
   local spiPct = racial('spiritPct') and racial('spiritPct').value or 0
   local spi = spiFlat * (1 + spiPct / 100) * (1 + kingsPct / 100)
   if spiPct ~= 0 then add('spi', 'The Human Spirit', spiFlat * spiPct / 100) end
@@ -263,7 +263,7 @@ function WL.computeStats(build, raceKey, cfg)
   local sacrificeActive = (build.sacrifice ~= nil and build.sacrifice ~= false) and (not petActive or tv('demonicPact') > 0)
 
   -- Spell power
-  local sp = add('sp', 'Gear', gear.sp) + add('sp', 'Stat-weight test', ex.sp or 0) + conStat('sp') + oilStat('sp')
+  local sp = add('sp', 'Gear', gear.sp) + add('sp', 'Stat-weight test', ex.sp or 0) + conStat('sp') + oilStat('sp') + buffStat('sp')   -- buffStat: Atiesh
   local dkSp = 0
   if petActive and tv('demonicKnowledge') ~= 0 then
     dkSp = round(60 * tv('demonicKnowledge', 'levelPct') / 100)
@@ -303,8 +303,8 @@ function WL.computeStats(build, raceKey, cfg)
                + add('hastePct', 'Stat-weight test', ex.hastePct or 0)
                + oilStat('hastePct') + conStat('hastePct')
   local pierce = add('pierce', 'Gear', gear.pierce or 0) + add('pierce', 'Stat-weight test', ex.pierce or 0)
-  local spellPen = add('spellPen', 'Gear', gear.spellPen or 0)          -- lowers resistance down to 0 (Spell Pierce goes below)
-  local mp5 = add('mp5', 'Gear', gear.mp5 or 0) + buffStat('mp5') + conStat('mp5') + oilStat('mp5')
+  local spellPen = add('spellPen', 'Gear', gear.spellPen or 0) + add('spellPen', 'Stat-weight test', ex.spellPen or 0)   -- lowers resistance down to 0 (Spell Pierce goes below)
+  local mp5 = add('mp5', 'Gear', gear.mp5 or 0) + buffStat('mp5') + conStat('mp5') + oilStat('mp5') + add('mp5', 'Stat-weight test', ex.mp5 or 0)
 
   -- Static caster damage auras per school (they multiply with each other and with the talent spell modifiers).
   local mult = { shadow = 1, fire = 1, all = 1 }
@@ -467,7 +467,7 @@ local function dotNeeded(S, key, minTicks)
 end
 
 function WL.minDotLeft(S)
-  local rot, m = S.build.rotation, huge
+  local rot, m = WL.expandGroups(S.build), huge
   for i = 1, #rot do
     local d = WL.DOT_ACTIONS[rot[i]]
     if d then
@@ -550,10 +550,10 @@ local PICK = {
   deathCoil = function(S) return S.ready('deathCoil') and 'deathCoil' or nil end,
   deathCoilFinisher = function(S)
     if not S.ready('deathCoil') then return nil end
-    local rot, f = S.build.rotation, nil
+    local rot, f = WL.expandGroups(S.build), nil
     local i = 1
     while i <= #rot and not f do
-      local A = WL.ACTIONS[rot[i]]
+      local A = WL.actionOf(rot[i], S.build)
       if A and (A.filler or A.preFiller) then f = A.pick(S) end
       i = i + 1
     end
@@ -621,13 +621,146 @@ for i = 1, #WL.ACTION_META do
   end
 end
 
+-- ---------- rules, groups and variables of a build's own (they come in build codes from the website) ----------
+-- Besides the actions above, a build's priority can hold
+--   'rule:N'     build.rules[N + 1] = { spell, when, name }: cast `spell` when the condition `when` holds (no condition =
+--                always); the spell must be talented and off cooldown. N counts from 0, as on the website.
+--   'group:Name' build.groups[Name] = { action keys }: the group's actions are put in its place (one level).
+-- Conditions: { t = 'all' | 'any', c = { ... } }, { t = 'not', c = node }, { t = 'dot', spell, op, v }, { t = 'aura', aura, op, v },
+-- { t = 'cd', spell, op, v }, { t = 'fight', what = 'remaining' | 'elapsed' | 'bossHp', op, v }, { t = 'mana' | 'shards' | 'brand', op, v },
+-- { t = 'var', name } (a named condition of build.vars). v = a number, or { var = name } (a named number: build.vars[name] = { num }).
+WL.RULE_SPELLS = {}
+for i = 1, #WL.SPELL_ORDER do local k = WL.SPELL_ORDER[i]; if k ~= 'drainSoul' and k ~= 'baneOfHavoc' then WL.RULE_SPELLS[#WL.RULE_SPELLS + 1] = k end end
+WL.RULE_DOTS = { 'corruption', 'immolate', 'siphonLife', 'baneOfAgony', 'baneOfDoom' }
+WL.RULE_AURAS = { { 'shadowTrance', 'Shadow Trance (Nightfall)' }, { 'decimation', 'Decimation' }, { 'isb', 'Improved Shadow Bolt on the boss' },
+  { 'coe', 'Curse of the Elements on the boss' }, { 'brand', 'Demonic Brand on the boss' }, { 'snfFire', 'Shadow and Flame (Fire)' }, { 'snfShadow', 'Shadow and Flame (Shadow)' },
+  { 'bloodFury', 'Blood Fury' }, { 'berserking', 'Berserking' }, { 'eureka', 'Eureka!' }, { 'powerInfusion', 'Power Infusion' }, { 'spPotion', 'Spellblasting potion' } }
+WL.RULE_OPS = { '<', '<=', '>', '>=', '=' }
+local function auraName(k) for i = 1, #WL.RULE_AURAS do if WL.RULE_AURAS[i][1] == k then return WL.RULE_AURAS[i][2] end end end
+local function ruleCmp(a, op, b)
+  if op == '<' then return a < b - 1e-9 elseif op == '<=' then return a <= b + 1e-9 elseif op == '>' then return a > b + 1e-9
+  elseif op == '>=' then return a >= b - 1e-9 end
+  return abs(a - b) < 1e-6
+end
+local function vars(b) return (b and type(b.vars) == 'table') and b.vars or {} end
+function WL.ruleNum(v, build)
+  if type(v) == 'table' and v.var ~= nil then local x = vars(build)[v.var]; return (type(x) == 'table' and type(x.num) == 'number') and x.num or 0 / 0 end
+  return tonumber(v) or 0 / 0
+end
+local function list(c) return type(c) == 'table' and c or {} end
+function WL.ruleCond(n, S, build, depth)
+  if type(n) ~= 'table' then return true end
+  depth = depth or 0
+  if depth > 12 then return false end                         -- a variable that refers to itself
+  local b = build or S.build
+  local t = n.t
+  if t == 'all' then local c = list(n.c); for i = 1, #c do if not WL.ruleCond(c[i], S, b, depth + 1) then return false end end; return true end
+  if t == 'any' then local c = list(n.c); for i = 1, #c do if WL.ruleCond(c[i], S, b, depth + 1) then return true end end; return false end
+  if t == 'not' then return not WL.ruleCond(n.c, S, b, depth + 1) end
+  if t == 'var' then local x = vars(b)[n.name]; return (type(x) == 'table' and x.cond ~= nil) and WL.ruleCond(x.cond, S, b, depth + 1) or false end
+  local v = WL.ruleNum(n.v, b)
+  if t == 'dot' then return ruleCmp(max(0, S.dotLeft(n.spell)), n.op, v) end
+  if t == 'aura' then return ruleCmp(S.buff(n.aura) and S.buffs[n.aura] - S.t or 0, n.op, v) end
+  if t == 'cd' then return ruleCmp(max(0, (S.cds[n.spell] or 0) - S.t), n.op, v) end
+  if t == 'fight' then return ruleCmp(n.what == 'elapsed' and S.t or n.what == 'bossHp' and S.targetHpPct or S.remaining, n.op, v) end
+  if t == 'mana' then return ruleCmp(100 * S.mana / S.maxMana, n.op, v) end
+  if t == 'shards' then return ruleCmp(S.shards, n.op, v) end
+  if t == 'brand' then return ruleCmp(S.buff('brand') and (S.brandCharges or 0) or 0, n.op, v) end
+  return false
+end
+-- The action of a priority key for this build (a built-in one, or one of the build's rules); nil when unknown.
+function WL.actionOf(key, build)
+  if WL.ACTIONS[key] then return WL.ACTIONS[key] end
+  local m = type(key) == 'string' and key:match('^rule:(%d+)$')
+  local r = m and build and type(build.rules) == 'table' and build.rules[tonumber(m) + 1]
+  if type(r) ~= 'table' or not indexOf(WL.RULE_SPELLS, r.spell) then return nil end
+  local spell = r.spell
+  return { rule = r, label = WL.ruleText(r, build), filler = not r.when, pick = function(S)
+    if not S.has(spell) or not S.ready(spell) then return nil end
+    return WL.ruleCond(r.when, S, build) and spell or nil
+  end }
+end
+local function numText(x)
+  if x == floor(x) and abs(x) < 1e15 then return string.format('%d', x) end
+  for p = 1, 17 do local t = string.format('%.' .. p .. 'g', x); if tonumber(t) == x then return t end end
+  return tostring(x)
+end
+-- A condition / rule in words.
+function WL.condText(n, build)
+  if type(n) ~= 'table' then return 'always' end
+  local function sn(k) return (WL.SPELLS[k] or {}).name or tostring(k) end
+  local function v() if type(n.v) == 'table' and n.v.var ~= nil then return tostring(n.v.var) end; return type(n.v) == 'number' and numText(n.v) or tostring(n.v) end
+  local t, op = n.t, tostring(n.op)
+  if t == 'all' or t == 'any' then
+    local c, parts = list(n.c), {}
+    if #c == 0 then return t == 'all' and 'always' or 'never' end
+    for i = 1, #c do parts[i] = WL.condText(c[i], build) end
+    return '(' .. table.concat(parts, t == 'all' and ' and ' or ' or ') .. ')'
+  end
+  if t == 'not' then return 'not ' .. WL.condText(n.c, build) end
+  if t == 'dot' then return sn(n.spell) .. ' time left ' .. op .. ' ' .. v() .. ' s' end
+  if t == 'aura' then return (auraName(n.aura) or tostring(n.aura)) .. ' time left ' .. op .. ' ' .. v() .. ' s' end
+  if t == 'cd' then return sn(n.spell) .. ' cooldown ' .. op .. ' ' .. v() .. ' s' end
+  if t == 'fight' then
+    return (n.what == 'elapsed' and 'fight time gone' or n.what == 'bossHp' and 'boss health %' or 'fight time left') .. ' ' .. op .. ' ' .. v() .. (n.what == 'bossHp' and '' or ' s')
+  end
+  if t == 'mana' then return 'mana % ' .. op .. ' ' .. v() end
+  if t == 'shards' then return 'Soul Shards ' .. op .. ' ' .. v() end
+  if t == 'brand' then return 'Demonic Brand charges ' .. op .. ' ' .. v() end
+  if t == 'var' then return tostring(n.name) end
+  return '?'
+end
+function WL.ruleText(r, build)
+  return (r.name and (r.name .. ': ') or '') .. ((WL.SPELLS[r.spell] or {}).name or tostring(r.spell)) .. (r.when and (' if ' .. WL.condText(r.when, build)) or '')
+end
+-- Faults in a rule's condition (unknown spell, aura, operator, variable, a number that is not one).
+function WL.condErrors(n, build, where, depth, out)
+  out = out or {}
+  local b = build or {}
+  depth = depth or 0
+  if type(n) ~= 'table' then return out end
+  if depth > 12 then out[#out + 1] = where .. ': the condition is nested too deep'; return out end
+  local function num()
+    local x = WL.ruleNum(n.v, b)
+    if not (x == x and x ~= huge and x ~= -huge) then
+      out[#out + 1] = where .. ': ' .. ((type(n.v) == 'table' and n.v.var ~= nil) and ('no number named "' .. tostring(n.v.var) .. '"') or 'a number is missing')
+    end
+    if not indexOf(WL.RULE_OPS, n.op) then out[#out + 1] = where .. ': unknown comparison "' .. tostring(n.op) .. '"' end
+  end
+  local t = n.t
+  if t == 'all' or t == 'any' then local c = list(n.c); for i = 1, #c do WL.condErrors(c[i], b, where, depth + 1, out) end
+  elseif t == 'not' then WL.condErrors(n.c, b, where, depth + 1, out)
+  elseif t == 'dot' then if not indexOf(WL.RULE_DOTS, n.spell) then out[#out + 1] = where .. ': "' .. tostring(n.spell) .. '" is not a DoT' end; num()
+  elseif t == 'aura' then if not auraName(n.aura) then out[#out + 1] = where .. ': unknown buff "' .. tostring(n.aura) .. '"' end; num()
+  elseif t == 'cd' then if not WL.SPELLS[n.spell] then out[#out + 1] = where .. ': unknown spell "' .. tostring(n.spell) .. '"' end; num()
+  elseif t == 'fight' then if n.what ~= 'remaining' and n.what ~= 'elapsed' and n.what ~= 'bossHp' then out[#out + 1] = where .. ': unknown fight value' end; num()
+  elseif t == 'mana' or t == 'shards' or t == 'brand' then num()
+  elseif t == 'var' then local x = vars(b)[n.name]; if type(x) ~= 'table' or x.cond == nil then out[#out + 1] = where .. ': no condition named "' .. tostring(n.name) .. '"' end
+  else out[#out + 1] = where .. ': unknown condition' end
+  return out
+end
+-- The priority with its groups put in place (one level; a group inside a group is left out).
+function WL.expandGroups(build, rot)
+  local g, out = (build and type(build.groups) == 'table') and build.groups or {}, {}
+  rot = rot or build.rotation
+  for i = 1, #rot do
+    local a = rot[i]
+    local m = type(a) == 'string' and a:match('^group:(.+)$')
+    if not m then out[#out + 1] = a
+    else
+      local list = type(g[m]) == 'table' and g[m] or {}
+      for j = 1, #list do if not tostring(list[j]):match('^group:') then out[#out + 1] = list[j] end end
+    end
+  end
+  return out
+end
+
 function WL.effectiveRotation(build, cfg)
-  local rot, f = {}, (cfg and cfg.fight) or {}
-  for i = 1, #build.rotation do rot[i] = build.rotation[i] end
+  local rot, f = WL.expandGroups(build), (cfg and cfg.fight) or {}
   if f.multiDot and ((f.targets and f.targets ~= 0) and f.targets or 1) >= 2 and not indexOf(rot, 'multiDot') then
     local fi
     for i = 1, #rot do
-      local a = WL.ACTIONS[rot[i]]
+      local a = WL.actionOf(rot[i], build)
       if a and (a.filler or a.preFiller) then fi = i; break end
     end
     local si = indexOf(rot, 'shadowBoltSpread')
@@ -661,9 +794,14 @@ function WL.actionParams(b, key)
   return out
 end
 function WL.actionLabel(b, key)
-  local A = WL.ACTIONS[key]
+  local g = type(key) == 'string' and key:match('^group:(.+)$')
+  if g then
+    local n = b and type(b.groups) == 'table' and b.groups[g]
+    return 'Group "' .. g .. '"' .. (type(n) == 'table' and (' (' .. #n .. ' action' .. (#n == 1 and '' or 's') .. ')') or '')
+  end
+  local A = WL.actionOf(key, b)
   if not A then return key end
-  if not A.params then return A.label end
+  if A.rule or not A.params then return A.label end
   local v, i = WL.actionParams(b, key), 0
   return (A.label:gsub('_', function() i = i + 1; local p = A.params[i]; return p and tostring(v[p.key]) or '_' end))
 end
@@ -743,13 +881,48 @@ function WL.validateBuild(b, loose)
   if b.sacrifice and b.pet and (t.demonicPact or 0) == 0 then err('Keeping a pet out after a sacrifice needs Demonic Pact') end
   if b.sacrifice and b.pet and b.pet == b.sacrifice then err('Demonic Pact: the sacrificed demon cannot be the one you keep out') end
   if not WL.OILS[b.oil] then err('Unknown weapon stone "' .. tostring(b.oil) .. '"') end
-  local rot = b.rotation or {}
+  -- Rules ('rule:N'), groups ('group:Name', put in place) and variables of the build's own.
+  local rot0 = b.rotation or {}
+  for i = 1, #rot0 do
+    local m = type(rot0[i]) == 'string' and rot0[i]:match('^group:(.+)$')
+    if m then
+      local g = type(b.groups) == 'table' and b.groups[m]
+      if type(g) ~= 'table' then err('No group named "' .. m .. '"')
+      elseif #g == 0 then err('Group "' .. m .. '" is empty')
+      else for j = 1, #g do if tostring(g[j]):match('^group:') then err('Group "' .. m .. '": a group cannot hold another group') end end end
+    end
+  end
+  for i, r in ipairs(type(b.rules) == 'table' and b.rules or {}) do
+    local where = 'Rule ' .. i .. ((type(r) == 'table' and r.name) and (' (' .. tostring(r.name) .. ')') or '')
+    local sp = type(r) == 'table' and WL.SPELLS[r.spell]
+    if not sp or not indexOf(WL.RULE_SPELLS, r.spell) then err(where .. ': unknown spell "' .. tostring(type(r) == 'table' and r.spell) .. '"')
+    else
+      if sp.talent and (t[sp.talent] or 0) == 0 then err(where .. ': ' .. sp.name .. ' needs the ' .. WL.TALENT_BY_KEY[sp.talent].name .. ' talent') end
+      WL.condErrors(r.when, b, where, 0, errs)
+    end
+  end
+  if type(b.vars) == 'table' then
+    local names = {}
+    for k in pairs(b.vars) do names[#names + 1] = k end
+    table.sort(names)
+    for _, k in ipairs(names) do
+      local v = b.vars[k]
+      if not (type(k) == 'string' and #k <= 30 and k:match('^%a[%w_ %-]*$')) then err('Variable "' .. tostring(k) .. '": a name of letters, digits and spaces (up to 30)') end
+      if type(v) ~= 'table' or (v.cond == nil and not (type(v.num) == 'number' and v.num == v.num and v.num ~= huge and v.num ~= -huge)) then err('Variable "' .. tostring(k) .. '" is empty')
+      elseif v.cond ~= nil then WL.condErrors(v.cond, b, 'Variable "' .. k .. '"', 0, errs) end
+    end
+  end
+  local rot = WL.expandGroups(b, rot0)
   if #rot == 0 then err('The priority list is empty') end
-  for i = 1, #rot do if not WL.ACTIONS[rot[i]] then err('Unknown priority action "' .. tostring(rot[i]) .. '"') end end
+  for i = 1, #rot do
+    if not WL.actionOf(rot[i], b) then
+      err(tostring(rot[i]):match('^rule:') and ('The priority list names a rule that does not exist (' .. rot[i] .. ')') or ('Unknown priority action "' .. tostring(rot[i]) .. '"'))
+    end
+  end
   local fi
-  for i = 1, #rot do if WL.ACTIONS[rot[i]] and WL.ACTIONS[rot[i]].filler then fi = i; break end end
-  if not fi and #rot > 0 then err('The priority list needs a filler (Shadow Bolt, Searing Pain, Incinerate, ...) at the end')
-  elseif fi and fi < #rot then err('Everything after the first filler (' .. WL.ACTIONS[rot[fi]].label .. ') is never cast - move the filler to the end') end
+  for i = 1, #rot do local A = WL.actionOf(rot[i], b); if A and A.filler then fi = i; break end end
+  if not fi and #rot > 0 then err('The priority list needs a filler (Shadow Bolt, Searing Pain, Incinerate, ... or a rule without a condition) at the end')
+  elseif fi and fi < #rot then err('Everything after the first filler (' .. WL.actionOf(rot[fi], b).label .. ') is never cast - move the filler to the end') end
   if indexOf(rot, 'shadowburnSnF') and (t.shadowburn or 0) == 0 then err('"' .. WL.ACTIONS.shadowburnSnF.label .. '" needs the Shadowburn talent') end
   if indexOf(rot, 'conflagrateSnF') and (t.conflagrate or 0) == 0 then err('"' .. WL.ACTIONS.conflagrateSnF.label .. '" needs the Conflagrate talent') end
   for i = 1, #rot do

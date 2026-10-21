@@ -3,6 +3,18 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.9.4
+
+- Your demon's melee now gets 8/17 of your spell hit, all of it counting: 17% spell hit gives 8% melee hit, and then the
+  Succubus never misses (she can still be dodged). Below that she misses a little more than before. Its spells still hit
+  as often as yours. Imp builds do not change.
+- New on the Buffs tab: the Atiesh auras of a Warlock, a Mage or a Druid in your party, and Blood Pact from another
+  Warlock's Imp.
+- Innervate and Power Infusion have a "how many" box for when several Druids or Priests give you theirs. The next one
+  comes when the last one is over.
+- Build codes from the website that use your own rules, groups and variables in the priority list now work in the addon.
+- After updating, your character is read again once and the numbers on the character sheet are worked out again.
+
 ## v0.9.3
 
 - Gear codes tell the website more about each item: its item level, the level needed to wear it, its icon, its item set

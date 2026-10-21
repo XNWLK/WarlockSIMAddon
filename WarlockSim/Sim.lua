@@ -251,7 +251,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   for i = 1, #buffList do
     local b = buffList[i]
     if not PI and b.spellDmgPct and b.spellDmgPct ~= 0 then PI = b end
-    if b.tide or b.innervate then manaBuffs[#manaBuffs + 1] = { b = b, used = false } end
+    if b.tide or b.innervate then manaBuffs[#manaBuffs + 1] = { b = b, left = max(1, floor((b.count or 1) + 0.5)), upTo = 0 } end   -- count: several Druids
   end
   local coePct = SPELLS.curseOfElements.dmgTakenPct
   local function liveMult(key, periodic)
@@ -336,8 +336,9 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if #manaBuffs == 0 or S.mana >= 0.5 * stats.maxMana then return end
     for i = 1, #manaBuffs do
       local mb = manaBuffs[i]
-      if not mb.used then
-        mb.used = true
+      if not (mb.left <= 0 or S.t < mb.upTo - EPS) then             -- the next one when the last one is over
+        mb.left = mb.left - 1
+        mb.upTo = S.t + (mb.b.innervate and mb.b.innervate.duration or mb.b.tide.ticks * mb.b.tide.every)
         if mb.b.tide then
           for j = 0, mb.b.tide.ticks - 1 do push({ t = S.t + j * mb.b.tide.every, o = 0, type = 'mana', amount = mb.b.tide.amount }) end
         end
@@ -424,9 +425,18 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     actOpen = toBoom > S.remaining or toBoom <= len + EPS
     return actOpen
   end
+  -- count = how many Priests give you their Power Infusion; each has its own cooldown, and the next one comes when the
+  -- last one has run out (it does not stack with itself).
+  local piCd = {}
   local function usePowerInfusion()
-    if not PI or not ready('powerInfusion') then return false end
-    cds.powerInfusion = S.t + PI.cd; buffs.powerInfusion = S.t + PI.duration
+    if not PI or buff('powerInfusion') then return false end
+    local n, i = max(1, floor((PI.count or 1) + 0.5)), nil
+    for q = 1, n do if (piCd[q] or 0) <= S.t + EPS then i = q; break end end
+    if not i then return false end
+    piCd[i] = S.t + PI.cd
+    local lo = n > #piCd and 0 or huge
+    for q = 1, #piCd do if piCd[q] < lo then lo = piCd[q] end end
+    cds.powerInfusion = lo; buffs.powerInfusion = S.t + PI.duration
     return true
   end
   local function useSpPotion()
@@ -529,7 +539,8 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local NT = max(1, min(3, (fight.targets and fight.targets ~= 0) and fight.targets or 1))
   local HAV_T = HAV ~= 0 and 2 or 0
   ROT = WL.effectiveRotation(build, cfg)
-  local ACTIONS = WL.ACTIONS
+  local ACTS = {}                                        -- the action of each entry: built-in, or one of the build's rules
+  for i = 1, #ROT do ACTS[i] = WL.actionOf(ROT[i], build) end
   -- Fight timeline: an optional list of spells at fixed start times on top of the priority.
   if build.timeline and #build.timeline > 0 then
     local list = {}
@@ -1039,7 +1050,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function petMeleeAttack(rk, roll)       -- one swing; true if it landed
     local m, r, tb = P.c.melee, bySpell[rk] or row(rk), cb.petMelee
     r.casts = r.casts + 1
-    local hitBonus = max(0, stats.hitPct - cb.baseHitPct - tb.hitSuppressionPct)
+    local hitBonus = WL.petMeleeHit(stats, cb)       -- her melee hit: 8/17 of your spell hit, all of it counts
     local miss = max(0, tb.missPct - hitBonus)
     local critCh = max(0, (m.critPct or 0) + (m.inheritSpellCrit and stats.critPct or 0) - tb.critSuppressionPct)
     if roll >= miss + tb.dodgePct then
@@ -1152,7 +1163,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- What the rotation would cast instead of the DoT: the first action below it that picks a damaging direct spell or channel.
   local function altBelow(idx)
     for i = (idx or 0) + 1, #ROT do
-      local a = ACTIONS[ROT[i]]
+      local a = ACTS[i]
       if a and not NOT_ALT[ROT[i]] then
         local k = a.pick(S)
         local s = k and SPELLS[k]
@@ -1233,7 +1244,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function pickAction(excludeFrom, fitBy)
     for i = 1, #ROT do
       if excludeFrom ~= nil and i >= excludeFrom then return nil end
-      local a = ACTIONS[ROT[i]]
+      local a = ACTS[i]
       if not a then error('Unknown priority action: ' .. tostring(ROT[i])) end
       S.nextTarget = 0
       S.actionIndex = i
@@ -1531,6 +1542,11 @@ function WL.statWeightRun(build, raceKey, cfg, n, k, onFight)
     c.extra[k] = (c.extra[k] or 0) + cfg.weightDeltas[k]
   end
   return WL.simulate(build, raceKey, c, { iterations = n, onFight = onFight }).dps
+end
+-- Pet melee hit: 8/17 of your spell hit above the base, from the hit stat itself (not capped). Her spells keep your hit.
+function WL.petMeleeHit(stats, cb)
+  local t = cb.petMelee
+  return max(0, stats.hitPctUncapped - cb.baseHitPct) * (t.hitFromSpell ~= nil and t.hitFromSpell or 1)
 end
 function WL.combineWeights(cfg, base, dpsByKey)
   local out = { base = base }

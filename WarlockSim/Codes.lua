@@ -207,7 +207,11 @@ end
 function WL.settingsSnapshot(c)
   local options = copy(c.options)
   if options.alwaysShowBestTrees then WL.jsonArray(options.alwaysShowBestTrees) end
+  if options.weightStats then WL.jsonArray(options.weightStats) end
+  local counts                                                -- Innervate / Power Infusion from more than one Druid / Priest
+  for k, b in pairs(c.buffs or {}) do if b.on and b.count and b.count > 1 then counts = counts or {}; counts[k] = b.count end end
   return {
+    counts = counts,
     v = 1, fight = c.fight, gear = c.gear, options = options,
     buffs = onKeys(c.buffs, WL.BUFF_ORDER), debuffs = onKeys(c.debuffs, WL.DEBUFF_ORDER), cons = onKeys(c.consumables, WL.CONSUMABLE_ORDER),
     prof = c.professions or {}, petSpPct = c.petSpPct,
@@ -277,12 +281,31 @@ function WL.applySettings(c, o)
     if isNum(o.resist.fire) then c.combat.targetResist.fire = o.resist.fire end
   end
   if type(o.levelResist) == 'boolean' and c.combat.levelResist then c.combat.levelResist.on = o.levelResist end
+  for k, b in pairs(c.buffs or {}) do                         -- counts: a code without them sets 1
+    if b.count ~= nil then
+      local n = type(o.counts) == 'table' and o.counts[k]
+      b.count = (isNum(n) and n > 0) and math.min(b.maxCount or 5, floor(n + 0.5)) or 1
+    end
+  end
   return unknown
 end
 
 -- ---------------------------------------------------------------------------------------------------------------------
 -- build code (custom-builds.js)
 -- ---------------------------------------------------------------------------------------------------------------------
+-- A rule's condition as JSON: the lists of "all of" / "any of" stay lists (also when empty).
+local function condJson(n)
+  if type(n) ~= 'table' then return n end
+  local o = {}
+  for k, v in pairs(n) do o[k] = v end
+  if (n.t == 'all' or n.t == 'any') and type(n.c) == 'table' then
+    o.c = WL.jsonArray()
+    for i = 1, #n.c do o.c[i] = condJson(n.c[i]) end
+  elseif n.t == 'not' then o.c = condJson(n.c) end
+  if type(n.v) == 'table' then o.v = { var = n.v.var } end
+  return o
+end
+local function hasKeys(t) return type(t) == 'table' and next(t) ~= nil end
 function WL.encodeBuild(b)
   local o = { v = 1, short = b.short, talents = b.talents, pet = b.pet or NULL, sacrifice = b.sacrifice or NULL, oil = b.oil, rotation = WL.jsonArray(copy(b.rotation)) }
   if b.timeline and #b.timeline > 0 then
@@ -291,6 +314,15 @@ function WL.encodeBuild(b)
   end
   local p = WL.cleanParams(b.params, b.rotation)
   if p then o.p = p end
+  if type(b.rules) == 'table' and #b.rules > 0 then           -- rules, groups and variables of the build's own
+    o.rules = WL.jsonArray()
+    for i = 1, #b.rules do local r = b.rules[i]; o.rules[i] = { spell = r.spell, when = condJson(r.when), name = r.name } end
+  end
+  if hasKeys(b.groups) then o.groups = {}; for k, g in pairs(b.groups) do o.groups[k] = WL.jsonArray(copy(g)) end end
+  if hasKeys(b.vars) then
+    o.vars = {}
+    for k, v in pairs(b.vars) do o.vars[k] = v.cond ~= nil and { cond = condJson(v.cond) } or { num = v.num } end
+  end
   return WL.BUILD_CODE_PREFIX .. WL.base64Encode(WL.jsonEncode(o))
 end
 function WL.decodeBuild(code)
@@ -313,6 +345,31 @@ function WL.decodeBuild(code)
     for i = 1, #o.tl do
       local x = o.tl[i]
       if type(x) == 'table' and tostring(x[2]) ~= 'shadowBoltR2' then b.timeline[#b.timeline + 1] = { t = tonumber(x[1]) or 0, k = tostring(x[2]) } end
+    end
+  end
+  if type(o.rules) == 'table' then
+    b.rules = {}
+    for i = 1, #o.rules do
+      local r = o.rules[i]
+      if type(r) == 'table' and type(r.spell) == 'string' then
+        b.rules[#b.rules + 1] = { spell = r.spell, when = type(r.when) == 'table' and r.when or nil, name = r.name ~= nil and sub(tostring(r.name), 1, 40) or nil }
+      end
+    end
+  end
+  if type(o.groups) == 'table' then
+    b.groups = {}
+    for k, g in pairs(o.groups) do
+      if type(g) == 'table' and getmetatable(g) ~= nil then
+        local l = {}
+        for i = 1, #g do l[i] = tostring(g[i]) end
+        b.groups[sub(tostring(k), 1, 30)] = l
+      end
+    end
+  end
+  if type(o.vars) == 'table' then
+    b.vars = {}
+    for k, v in pairs(o.vars) do
+      if type(v) == 'table' and (v.cond or type(v.num) == 'number') then b.vars[sub(tostring(k), 1, 30)] = v.cond and { cond = v.cond } or { num = v.num } end
     end
   end
   return b
