@@ -19,7 +19,7 @@ const body = m[2].trim().split('\n').reduce((out, line) => {
   if (/^\s+\S/.test(line) && out.length && !/^\s*[-*] /.test(line)) out[out.length - 1] += ' ' + line.trim(); else out.push(line);
   return out;
 }, []).join('\n') +
-  '\n\n**Install:** unzip `WarlockSim-' + version + '.zip` into `World of Warcraft\\_classic_beta_\\Interface\\AddOns` (over the old folder, if there is one), restart the game, type `/wsim`.' +
+  '\n\n**Install:** unzip `WarlockSim-' + version + '.zip` into `World of Warcraft\\_forever_\\Interface\\AddOns` (over the old folder, if there is one), restart the game, type `/wsim`.' +
   ' · [Full changelog](https://github.com/' + REPO + '/blob/main/CHANGELOG.md)\n';
 
 const head = sh('git', ['rev-parse', 'HEAD']);
