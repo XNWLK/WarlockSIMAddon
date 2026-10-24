@@ -3,6 +3,13 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.9.5
+
+- The ready build "Aff Pact Shadow Bolt Succubus" is gone: it gave nothing that "Demo Pact Shadow Bolt Succubus" does
+  not. Six ready builds remain.
+- "SM Ruin (classic)" is now called "SM Ruin".
+- After updating, your character is read again once and the numbers on the character sheet are worked out again.
+
 ## v0.9.4
 
 - Your demon's melee now gets 8/17 of your spell hit, all of it counting: 17% spell hit gives 8% melee hit, and then the

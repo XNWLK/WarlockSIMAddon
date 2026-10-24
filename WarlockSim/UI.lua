@@ -452,7 +452,7 @@ local function buildBuildsPage(p)
   end, function() return WL.raceKey() end, function(v) if not WL.char then WL.db.options.race = v end end, 'Without a character read, the builds are played as this race, with the gear numbers of the sim\'s settings (or of a settings code you loaded).'))
   p.race:SetPoint('TOPLEFT', 86, -58)
   p.gear = Text(p, 'GameFontDisableSmall'); p.gear:SetPoint('TOPLEFT', 0, -88); p.gear:SetWidth(W - 2 * PAD)
-  p.rank = Button(p, 'Sim builds with your gear', 200, function() startSim(WL.simRanking) end, 'Reads your character again (out of combat), then plays every build of the sim with your gear numbers: seven or more sims in a row. Fewer fights (Fight tab) make it quicker and less exact.')
+  p.rank = Button(p, 'Sim builds with your gear', 200, function() startSim(WL.simRanking) end, 'Reads your character again (out of combat), then plays every build of the sim with your gear numbers: one sim per build, and one for your own character, in a row. Fewer fights (Fight tab) make it quicker and less exact.')
   p.rank:SetPoint('BOTTOMLEFT', 0, 0)
   p.sync = function()
     local g = WL.characterConfig().gear

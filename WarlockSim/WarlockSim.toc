@@ -2,7 +2,7 @@
 ## Title: Xn's Warlock Sim
 ## Notes: Simulates your Warlock's DPS inside the game, with your own talents and stats. Type /wsim
 ## Author: Xn
-## Version: 0.9.4
+## Version: 0.9.5
 ## X-Website: https://www.curseforge.com/wow/addons/xns-warlock-sim
 ## SavedVariables: WarlockSimDB
 ## IconTexture: Interface\Icons\Spell_Shadow_ShadowBolt
