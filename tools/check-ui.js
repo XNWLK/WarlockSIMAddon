@@ -260,11 +260,15 @@ step('the builds appear one by one; asked again, they are there at once', `WLX.d
 step('the speed: automatic by default, a saved "stay smooth" of the version before moves over once', `assert(WLX.db.options.speed == "auto", "default speed: " .. tostring(WLX.db.options.speed))
   local o = WarlockSimDB.options; o.speed = "smooth"; o.speedDefault = nil; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db.options.speed == "auto", "moved over")
   WLX.db.options.speed = "smooth"; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db.options.speed == "smooth", "a choice made afterwards stays"); WLX.db.options.speed = "auto"`);
+step('the fight: 180 s by default, a saved 120 s of the versions before moves over once', `assert(WLX.cfg.fight.duration == 180, "default fight: " .. tostring(WLX.cfg.fight.duration))
+  WLX.cfg.fight.duration = 120; WLX.saveSettings(); WarlockSimDB.options.fightDefault = nil; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.cfg.fight.duration == 180, "moved over: " .. tostring(WLX.cfg.fight.duration))
+  WLX.cfg.fight.duration = 120; WLX.saveSettings(); MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.cfg.fight.duration == 120, "a choice made afterwards stays")
+  WLX.cfg.fight.duration = 180; WLX.saveSettings()`);
 step('the tip fits on one line', `WLX.refresh(); local t = MOCK.findLike("FontString", "^|cff9482c9Tip:|r "); assert(t, "no tip"); local plain = t.text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
   assert(#plain <= 60, "the tip is " .. #plain .. " characters: " .. plain); return plain`);
 step('/wsim test', 'SlashCmdList.WARLOCKSIM("test"); local t = WLX.db.selfTest; assert(t and t.ok, "self-test failed: " .. table.concat(t and t.lines or {}, " | ")); return t.fights .. " fights match"');
 step('/wsim dump, read, help, close', 'SlashCmdList.WARLOCKSIM("dump"); assert(WLX.db.dump.character.raw.nodeCount == #WLX.TALENTS); SlashCmdList.WARLOCKSIM("read"); SlashCmdList.WARLOCKSIM("help"); SlashCmdList.WARLOCKSIM(""); assert(not WarlockSimFrame:IsShown()); MOCK.fire("PLAYER_LOGOUT"); assert(WLX.db.settings.v == 1)');
-step('a second session starts from the saved settings', 'local saved = WarlockSimDB; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db == saved and WLX.cfg.fight.duration == 120)');
+step('a second session starts from the saved settings', 'local saved = WarlockSimDB; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db == saved and WLX.cfg.fight.duration == 180)');
 console.log('\n' + host.limits());
 console.log('Chat lines the addon printed: ' + lua('return #MOCK.chat'));
 console.log('OK: the addon runs start to finish against the stand-in game');

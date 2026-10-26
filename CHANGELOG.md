@@ -3,6 +3,13 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.9.7
+
+- A fight lasts 3 minutes by default again (it was 2 minutes), as on the website: fights in Forever are expected to be
+  longer. Results come out about 1 to 2% lower. If your fight length was still 2 minutes it is moved to 3 once; a length
+  you set after this update stays.
+- After updating, your character is read again once and the numbers on the character sheet are worked out again.
+
 ## v0.9.6
 
 - Follows the Forever patch notes of 2026-10-26:

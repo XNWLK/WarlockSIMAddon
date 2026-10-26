@@ -2,7 +2,7 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.9.6'
+WL.VERSION = '0.9.7'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -54,6 +54,10 @@ local function initDB()
   WL.db = db
   WL.cfg = WL.newConfig()
   if type(db.settings) == 'table' then pcall(WL.applySettings, WL.cfg, copy(db.settings)) end
+  -- The default fight was 120 s (v0.6 to v0.9.6); it is 180 s now. Saved settings always hold the length, so a saved 120 is
+  -- moved over once; a length set by hand afterwards stays.
+  if WL.cfg.fight.duration == 120 and db.options.fightDefault ~= 180 then WL.cfg.fight.duration = WL.DEFAULT_CONFIG.fight.duration end
+  db.options.fightDefault = 180
   WL.imported = {}
   for i = 1, #db.builds do
     local b = type(db.builds[i]) == 'table' and WL.decodeBuild(db.builds[i].code)
