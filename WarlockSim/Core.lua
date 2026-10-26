@@ -2,7 +2,7 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.9.5'
+WL.VERSION = '0.9.6'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)

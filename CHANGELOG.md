@@ -3,6 +3,14 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.9.6
+
+- Follows the Forever patch notes of 2026-10-26:
+  - Human: Ruthless gives +1% crit (was 2%); The Human Spirit gives +10% Spirit (was 5%).
+  - Orc: Savage is gone, and Command is back: your demon deals 5% more damage (its spells, its melee and the Demonic
+    Brand bonus).
+- After updating, your character is read again once and the numbers on the character sheet are worked out again.
+
 ## v0.9.5
 
 - The ready build "Aff Pact Shadow Bolt Succubus" is gone: it gave nothing that "Demo Pact Shadow Bolt Succubus" does

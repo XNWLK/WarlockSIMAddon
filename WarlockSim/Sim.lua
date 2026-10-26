@@ -985,8 +985,11 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local petAct, petSpellHit, petSwing
   do
   local UNHOLY, MASTER = 1 + tv('unholyPower', 'petDmgPct') / 100, 1 + tv('masterDemonologist', 'schoolPct') / 100
+  local CMD = racialOf(race, 'petDmgPct')                       -- Command (Orc): the demon deals 5% more, all of it
+  CMD = CMD and 1 + CMD.value / 100
   local function petMult(school)
     local m = UNHOLY * stats.mult.all
+    if CMD then m = m * CMD end
     if (build.pet == 'succubus' and school == 'shadow') or (build.pet == 'imp' and school == 'fire') then m = m * MASTER end
     if school ~= 'physical' then
       local e = buffs.coe

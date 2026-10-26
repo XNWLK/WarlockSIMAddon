@@ -294,7 +294,7 @@ function WL.computeStats(build, raceKey, cfg)
   critPct = critPct + (buffStat('critPct') + conCrit())
   if not gear.critIncludesAll then
     critPct = critPct + oilStat('critPct')
-    local rc = racial('critPct')                                         -- Ruthless (Human), Savage (Orc)
+    local rc = racial('critPct')                                         -- Ruthless (Human); Orc Savage removed 2026-10-26
     if rc then critPct = critPct + add('critPct', rc.name, rc.value) end
   end
 
