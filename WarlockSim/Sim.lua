@@ -829,7 +829,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     res.manaFromJow = (res.manaFromJow or 0) + (S.mana - before)
   end
   -- Touch of the Grave (Undead): rolls once per landed cast of a spell with a damage component. 5% of your maximum
-  -- health; nothing multiplies it. 30% chance, then a 25 s internal cooldown (no roll while it runs).
+  -- health; nothing multiplies it. 30% chance, then an internal cooldown (race data: 15 s since 2026-10-27; no roll while it runs).
   touchOfTheGrave = function(ti)
     local tog = racialProc
     if tog and not (S.togReady and S.togReady > S.t + EPS) and Rproc() * 100 < tog.chancePct then

@@ -3,6 +3,13 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.9.8
+
+- Follows more Forever patch notes:
+  - Orc: Blood Fury has a 2 minute cooldown again (was 3 minutes).
+  - Undead: Touch of the Grave can happen again 15 seconds after it did (was 25 seconds).
+- After updating, your character is read again once and the numbers on the character sheet are worked out again.
+
 ## v0.9.7
 
 - A fight lasts 3 minutes by default again (it was 2 minutes), as on the website: fights in Forever are expected to be
