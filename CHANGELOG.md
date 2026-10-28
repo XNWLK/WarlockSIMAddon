@@ -3,6 +3,12 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.9.9
+
+- Follows the Forever patch notes: Troll Berserking lasts 15 seconds (was 10). Its 10% haste and 3 minute cooldown are
+  unchanged.
+- After updating, your character is read again once and the numbers on the character sheet are worked out again.
+
 ## v0.9.8
 
 - Follows more Forever patch notes:
