@@ -25,6 +25,7 @@ What changed in each version, newest first. Download a version from the
 - New on the Buffs tab: Dark Inspiration, +15% Spirit from a Shadow Priest in your party.
 - Build codes from the website with conditions on built-in actions work in the addon, and settings codes keep the
   website's cheat mode (spells that always hit or always crit).
+- Also in this version (0.9.9 had no release of its own): Troll Berserking lasts 15 seconds (was 10).
 - After updating, your character is read again once and the numbers on the character sheet are worked out again.
 
 ## v0.9.9
