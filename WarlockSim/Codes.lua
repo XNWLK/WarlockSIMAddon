@@ -249,6 +249,7 @@ local function isNum(x) return type(x) == 'number' and x == x and x ~= huge and 
 -- Applies a snapshot onto config `c` in place. Returns the list of names in the code that this version does not know.
 function WL.applySettings(c, o)
   local unknown = {}
+  if c.options and not (type(o.options) == 'table' and o.options.cheat) then c.options.cheat = { hit = {}, crit = {} } end   -- a code without cheat mode = none
   local secs = { 'fight', 'gear', 'options' }
   for i = 1, 3 do
     local sec = secs[i]
@@ -323,6 +324,10 @@ function WL.encodeBuild(b)
     o.vars = {}
     for k, v in pairs(b.vars) do o.vars[k] = v.cond ~= nil and { cond = condJson(v.cond) } or { num = v.num } end
   end
+  if hasKeys(b.actWhen) then                                  -- conditions on built-in actions
+    o.aw = {}
+    for k, w in pairs(b.actWhen) do o.aw[k] = condJson(w) end
+  end
   return WL.BUILD_CODE_PREFIX .. WL.base64Encode(WL.jsonEncode(o))
 end
 function WL.decodeBuild(code)
@@ -365,6 +370,11 @@ function WL.decodeBuild(code)
         b.groups[sub(tostring(k), 1, 30)] = l
       end
     end
+  end
+  if type(o.aw) == 'table' then
+    b.actWhen = {}
+    for k, w in pairs(o.aw) do if WL.ACTIONS[k] and w then b.actWhen[k] = w end end
+    if next(b.actWhen) == nil then b.actWhen = nil end
   end
   if type(o.vars) == 'table' then
     b.vars = {}

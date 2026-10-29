@@ -27,7 +27,7 @@ local function xkey(ti, key)
   return v
 end
 
-local NOT_ALT = { bane = 1, baneOfAgony = 1, corruption = 1, siphonLife = 1, immolate = 1, multiDot = 1, curseOfElements = 1, lifeTapPet = 1, lifeTapBelow = 1,
+local NOT_ALT = { bane = 1, baneOfAgony = 1, corruption = 1, siphonLife = 1, immolate = 1, multiDot = 1, curseOfElements = 1, lifeTapPet = 1, lifeTapBelow = 1, lifeTapNeed = 1,
                   swapToImp = 1, swapToSuccubus = 1, shadowBoltSpread = 1, isbUpkeep = 1, deathCoilFinisher = 1 }
 local FEL_CONC = { drainLife = 1, drainSoul = 1, wrack = 1 }
 
@@ -170,6 +170,10 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     end
     return r
   end
+  -- Cheat mode: a ticked spell always hits / always crits. The dice are still thrown, so every other roll stays where it was.
+  -- Keys: spell keys, 'pet:firebolt', 'pet:lashOfPain', 'pet:melee'.
+  local CH = (cfg.options and cfg.options.cheat) or {}
+  local CHH, CHC = type(CH.hit) == 'table' and CH.hit or {}, type(CH.crit) == 'table' and CH.crit or {}
 
   -- ---------- helpers exposed to rotation conditions ----------
   local function has(k) return tbl[k] ~= nil end
@@ -459,8 +463,13 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if cd == EUREKA then buffs.eureka = S.t + cd.duration end   -- 8 s
     return true
   end
+  -- Trinkets and weapon enchants (WL.TRINKET_FX / WL.ENCHANT_FX): TR holds their functions (filled in after deal below).
+  local TRK = WL.equippedTrinkets(cfg)
+  local EPR = WL.equippedEnchantFx(cfg)
+  local NTRK, TRX, TR = #TRK, #TRK > 0 or #EPR > 0, {}
   -- Racial cooldown, Spellblasting potion and Power Infusion, right before a damaging cast.
   local function popActives(key)
+    if NTRK > 0 then gateKey = key; TR.useTrinkets(key); gateKey = nil end   -- each trinket follows its own use setting
     if not ACT_TL then
       if activesOk(key) then useRacials(key); useSpPotion(); usePowerInfusion() end
       return
@@ -502,6 +511,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local FURY = racialCd and racialCd.spPct                      -- Blood Fury's spell power %, nil for every race but the Orc
   spNow = function(e)
     local sp = e.sp + ((spPot and buff('spPotion')) and spPot.spPotion.sp or 0)
+    if TRX then sp = sp + TR.sp(e) end                          -- + trinkets / weapon enchants
     if FURY and buff('bloodFury') then return sp * (1 + FURY / 100) end
     return sp
   end
@@ -515,6 +525,13 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     else
       local e = buffs.coe
       coe = e ~= nil and e > S.t + EPS
+    end
+    local tp = NTRK > 0 and TR.pierce() or 0                   -- Eye of Moam: -100 resistances while up
+    if tp ~= 0 then
+      local k = school .. (coe and '1' or '0') .. 'p' .. tp
+      local pr = resCache[k]
+      if not pr then pr = WL.resistProfile(cfg, stats.pierce, school, coe, stats.spellPen + tp); resCache[k] = pr end
+      return pr
     end
     local c = resCache[coe]
     local pr = c[school]
@@ -595,6 +612,155 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       local lz = bk == 'touchOfTheGrave' and 1 or ((SPELLS[bk] and SPELLS[bk].leech) or 0)
       if lz ~= 0 then gainHealth(amount * lz, 'leech') end
     end
+  end
+
+  -- ---------- trinkets and weapon enchants ----------
+  -- Use effects follow options.trinketUse[slot]: 'cds' (default) with your other cooldowns, 'ready' whenever ready,
+  -- 'execute' once the boss is below the execute line, 'never'. Mana trinkets: when their amount is missing. Off the global
+  -- cooldown; a trinket's own hit has no spell power, rolls your spell hit and crit (x1.5) and takes Curse of the Elements.
+  do
+  local TRU = (cfg.options and cfg.options.trinketUse) or {}
+  local trs, eps = {}, {}
+  for i = 1, NTRK do trs[TRK[i].slot] = { upTo = -1, n = 0, pending = 0, procUntil = -1 } end
+  local REV
+  for i = 1, #EPR do eps[EPR[i].id] = { upTo = -1 }; if not REV and EPR[i].fx.proc.kind == 'crit' then REV = EPR[i] end end
+  TR.REV = REV
+  local function epUp(x) return eps[x.id].upTo > S.t + EPS end
+  local function trUp(x) return trs[x.slot].upTo > S.t + EPS end
+  TR.sp = function(e)
+    local v = 0
+    for i = 1, NTRK do
+      local x = TRK[i]
+      local u = x.fx.use
+      if u and trUp(x) then
+        if u.kind == 'sp' and (not u.school or (e and e.school == u.school)) then v = v + u.sp
+        elseif u.kind == 'spDecay' then v = v + max(0, u.sp - u.per * trs[x.slot].n)
+        elseif u.kind == 'spStack' then v = v + u.per * min(u.max, trs[x.slot].n) end
+      end
+    end
+    for i = 1, #EPR do local x = EPR[i]; local p = x.fx.proc; if p.kind == 'sp' and epUp(x) then v = v + p.sp end end   -- Grand Sorcerer / Arcanist
+    return v
+  end
+  TR.pierce = function()
+    local p = 0
+    for i = 1, NTRK do local x = TRK[i]; local u = x.fx.use; if u and u.pierce and trUp(x) then p = p + u.pierce end end
+    return p
+  end
+  TR.crit = function(k)
+    local c, sp = 0, SPELLS[k]
+    for i = 1, NTRK do
+      local x = TRK[i]
+      local u = x.fx.use
+      if u and u.kind == 'crit' and trUp(x) and (not u.tree or (sp and sp.tree == u.tree)) then c = c + u.pct end
+    end
+    return c
+  end
+  TR.pet = function()
+    local m = 1
+    for i = 1, NTRK do local x = TRK[i]; local u = x.fx.use; if u and u.kind == 'petDmg' and trUp(x) then m = m * (1 + u.pct / 100) end end
+    return m
+  end
+  TR.spi = function()
+    local v = 0
+    for i = 1, NTRK do
+      local x = TRK[i]
+      local u, p = x.fx.use, x.fx.proc
+      if u and u.kind == 'spi' and trUp(x) then v = v + u.spi end
+      if p and p.kind == 'spi' and trs[x.slot].procUntil > S.t + EPS then v = v + p.spi end
+    end
+    for i = 1, #EPR do local x = EPR[i]; local p = x.fx.proc; if p.kind == 'spiPct' and epUp(x) then v = v + stats.spi * p.pct / 100 end end   -- Insight
+    return v
+  end
+  local function trHit(x, u)                                    -- a trinket's own hit
+    local key = 'trinket:' .. x.id
+    local r = row(key)
+    if Rhit() * 100 >= stats.hitPct then r.misses = r.misses + 1; return end
+    r.landed = r.landed + 1
+    local amt = u.min + (u.max - u.min) * Rproc()
+    if buff('coe') then amt = amt * (1 + coePct / 100) end
+    local crit = Rcrit() * 100 < stats.critPct
+    if crit then amt = amt * cb.critMultiplier end
+    deal(key, amt, crit, false)
+  end
+  TR.onCast = function()                                        -- each landed damaging cast (the Touch of the Grave hook)
+    for i = 1, NTRK do
+      local x = TRK[i]
+      local u, p, st = x.fx.use, x.fx.proc, trs[x.slot]
+      if u and trUp(x) and (u.kind == 'spDecay' or u.kind == 'spStack') then
+        st.n = st.n + 1
+        if u.kind == 'spStack' and st.n >= u.casts then st.upTo = -1 end
+      end
+      if u and u.kind == 'dmgAfter' and st.pending > 0 then st.pending = st.pending - 1; if st.pending == 0 then trHit(x, u) end end
+      if p and Rproc() * 100 < p.chancePct then st.procUntil = S.t + p.duration end
+    end
+    for i = 1, #EPR do                                          -- weapon enchants
+      local x = EPR[i]
+      local p = x.fx.proc
+      if (p.kind == 'sp' or p.kind == 'spiPct') and Rproc() * 100 < p.chancePct then
+        eps[x.id].upTo = S.t + p.duration
+        if p.mana then local g = min(p.mana, stats.maxMana - S.mana); S.mana = S.mana + g; res.manaFromConsumables = (res.manaFromConsumables or 0) + g end
+      end
+    end
+  end
+  -- Revelation: the next non-periodic spell + pct % crit; a non-periodic spell that does not crit may trigger it.
+  TR.revBonus = function() return (REV and eps[REV.id].upTo > S.t + EPS) and REV.fx.proc.pct or 0 end
+  TR.revAfter = function(crit, had)
+    if had then eps[REV.id].upTo = -1; return end              -- used up by this spell
+    if not crit and Rproc() * 100 < (cb.revelationChancePct or 0) * max(0, 1 - stats.critPct / 100) then eps[REV.id].upTo = S.t + REV.fx.proc.duration end
+  end
+  TR.critDone = function()                                      -- Weakness Analyzer ends on a direct crit
+    for i = 1, NTRK do local x = TRK[i]; local u = x.fx.use; if u and u.endsOnCrit and trUp(x) then trs[x.slot].upTo = -1 end end
+  end
+  local function trUse(x)
+    local u, st = x.fx.use, trs[x.slot]
+    if not u or not ready('tr:' .. x.slot) or S.t >= dur - EPS then return false end
+    cds['tr:' .. x.slot] = S.t + u.cd
+    if u.duration then st.upTo = S.t + u.duration; st.n = 0 end
+    local r = row('trinket:' .. x.id)
+    if u.kind == 'dmg' then r.casts = r.casts + 1; trHit(x, u) end
+    if u.kind == 'dmgAfter' then r.casts = r.casts + 1; st.pending = u.casts end
+    if u.kind == 'mana' then
+      local amt = min(u.amount, stats.maxMana - S.mana)
+      S.mana = S.mana + amt; res.manaFromConsumables = (res.manaFromConsumables or 0) + amt
+    end
+    return true
+  end
+  local function trWhen(x, key)                                 -- may this trinket be used now (right before a damaging cast)?
+    local pol = TRU[x.slot] or 'cds'
+    if pol == 'never' then return false end
+    if pol == 'ready' then return true end
+    if pol == 'execute' then return S.targetHpPct < cfg.fight.executePct end
+    if not ACT_TL then return activesOk(key) end
+    local g = slotGate(x.slot)
+    return g == 1 or (g == 2 and (ACT_TL[x.slot] ~= nil or activesOk(key)))
+  end
+  TR.useTrinkets = function(key)
+    for i = 1, NTRK do
+      local x = TRK[i]
+      local u = x.fx.use
+      if u and u.kind ~= 'mana' and trWhen(x, key) and trUse(x) then slotUsed(x.slot) end
+    end
+  end
+  TR.useMana = function()
+    for i = 1, NTRK do
+      local x = TRK[i]
+      local u = x.fx.use
+      if u and u.kind == 'mana' and (TRU[x.slot] or 'cds') ~= 'never' and stats.maxMana - S.mana >= u.amount and trUse(x) then slotUsed(x.slot) end
+    end
+  end
+  -- The mana level at which free mana that is ready comes by itself (Innervate / Mana Tide below 50%, a mana potion or rune
+  -- and a mana trinket once their amount is missing), or 0. Used by "Life Tap by need".
+  S.freeManaLevel = function()
+    local lv, mx = 0, stats.maxMana
+    for i = 1, #manaBuffs do local mb = manaBuffs[i]; if mb.left > 0 and S.t >= mb.upTo - EPS then lv = max(lv, 0.5 * mx) end end
+    for i = 1, #manaItems do local c = manaItems[i]; if ready('cd:' .. c.cdGroup) then lv = max(lv, mx - (c.manaRestore.amount or mx * c.manaRestore.pct / 100)) end end
+    for i = 1, NTRK do
+      local x = TRK[i]
+      local u = x.fx.use
+      if u and u.kind == 'mana' and (TRU[x.slot] or 'cds') ~= 'never' and ready('tr:' .. x.slot) then lv = max(lv, mx - u.amount) end
+    end
+    return lv
+  end
   end
 
   -- ---------- scheduling ----------
@@ -704,7 +870,8 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * liveMultX(key, ti, true) * (snap.castMult or 1)
     if s.ramp then amt = amt * s.ramp[i + 1] end
     amt = amt * vulnMult(s.school, ti)
-    local crit = Rcrit() * 100 < e.critPct
+    local cx = Rcrit() * 100
+    local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
     if crit then amt = amt * e.critMult end
     deal(rk, amt, crit, true, ti)
     nightfallRoll(key)
@@ -714,7 +881,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function landExtra(key, eureka, castMult, ti)
     local s, e, rk = SPELLS[key], tbl[key], xkey(ti, key)
     local r = row(rk)
-    if Rhit() * 100 >= stats.hitPct then r.misses = r.misses + 1; return false end
+    if Rhit() * 100 >= stats.hitPct and not CHH[key] then r.misses = r.misses + 1; return false end
     r.landed = r.landed + 1
     if s.kind == 'utility' then
       if key == 'curseOfElements' then xdeb[ti].coe = S.t + s.duration end
@@ -727,7 +894,8 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
         amt = amt * addOp0(key, tv('decimation', 'dmgPct')); buffs.decimation = S.t + 10
       end
       amt = amt * vulnMult(s.school, ti)
-      local crit = Rcrit() * 100 < e.critPct
+      local cx = Rcrit() * 100
+      local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
       if crit then amt = amt * e.critMult end
       deal(rk, amt, crit, false, ti)
       if key == 'shadowBolt' and crit and tv('improvedShadowBolt') ~= 0 then xdeb[ti].isb = S.t + 12 end
@@ -745,7 +913,8 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * liveMult(key, true) * (snap.castMult or 1)
     if s.ramp then amt = amt * s.ramp[i + 1] end
     amt = amt * vulnMult(s.school)
-    local crit = Rcrit() * 100 < e.critPct
+    local cx = Rcrit() * 100
+    local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
     if crit then amt = amt * e.critMult end
     deal(key, amt, crit, true)
     nightfallRoll(key)
@@ -757,11 +926,12 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     for ti = 1, NT do
       local rk = ti > 1 and xkey(ti, key) or key
       local r = row(rk)
-      if Rhit() * 100 >= stats.hitPct then r.misses = r.misses + 1
+      if Rhit() * 100 >= stats.hitPct and not CHH[key] then r.misses = r.misses + 1
       else
         local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * (ti > 1 and liveMultX(key, ti, true) or liveMult(key, true))
         amt = amt * vulnMult(s.school, ti)
-        local crit = Rcrit() * 100 < e.critPct
+        local cx = Rcrit() * 100
+        local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
         if crit then amt = amt * e.critMult end
         deal(rk, amt, crit, true, ti)
       end
@@ -773,7 +943,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function land(key, eureka, castMult, target)
     if (target or 0) > 1 then return landExtra(key, eureka, castMult, target) end
     local s, e, r = SPELLS[key], tbl[key], bySpell[key] or row(key)
-    if Rhit() * 100 >= stats.hitPct then r.misses = r.misses + 1; return false end
+    if Rhit() * 100 >= stats.hitPct and not CHH[key] then r.misses = r.misses + 1; return false end
     r.landed = r.landed + 1
     if s.kind == 'utility' then
       if key == 'curseOfElements' then buffs.coe = S.t + s.duration end
@@ -791,9 +961,13 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       buffs.decimation = S.t + 10
     end
     amt = amt * vulnMult(s.school)
-    local crit = Rcrit() * 100 < e.critPct
+    local revHad = TR.REV and TR.revBonus() or 0                -- Revelation
+    local cx = Rcrit() * 100
+    local crit = CHC[key] or cx < e.critPct + revHad + (TRX and TR.crit(key) or 0)
+    if TR.REV then TR.revAfter(crit, revHad > 0) end
     if crit then amt = amt * e.critMult end
     deal(key, amt, crit, false)
+    if crit and NTRK > 0 then TR.critDone() end                 -- Weakness Analyzer ends on a direct crit
     if key == 'shadowBolt' and crit and tv('improvedShadowBolt') ~= 0 then buffs.isb = S.t + 12 end
     if key == 'searingPain' and tv('demonicBrand') ~= 0 and P then
       buffs.brand = S.t + cfg.demonicBrand.duration; S.brandCharges = tv('demonicBrand', 'charges')
@@ -831,6 +1005,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- Touch of the Grave (Undead): rolls once per landed cast of a spell with a damage component. 5% of your maximum
   -- health; nothing multiplies it. 30% chance, then an internal cooldown (race data: 15 s since 2026-10-27; no roll while it runs).
   touchOfTheGrave = function(ti)
+    if TRX and not ((ti or 0) > 1) then TR.onCast() end         -- trinkets count your landed damaging casts
     local tog = racialProc
     if tog and not (S.togReady and S.togReady > S.t + EPS) and Rproc() * 100 < tog.chancePct then
       S.togReady = S.t + (tog.icd or 0)
@@ -913,7 +1088,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     S.cast = nil
     if s.kind == 'channel' then
       local r = row(key)
-      if not s.aoe and Rhit() * 100 >= stats.hitPct then
+      if not s.aoe and Rhit() * 100 >= stats.hitPct and not CHH[key] then
         r.misses = r.misses + 1
         if fromTL then TL.turn = true end
         S.busyUntil = S.t; S.gcdReady = S.t + gcdT; scheduleDecide(S.gcdReady)
@@ -951,10 +1126,11 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function lifeTap(moving)
     if not canTap() then resHealth.blocked = resHealth.blocked + 0.1; res.idle = res.idle + 0.1; scheduleDecide(S.t + 0.1); return end
     loseHealth(TAP_HP, 'tap')
-    local gain = (SPELLS.lifeTap.manaBase + stats.spi) * (1 + tv('improvedLifeTap', 'manaPct') / 100)
+    local gain = (SPELLS.lifeTap.manaBase + stats.spi + (TRX and TR.spi() or 0)) * (1 + tv('improvedLifeTap', 'manaPct') / 100)
     local before = S.mana
     S.mana = min(stats.maxMana, S.mana + gain)
     res.lifeTaps = res.lifeTaps + 1; res.manaFromTaps = res.manaFromTaps + (S.mana - before)
+    S.tapMana = S.tapMana + (S.mana - before)
     local r = row('lifeTap'); r.casts = r.casts + 1
     S.busyUntil = S.t; S.gcdReady = S.t + gcd()
     res.tapTime = (res.tapTime or 0) + gcd()
@@ -980,7 +1156,11 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   S.petManaPct = function() if not P then return 100 end; petRegen(); return 100 * P.mana / P.maxMana end
   S.petSpellCost = function() return (P and P.c.spell) and P.c.spell.cost or huge end
   S.petMana = function() if not P then return huge end; petRegen(); return P.mana end
-  S.tapGain = function() return (SPELLS.lifeTap.manaBase + stats.spi) * (1 + tv('improvedLifeTap', 'manaPct') / 100) end
+  -- The mana the rest of the fight needs at the rate it has gone down so far (Life Tap's own mana left out); the first
+  -- 6 s have no rate yet (the opening DoTs): everything counts as needed.
+  S.manaStart = stats.maxMana; S.tapMana = 0
+  S.manaNeedLeft = function() if S.t < 6 then return huge end; return max(0, (S.manaStart - S.mana + S.tapMana) / S.t) * S.remaining end
+  S.tapGain = function() return (SPELLS.lifeTap.manaBase + stats.spi + (TRX and TR.spi() or 0)) * (1 + tv('improvedLifeTap', 'manaPct') / 100) end
   S.maxMana = stats.maxMana
   local petAct, petSpellHit, petSwing
   do
@@ -990,6 +1170,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function petMult(school)
     local m = UNHOLY * stats.mult.all
     if CMD then m = m * CMD end
+    if NTRK > 0 then m = m * TR.pet() end                       -- The Black Book
     if (build.pet == 'succubus' and school == 'shadow') or (build.pet == 'imp' and school == 'fire') then m = m * MASTER end
     if school ~= 'physical' then
       local e = buffs.coe
@@ -999,6 +1180,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   end
   local function warlockSpNow()
     local sp = stats.sp + ((spPot and buff('spPotion')) and spPot.spPotion.sp or 0)
+    if TRX then sp = sp + TR.sp(nil) end
     if FURY and buff('bloodFury') then return sp * (1 + FURY / 100) end
     return sp
   end
@@ -1018,13 +1200,14 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if not key then key = 'pet:' .. sp.key; sp.rowKey = key end
     local r = bySpell[key] or row(key)
     r.casts = r.casts + 1
-    if Rpet() * 100 >= stats.hitPct then r.misses = r.misses + 1; return end
+    if Rpet() * 100 >= stats.hitPct and not CHH[key] then r.misses = r.misses + 1; return end
     r.landed = r.landed + 1
     jowProc(true)
     local base = sp.base * (sp.key == 'lashOfPain' and 1 + tv('improvedSayaad', 'lashPct') / 100 or 1)
     local amt = (base + sp.coef * petSp()) * petMult(sp.school)
     if sp.key == 'firebolt' then amt = amt * (1 + tv('improvedImp', 'firebolt') / 100) end
-    local crit = Rpet() * 100 < stats.critPct
+    local cx = Rpet() * 100
+    local crit = CHC[key] or cx < stats.critPct
     if crit then amt = amt * cb.critMultiplier end
     deal(key, amt, crit, false)
     brandProc()
@@ -1054,15 +1237,17 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local m, r, tb = P.c.melee, bySpell[rk] or row(rk), cb.petMelee
     r.casts = r.casts + 1
     local hitBonus = WL.petMeleeHit(stats, cb)       -- her melee hit: 8/17 of your spell hit, all of it counts
-    local miss = max(0, tb.missPct - hitBonus)
+    local miss, dodge = max(0, tb.missPct - hitBonus), tb.dodgePct
     local critCh = max(0, (m.critPct or 0) + (m.inheritSpellCrit and stats.critPct or 0) - tb.critSuppressionPct)
-    if roll >= miss + tb.dodgePct then
+    if CHH[rk] then miss = 0; dodge = 0 end                   -- cheat mode: every swing lands (glancing blows stay)
+    if CHC[rk] then critCh = 100 end                            -- ... and every one that is not a glancing blow crits
+    if roll >= miss + dodge then
       r.landed = r.landed + 1
       jowProc(true)
       local dps = m.baseDps + m.apPerSp * warlockSpNow() / m.apPerDps
       local amt = dps * m.swing * (1 - armorRed) * petMult('physical')
-      local glance = roll < miss + tb.dodgePct + tb.glancePct
-      local crit = not glance and roll < miss + tb.dodgePct + tb.glancePct + critCh
+      local glance = roll < miss + dodge + tb.glancePct
+      local crit = not glance and (CHC[rk] or roll < miss + dodge + tb.glancePct + critCh)
       if glance then amt = amt * (tb.glanceDmgPct / 100); r.glances = r.glances + 1 end
       if crit then amt = amt * 2 end
       deal(rk, amt, crit, false)
@@ -1307,6 +1492,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     end
     manaBuffCheck()
     useManaItems()
+    if NTRK > 0 then TR.useMana() end
     if #explosives > 0 and useExplosive() then return end
     if TL and not TL.turn and timelineStep() then return end
     local fit = (TL and not TL.turn and TL.wake ~= nil) and TL.wake or nil

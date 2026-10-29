@@ -76,6 +76,31 @@ const scenes = [
     b.groups = { Top: ['rule:0', 'rule:1'], Empty: [] };
     b.rotation = ['group:Top', 'group:Empty', 'rule:2', 'rule:3', 'rule:4'].concat(b.rotation.slice(0, -1)).concat(['rule:5']);
   } }),
+  // trinkets and weapon enchants (the gear builder's slots; in the game: the items you wear)
+  S('trinkets: spell power, pierce', [['gearBuilder', { on: true, slots: { trinket1: { id: 18820 }, trinket2: { id: 21473 } } }], ['combat.targetResist.shadow', 60], ['combat.targetResist.fire', 60]]),
+  S('trinkets: decay, stacks', [['gearBuilder', { on: true, slots: { trinket1: { id: 19950 }, trinket2: { id: 22678 } } }], ['options.trinketUse', { trinket1: 'ready', trinket2: 'execute' }]]),
+  S('trinkets: school sp, crit tree', [['gearBuilder', { on: true, slots: { trinket1: { id: 249469 }, trinket2: { id: 19957 } } }], ['options.activesPolicy', 'execute']],
+    { builds: ['demo_pact_fire', 'destro_incin_succ', 'sm_ruin_classic'] }),
+  S('trinkets: ends on crit, black book', [['gearBuilder', { on: true, slots: { trinket1: { id: 272438 }, trinket2: { custom: { id: 19337 } } } }], ['gear.critPct', 20]]),
+  S('trinkets: spirit, proc spirit', [['gearBuilder', { on: true, slots: { trinket1: { id: 272439 }, trinket2: { id: 19288 } } }], ['gear.spi', 0], ['gear.int', 20], ['fight.duration', 300]]),
+  S('trinkets: mana, life tap by need', [['gearBuilder', { on: true, slots: { trinket1: { id: 23027 }, trinket2: { id: 20525 } } }], ['gear.int', 20], ['gear.spi', 0],
+    ['consumables.majorManaPotion.on', true], ['buffs.innervate.on', true], ['fight.duration', 300]]),
+  S('trinkets: hits', [['gearBuilder', { on: true, slots: { trinket1: { id: 21891 }, trinket2: { id: 274760 } } }], ['options.trinketUse', { trinket1: 'never', trinket2: 'cds' }], ['fight.duration', 400]]),
+  S('trinkets: hits 2, ready', [['gearBuilder', { on: true, slots: { trinket1: { id: 13171 }, trinket2: { id: 10587 } } }], ['options.trinketUse', { trinket1: 'ready', trinket2: 'ready' }], ['gear.hitPct', 2]]),
+  S('trinkets in a custom timeline', [['gearBuilder', { on: true, slots: { trinket1: { id: 18820 }, trinket2: { id: 23046 } } }], ['options.activesPolicy', 'custom'],
+    ['options.activesTimeline', { racial: [10], trinket1: [5, 100], trinket2: ['exec'] }], ['fight.duration', 200]]),
+  S('trinkets off: builder off', [['gearBuilder', { on: false, slots: { trinket1: { id: 18820 } } }]], { builds: ['demo_pact_succ_sb'] }),
+  S('weapon enchant: Revelation', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 8217 } } }], ['combat.revelationChancePct', 40]]),
+  S('weapon enchant: Grand Sorcerer', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 }, trinket1: { id: 18820 } }, enchants: { mainHand: { id: 7942 } } }], ['gear.int', 20]]),
+  S('weapon enchant: Grand Arcanist, Insight', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 7941 } } }]], { builds: ['demo_pact_fire', 'wrack_succubus'] }),
+  S('weapon enchant: Insight', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 8216 } } }], ['gear.spi', 0], ['fight.duration', 300]]),
+  S('cheat mode', [['options.cheat', { hit: { shadowBolt: true, corruption: true, 'pet:melee': true, 'pet:firebolt': true, hellfire: true }, crit: { shadowBolt: true, immolate: true, 'pet:lashOfPain': true, 'pet:melee': true, incinerate: true } }],
+    ['gear.hitPct', 0]]),
+  S('dark inspiration + kings', [['buffs.darkInspiration.on', true], ['buffs.blessingOfKings.on', true], ['gear.spi', 120]]),
+  S('wrack conditions off, own condition', [], { builds: ['wrack_succubus', 'demo_pact_succ_sb'], mod: b => {
+    b.actWhen = { shadowBolt: { t: 'fight', what: 'remaining', op: '>', v: 20 }, lifeTapNeed: { t: 'mana', op: '<', v: 50 } };
+    if (b.rotation.indexOf('drainLife') < 0) b.rotation.push('drainLife');
+  } }),
   S('timeline', [], { builds: ['demo_pact_fire', 'sm_ruin_classic'], timeline: [{ t: 0, k: 'curseOfElements' }, { t: 1.5, k: 'corruption' }, { t: 3.5, k: 'immolate' }, { t: 30, k: 'lifeTap' }, { t: 45, k: 'soulFire' }, { t: 60, k: 'drainLife' }] }),
 ];
 

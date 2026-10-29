@@ -131,11 +131,18 @@ local function start(key)
       local gear, delta = WL.gearWithSwap(cfg.gear, {}, { item.stats }, cfg)
       local any = false
       for _, v in pairs(delta) do if v ~= 0 then any = true end end
+      local gb, fxSwap = nil, WL.FX_SLOTS[t.id] and WL.char and WL.char.worn
+      if fxSwap then                                         -- a trinket or weapon: its effect goes with it
+        local w = WL.wornSwap(WL.char.worn, t.id, nil)
+        gb = WL.wornGearBuilder(w)
+        if #WL.wornEffectNames(w) ~= #WL.wornEffectNames(WL.char.worn) then any = true end
+      end
       if not any then
         st.worth[t.id] = { link = t.link, dps = 0, err = 0 }   -- nothing on it that the sim counts: no need to play fights
       else
         local c = copy(cfg)
         c.gear = gear
+        if fxSwap then c.gearBuilder = gb end
         -- the same fights as the run as you are; stops once the item's worth is exact enough
         local r = WL.simulate(build, race, c, { iterations = n, stop = WL.pairedStop(base.dpsList) })
         local diff, err = WL.pairedDiff(base.dpsList, r.dpsList)

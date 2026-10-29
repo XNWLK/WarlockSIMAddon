@@ -2,7 +2,7 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.9.9'
+WL.VERSION = '0.10.0'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -101,6 +101,7 @@ function WL.characterConfig()
     cfg.gear = copy(WL.char.gear)
     if WL.db.options.stone == 'sheet' and cfg.consumables.buildOil then cfg.consumables.buildOil.on = false end   -- the stone is in your numbers already
   end
+  if WL.char and WL.char.worn then cfg.gearBuilder = WL.wornGearBuilder(WL.char.worn) end   -- trinkets / main-hand enchant with an effect
   return cfg
 end
 -- Your character as a build: talents and demon from the game, the priority list from the chosen ready build.
@@ -350,7 +351,7 @@ end
 function WL.simBuild(build, raceKey, cfg, label, notes)
   local n, weights = fights(), WL.db.options.weights
   local keys = WL.STAT_WEIGHT_KEYS
-  local key = 'single|' .. n .. '|' .. tostring(WL.stopEarly()) .. '|' .. raceKey .. '|' .. tostring(weights) .. '|' .. WL.encodeBuild(build) .. WL.jsonEncode(WL.settingsSnapshot(cfg))
+  local key = 'single|' .. n .. '|' .. tostring(WL.stopEarly()) .. '|' .. raceKey .. '|' .. tostring(weights) .. '|' .. WL.encodeBuild(build) .. WL.jsonEncode(WL.settingsSnapshot(cfg)) .. WL.fxKey(cfg)
   local known = recall(key)
   if known then return answerFromMemory(known) end
   return startJob(label, n * (weights and (1 + #keys) or 1), function(j)
@@ -405,7 +406,7 @@ function WL.simWhatIf(delta)
   local gear, d = WL.gearWithSwap(cfg.gear, delta, {}, cfg)
   local changed = copy(cfg)
   changed.gear = gear
-  local key = 'whatif|' .. n .. '|' .. tostring(WL.stopEarly()) .. '|' .. race .. '|' .. table.concat(parts, ',') .. '|' .. WL.encodeBuild(build) .. WL.jsonEncode(WL.settingsSnapshot(cfg))
+  local key = 'whatif|' .. n .. '|' .. tostring(WL.stopEarly()) .. '|' .. race .. '|' .. table.concat(parts, ',') .. '|' .. WL.encodeBuild(build) .. WL.jsonEncode(WL.settingsSnapshot(cfg)) .. WL.fxKey(cfg)
   local known = recall(key)
   if known then return answerFromMemory(known) end
   return startJob('What if', 2 * n, function(j)
@@ -427,7 +428,7 @@ function WL.simRanking()
   if mine and #WL.validateBuild(mine, true) == 0 then list[#list + 1] = mine end
   local tpls = WL.templates()
   for i = 1, #tpls do list[#list + 1] = tpls[i] end
-  local key = 'rank|' .. n .. '|' .. tostring(WL.stopEarly()) .. '|' .. race .. '|' .. WL.jsonEncode(WL.settingsSnapshot(cfg))
+  local key = 'rank|' .. n .. '|' .. tostring(WL.stopEarly()) .. '|' .. race .. '|' .. WL.jsonEncode(WL.settingsSnapshot(cfg)) .. WL.fxKey(cfg)
   for i = 1, #list do key = key .. '|' .. WL.encodeBuild(list[i]) end
   local known = recall(key)
   if known then return answerFromMemory(known) end

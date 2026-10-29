@@ -239,9 +239,12 @@ function WL.computeStats(build, raceKey, cfg)
   local spiFlat = add('spi', 'Base (level 60 Warlock)', base.spi) + add('spi', race.name, race.offset.spi)
           + add('spi', 'Gear', gear.spi) + buffStat('spi') + conStat('spi') + add('spi', 'Stat-weight test', ex.spi or 0)
   local spiPct = racial('spiritPct') and racial('spiritPct').value or 0
-  local spi = spiFlat * (1 + spiPct / 100) * (1 + kingsPct / 100)
+  local diPct = 0                                             -- Dark Inspiration (+15% Spirit)
+  for i = 1, #act do diPct = diPct + (act[i].spiPct or 0) end
+  local spi = spiFlat * (1 + spiPct / 100) * (1 + kingsPct / 100) * (1 + diPct / 100)
   if spiPct ~= 0 then add('spi', 'The Human Spirit', spiFlat * spiPct / 100) end
-  if kingsPct ~= 0 then add('spi', 'Blessing of Kings', spi - spiFlat * (1 + spiPct / 100)) end
+  if kingsPct ~= 0 then add('spi', 'Blessing of Kings', spiFlat * (1 + spiPct / 100) * kingsPct / 100) end
+  if diPct ~= 0 then add('spi', 'Dark Inspiration', spi - spiFlat * (1 + spiPct / 100) * (1 + kingsPct / 100)) end
   local staFlat = add('sta', 'Base (level 60 Warlock)', base.sta) + add('sta', race.name, race.offset.sta)
           + add('sta', 'Gear', gear.sta) + buffStat('sta') + conStat('sta')
   local staPct = tv('demonicEmbrace', 'staPct')
@@ -357,6 +360,7 @@ function WL.buildSpellTable(build, stats, cfg)
       if s.tree == 'destruction' and tv('cataclysm') ~= 0 then e.cost = e.cost * (1 - tv('cataclysm', 'costRedPct') / 100) end
 
       e.sp = stats.sp + (stats.schoolSp[s.school] or 0)
+      e.school = s.school                                     -- school-only trinket spell power (Frozen Heart)
 
       e.critPct = stats.critPct
       if s.school == 'shadow' and not cfg.gear.critIncludesAll then e.critPct = e.critPct + tv('malevolence', 'shadowCritPct') end
@@ -590,6 +594,15 @@ local PICK = {
     local sec = (p and p.sec ~= nil) and p.sec or 25
     return (S.mana < S.maxMana * pct / 100 and S.remaining > sec) and 'lifeTap' or nil
   end,
+  -- Life Tap only when the rest of the fight needs more mana than you have and no free mana is ready.
+  lifeTapNeed = function(S)
+    local p = S.build.params and S.build.params.lifeTapNeed
+    local pct = (p and p.pct ~= nil) and p.pct or 90
+    local sec = (p and p.sec ~= nil) and p.sec or 10
+    if not (S.mana < S.maxMana * pct / 100) or not (S.remaining > sec) then return nil end
+    if S.freeManaLevel and S.mana >= S.freeManaLevel() and S.freeManaLevel() > 0 then return nil end
+    return S.mana < S.manaNeedLeft() and 'lifeTap' or nil
+  end,
   searingPainBrand = function(S)
     if (S.build.talents.demonicBrand or 0) == 0 or not S.build.pet then return nil end
     return (not S.buff('brand') or not ((S.brandCharges or 0) > 0)) and 'searingPain' or nil
@@ -619,6 +632,35 @@ for i = 1, #WL.ACTION_META do
   else
     WL.ACTIONS_MISSING[#WL.ACTIONS_MISSING + 1] = m.key   -- a priority action of the sim that this addon does not know yet
   end
+end
+
+-- ---------- trinkets and weapon enchants with an effect of their own (data: WL.TRINKET_FX, WL.ENCHANT_FX) ----------
+-- cfg.gearBuilder = { on, slots = { trinket1 = { id }, trinket2 = { id }, mainHand = { id } }, enchants = { mainHand = { id } } }:
+-- on the website its gear builder; in the addon the items you wear (Core.lua).
+local function fxOf(t, id) return t and id ~= nil and (t[tonumber(id)] or t[tostring(id)]) or nil end
+-- The weapon enchant with an effect: { { slot, id, fx } } (main hand only).
+function WL.equippedEnchantFx(cfg)
+  local gb = cfg and cfg.gearBuilder
+  if type(gb) ~= 'table' or not gb.on or type(gb.enchants) ~= 'table' then return {} end
+  local out = {}
+  local e = gb.enchants.mainHand
+  local id = type(e) == 'table' and e.id or nil
+  local fx = fxOf(WL.ENCHANT_FX, id)
+  if id ~= nil and fx and type(gb.slots) == 'table' and gb.slots.mainHand then out[1] = { slot = 'mainHand', id = tonumber(id), fx = fx } end
+  return out
+end
+-- The trinkets in the two trinket slots that have an effect: { { slot, id, fx } }.
+function WL.equippedTrinkets(cfg)
+  local gb = cfg and cfg.gearBuilder
+  if type(gb) ~= 'table' or not gb.on or type(gb.slots) ~= 'table' then return {} end
+  local out = {}
+  for _, slot in ipairs({ 'trinket1', 'trinket2' }) do
+    local e = gb.slots[slot]
+    local id = type(e) == 'table' and (e.id ~= nil and e.id or (type(e.custom) == 'table' and e.custom.id)) or nil
+    local fx = id and fxOf(WL.TRINKET_FX, id)
+    if fx then out[#out + 1] = { slot = slot, id = tonumber(id), fx = fx } end
+  end
+  return out
 end
 
 -- ---------- rules, groups and variables of a build's own (they come in build codes from the website) ----------
@@ -670,7 +712,17 @@ function WL.ruleCond(n, S, build, depth)
 end
 -- The action of a priority key for this build (a built-in one, or one of the build's rules); nil when unknown.
 function WL.actionOf(key, build)
-  if WL.ACTIONS[key] then return WL.ACTIONS[key] end
+  -- build.actWhen = { actionKey = condition }: the built-in action only fires when its own check AND that condition hold.
+  if WL.ACTIONS[key] then
+    local base = WL.ACTIONS[key]
+    local w = build and type(build.actWhen) == 'table' and build.actWhen[key]
+    if not w then return base end
+    local o = setmetatable({}, { __index = base })
+    o.when = w; o.baseLabel = base.label; o.label = base.label .. ' — only when ' .. WL.condText(w, build)
+    if base.filler then o.filler = false; o.preFiller = true end   -- a filler with a condition can pass: the next filler below it is cast then
+    o.pick = function(S) if WL.ruleCond(w, S, build) then return base.pick(S) end return nil end
+    return o
+  end
   local m = type(key) == 'string' and key:match('^rule:(%d+)$')
   local r = m and build and type(build.rules) == 'table' and build.rules[tonumber(m) + 1]
   if type(r) ~= 'table' or not indexOf(WL.RULE_SPELLS, r.spell) then return nil end
@@ -899,6 +951,15 @@ function WL.validateBuild(b, loose)
     else
       if sp.talent and (t[sp.talent] or 0) == 0 then err(where .. ': ' .. sp.name .. ' needs the ' .. WL.TALENT_BY_KEY[sp.talent].name .. ' talent') end
       WL.condErrors(r.when, b, where, 0, errs)
+    end
+  end
+  if type(b.actWhen) == 'table' then                          -- conditions on built-in actions
+    local keys = {}
+    for k in pairs(b.actWhen) do keys[#keys + 1] = tostring(k) end
+    table.sort(keys)
+    for _, k in ipairs(keys) do
+      if not WL.ACTIONS[k] then err('A condition for an unknown action "' .. k .. '"')
+      else WL.condErrors(b.actWhen[k], b, '"' .. WL.ACTIONS[k].label .. '"', 0, errs) end
     end
   end
   if type(b.vars) == 'table' then

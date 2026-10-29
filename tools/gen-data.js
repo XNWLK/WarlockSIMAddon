@@ -89,6 +89,10 @@ out.push('WL.RACES = ' + lua(WL.RACES));
 out.push('WL.RACE_KEYS = ' + lua(WL.RACE_KEYS));
 out.push('WL.BASELINE_RACE = ' + str(WL.BASELINE_RACE));
 out.push('WL.BUILDS = ' + lua(WL.BUILDS));
+// trinket and weapon enchant effects, keyed by the game's item id / enchant id (numbers in Lua too)
+const byId = o => '{\n' + Object.keys(o || {}).map(k => '  [' + num(+k) + '] = ' + lua(o[k], '  ') + ',\n').join('') + '}';
+out.push('WL.TRINKET_FX = ' + byId(WL.TRINKET_FX));
+out.push('WL.ENCHANT_FX = ' + byId(WL.ENCHANT_FX));
 out.push('WL.ACTION_META = ' + lua(actions));
 out.push('WL.CONFLAG_EXPIRE_S = ' + num(WL.CONFLAG_EXPIRE_S));
 out.push('WL.DOT_ACTIONS = ' + lua(WL.DOT_ACTIONS));

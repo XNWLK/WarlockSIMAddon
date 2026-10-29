@@ -89,7 +89,8 @@ function WL.itemStats(api, lines, strings, toPct)
     local isEquip = raw:sub(1, #equip) == equip
     local s = isEquip and clean(raw, equip) or raw
     local found = false
-    for i = 1, #ITEM_STATS do
+    local isUse = raw:sub(1, #use) == use or raw:sub(1, #proc) == proc   -- a Use: or Chance on hit: line is never a permanent stat
+    for i = 1, isUse and 0 or #ITEM_STATS do
       local e = ITEM_STATS[i]
       local fmt = strings(e[2])
       if type(fmt) == 'string' and fmt ~= '' then
@@ -103,7 +104,7 @@ function WL.itemStats(api, lines, strings, toPct)
         end
       end
     end
-    if not found then
+    if not found and not isUse then
       for i = 1, #CLASSIC_LINES do
         local c = CLASSIC_LINES[i]
         local n = number(s:match(c[2]))
@@ -115,7 +116,7 @@ function WL.itemStats(api, lines, strings, toPct)
         end
       end
     end
-    if not found and (isEquip or raw:sub(1, #use) == use or raw:sub(1, #proc) == proc) then unknown[#unknown + 1] = raw end
+    if not found and (isEquip or isUse) then unknown[#unknown + 1] = raw end
   end
   local stats = {}
   for i = 1, #WL.ITEM_STAT_ORDER do

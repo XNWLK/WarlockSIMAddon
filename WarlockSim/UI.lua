@@ -389,6 +389,8 @@ local function buildCharacterPage(p)
     if #on > 0 then notes[#notes + 1] = 'Taken off your numbers (the Buffs tab decides): ' .. table.concat(on, ', ') .. '.' end
     if #(ch.otherAuras or {}) > 0 then notes[#notes + 1] = 'Also on you; if they give stats, they count as gear: ' .. table.concat(ch.otherAuras, ', ') .. '.' end
     if ch.weaponEffect then notes[#notes + 1] = 'Your weapon has a temporary effect (stone or oil): its bonus is in your numbers.' end
+    local fx = WL.wornEffectNames(ch.worn)
+    if #fx > 0 then notes[#notes + 1] = 'What these do counts in the fight: ' .. table.concat(fx, ', ') .. ' (trinkets: see "Trinkets" on the Fight tab).' end
     p.notes:SetText(table.concat(notes, ' '))
   end
 end
@@ -487,11 +489,19 @@ local function buildFightPage(p)
   end, function(v) WL.cfg.options.activesPolicy = v end, 'When the racial cooldown, the Spellblasting potion and Power Infusion are used for the first time. Afterwards each is used again whenever it is ready.')), 92)
   y = y - 26
   label('Precast', 0)
-  place(keep(Dropdown(p, 200, function()
+  place(keep(Dropdown(p, 120, function()
     local items = { { value = '', label = 'Nothing' } }
     for i = 1, #WL.PRECAST_SPELLS do items[#items + 1] = { value = WL.PRECAST_SPELLS[i], label = WL.SPELLS[WL.PRECAST_SPELLS[i]].name } end
     return items
   end, function() return f().precast or '' end, function(v) f().precast = v end, 'A spell you start before the pull so that it finishes as the fight starts.')), 92)
+  label('Trinkets', 222)
+  place(keep(Dropdown(p, 130, function()
+    return { { value = 'cds', label = 'With cooldowns' }, { value = 'ready', label = 'When ready' }, { value = 'execute', label = 'Execute phase' }, { value = 'never', label = 'Never' } }
+  end, function()
+    local tu = WL.cfg.options.trinketUse or {}
+    return tu.trinket1 or 'cds'
+  end, function(v) WL.cfg.options.trinketUse = { trinket1 = v, trinket2 = v } end,
+    'When the trinkets you wear are used, if the sim knows what they do (Talisman of Ephemeral Power, Zandalarian Hero Charm, The Black Book and more). "With cooldowns": together with your racial and Power Infusion ("Pop cooldowns"). "When ready": from the pull on, again whenever ready. "Execute phase": only once the boss is low. "Never": not at all.\n\nA mana trinket is used when its mana is missing. A trinket\'s plain stats always count, and so does what your main-hand enchant does (Revelation, Grand Sorcerer, Grand Arcanist, Insight).')), 276)
   y = y - 26
   place(keep(Check(p, 'Keep Curse of the Elements up', function() return WL.cfg.options.useCurseOfElements end, function(v) WL.cfg.options.useCurseOfElements = v end)), -2)
   place(keep(Check(p, 'Stat weights', function() return o().weights end, function(v) o().weights = v end,

@@ -63,6 +63,8 @@ local function readItem(link)
   end
   item.enchantLines = enchants
   item.stats, item.unknown = WL.itemStats(type(api) == 'table' and api or nil, lines, gameString, toPct)
+  local id = tonumber(link:match('item:(%d+)'))
+  if id and WL.TRINKET_FX[id] then item.unknown, item.fx = {}, WL.TRINKET_FX[id] end   -- its use effect or proc is counted in the fight
   item.raw = { api = type(api) == 'table' and api or nil, lines = lines }
   return item
 end
@@ -168,7 +170,13 @@ end
 -- An item you wear against an empty slot: what it is worth.
 local function worth(item)
   local main = try(GetInventoryItemLink, 'player', 16)
-  return { { worth = true, label = item.name, olds = { item.stats }, items = {}, mainHand = type(main) == 'string' and itemID(main) == itemID(item.link) } }
+  local slot                                               -- the slot it is in (for trinket and weapon effects)
+  local list = WL.ITEM_SLOTS[item.equipLoc or ''] or {}
+  for i = 1, #list do
+    local l = try(GetInventoryItemLink, 'player', list[i])
+    if not slot and type(l) == 'string' and itemID(l) == itemID(item.link) then slot = list[i] end
+  end
+  return { { worth = true, label = item.name, olds = { item.stats }, items = {}, slot = slot, mainHand = type(main) == 'string' and itemID(main) == itemID(item.link) } }
 end
 -- The swaps an item stands for: one per slot it could go into. `worn` = the item was clicked on the character sheet.
 -- Returns a list of { label, olds = { stats, ... }, ... } or nil and a plain sentence.
@@ -185,7 +193,7 @@ local function alternatives(item, worn)
     if main then olds[#olds + 1] = main.stats; names[#names + 1] = main.name end
     if off then olds[#olds + 1] = off.stats; names[#names + 1] = off.name end
     if main and itemID(main.link) == itemID(item.link) then return worth(item) end
-    list[1] = { label = #names > 0 and table.concat(names, ' and ') or 'empty hands', olds = olds, mainHand = true, items = { main, off } }
+    list[1] = { label = #names > 0 and table.concat(names, ' and ') or 'empty hands', olds = olds, mainHand = true, slot = 16, items = { main, off } }
     return list
   end
   if slots[1] == 17 and mainIs2H then return nil, 'You hold a two-hand weapon: an off-hand item cannot be compared on its own.' end
@@ -194,7 +202,7 @@ local function alternatives(item, worn)
     local old = equipped(slots[i])
     if old and itemID(old.link) == itemID(item.link) then same = same + 1
     else
-      list[#list + 1] = { label = old and old.name or 'the empty slot', olds = old and { old.stats } or {}, items = { old }, mainHand = slots[i] == 16 }
+      list[#list + 1] = { label = old and old.name or 'the empty slot', olds = old and { old.stats } or {}, items = { old }, mainHand = slots[i] == 16, slot = slots[i] }
     end
   end
   if #list == 0 then return worth(item) end
@@ -244,11 +252,15 @@ function WL.simItem(link, worn)
   local errs = WL.validateBuild(build, true)
   if #errs > 0 then return false, errs[1] end
   local cfg, race, n = WL.characterConfig(), WL.raceKey(), itemFights()
-  local key = n .. race .. WL.encodeBuild(build) .. WL.jsonEncode(WL.settingsSnapshot(cfg))
+  local key = n .. race .. WL.encodeBuild(build) .. WL.jsonEncode(WL.settingsSnapshot(cfg)) .. WL.fxKey(cfg)
   local cached = baseCache and baseCache.key == key and baseCache.res or nil
   for i = 1, #alts do
     local a = alts[i]
     a.gear, a.delta = WL.gearWithSwap(cfg.gear, a.worth and {} or item.stats, a.olds, cfg)
+    if WL.char and a.slot and WL.FX_SLOTS[a.slot] then         -- a trinket or weapon: its effect goes with it
+      a.fxSwap = true
+      a.gb = WL.wornGearBuilder(WL.wornSwap(WL.char.worn, a.slot, (not a.worth) and itemID(item.link) or nil))
+    end
   end
   -- kept for /wsim dump: what the game returned for the items of the last comparison
   WL.db.lastItem = { link = link, name = item.name, equipLoc = item.equipLoc, stats = item.stats, unknown = item.unknown, raw = item.raw, worn = worn or nil, against = {} }
@@ -264,6 +276,7 @@ function WL.simItem(link, worn)
     for i = 1, #alts do
       local c = copy(cfg)
       c.gear = alts[i].gear
+      if alts[i].fxSwap then c.gearBuilder = alts[i].gb end
       local before = j.done
       -- same fights on both sides, so the difference is taken fight by fight: its margin is far smaller than that of
       -- either DPS, and this side can stop as soon as it is exact enough (the run as you are always plays all of them)

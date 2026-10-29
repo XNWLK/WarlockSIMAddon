@@ -94,8 +94,13 @@ function WL.characterBuild(char, template)
       if not indexOf(b.rotation, a) then b.rotation[#b.rotation + 1] = a end
     elseif A then dropped[#dropped + 1] = WL.actionLabel(template, a) end
   end
-  local filler
-  for i = 1, #b.rotation do if WL.ACTIONS[b.rotation[i]].filler then filler = i; break end end
+  if type(template.actWhen) == 'table' then                    -- conditions on the actions that were kept (Wrack waits for its DoTs)
+    for k, w in pairs(template.actWhen) do
+      if indexOf(b.rotation, k) then b.actWhen = b.actWhen or {}; b.actWhen[k] = copy(w) end
+    end
+  end
+  local filler                                                 -- a filler with a condition is no filler: the one below it is
+  for i = 1, #b.rotation do local A = WL.actionOf(b.rotation[i], b); if A and A.filler then filler = i; break end end
   if not filler then
     b.rotation[#b.rotation + 1] = 'shadowBolt'
     notes[#notes + 1] = 'Shadow Bolt is the filler: you do not have the talent for the filler of "' .. (template.short or template.key or '?') .. '".'
@@ -114,6 +119,46 @@ function WL.characterBuild(char, template)
   end
   b.params = WL.cleanParams(b.params, b.rotation)
   return b, notes
+end
+
+-- ---------- the trinkets and main-hand enchant you wear, for the fight (WL.TRINKET_FX / WL.ENCHANT_FX) ----------
+-- worn = { trinket1 = item id, trinket2 = item id, mainHand = item id, mainEnchant = enchant id } (Reader.lua).
+WL.FX_SLOTS = { [13] = 'trinket1', [14] = 'trinket2', [16] = 'mainHand' }   -- inventory slot -> the fight's slot name
+-- The fight's cfg.gearBuilder for what you wear, or nil when nothing of it has an effect the sim knows.
+function WL.wornGearBuilder(worn)
+  if type(worn) ~= 'table' then return nil end
+  local gb = { on = true, slots = {}, enchants = {} }
+  for _, k in ipairs({ 'trinket1', 'trinket2', 'mainHand' }) do if worn[k] then gb.slots[k] = { id = worn[k] } end end
+  if worn.mainEnchant then gb.enchants.mainHand = { id = worn.mainEnchant } end
+  local c = { gearBuilder = gb }
+  if #WL.equippedTrinkets(c) == 0 and #WL.equippedEnchantFx(c) == 0 then return nil end
+  return gb
+end
+-- What you wear with the item in inventory slot `inv` changed to `id` (nil = the slot empty). The enchant stays on the
+-- main hand, as the stats of your enchants do in an item sim; an empty main hand has no enchant.
+function WL.wornSwap(worn, inv, id)
+  local w = copy(worn or {})
+  local k = WL.FX_SLOTS[inv]
+  if k then w[k] = id end
+  return w
+end
+-- The names of what counts in the fight beyond plain stats, e.g. { 'The Black Book', 'Revelation' }.
+function WL.wornEffectNames(worn)
+  local gb, out = WL.wornGearBuilder(worn), {}
+  if not gb then return out end
+  local c = { gearBuilder = gb }
+  local t, e = WL.equippedTrinkets(c), WL.equippedEnchantFx(c)
+  for i = 1, #t do out[#out + 1] = t[i].fx.name end
+  for i = 1, #e do out[#out + 1] = e[i].fx.name end
+  return out
+end
+-- A short text of the effects in a config, for cache keys (the settings snapshot leaves them out).
+function WL.fxKey(cfg)
+  local gb = cfg and cfg.gearBuilder
+  if not gb then return '' end
+  local s = gb.slots or {}
+  local function id(x) return x and tostring(x.id) or '-' end
+  return '|fx:' .. id(s.trinket1) .. ',' .. id(s.trinket2) .. ',' .. id(s.mainHand) .. ',' .. id(gb.enchants and gb.enchants.mainHand)
 end
 
 -- Talent points per tree as "21/30/0", and their sum.

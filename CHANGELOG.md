@@ -3,6 +3,30 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.10.0
+
+- Trinkets work in the fight: if you wear one whose effect the sim knows, it is used during the fight. 19 trinkets are
+  known, among them Talisman of Ephemeral Power, Zandalarian Hero Charm, Talisman of Ascendance, Eye of Moam, The Black
+  Book, Hazza'rah's Charm of Destruction, Shard of the Fallen Star, Warmth of Forgiveness and Darkmoon Card: Blue
+  Dragon. "Trinkets" on the Fight tab sets when they are used: with your other cooldowns (the default), whenever ready,
+  in the execute phase, or never. A mana trinket is used when its mana is missing.
+- The enchant on your main hand counts too, if it does more than give stats: Revelation, Grand Sorcerer, Grand Arcanist
+  and Insight. How often Revelation triggers is not known; the sim uses a guess.
+- The Character tab names the trinkets and the enchant whose effects count. Item sims and the numbers on the
+  character sheet count them as well: a trinket you wear is worth its use effect.
+- Every ready build now uses "Life Tap by need": Life Tap only when the mana you have will not last the rest of the
+  fight, and not while free mana (Innervate, Mana Tide, a potion, a rune or a mana trinket) is ready. With plenty of
+  mana it taps less; with default settings the results stay the same.
+- Wrack Succubus only channels Wrack while Corruption, Bane of Agony and Siphon Life all have at least 4 seconds left,
+  and casts Shadow Bolt in between.
+- Fixed: in item sims, a "Use:" or "Chance on hit:" line could be read as a stat the item always gives (Talisman of
+  Ephemeral Power came out as +175 spell power all the time).
+- "Destro Incinerate Imp" is gone (Destro Incinerate Succubus does better). Five ready builds remain.
+- New on the Buffs tab: Dark Inspiration, +15% Spirit from a Shadow Priest in your party.
+- Build codes from the website with conditions on built-in actions work in the addon, and settings codes keep the
+  website's cheat mode (spells that always hit or always crit).
+- After updating, your character is read again once and the numbers on the character sheet are worked out again.
+
 ## v0.9.9
 
 - Follows the Forever patch notes: Troll Berserking lasts 15 seconds (was 10). Its 10% haste and 3 minute cooldown are

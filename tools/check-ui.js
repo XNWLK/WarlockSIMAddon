@@ -60,8 +60,8 @@ step('click a ranking row and go back', `local row; for _, f in ipairs(MOCK.fram
   local sub; for _, f in ipairs(MOCK.frames) do if f.__kind == "Button" and f.scripts.OnClick and f.width == 406 and f.height == 14 then sub = f end end
   assert(sub, "no back button"); sub.scripts.OnClick(sub); assert(MOCK.findLike("FontString", "^Best with your gear: "), "ranking not shown again")`);
 const settingsCode = 'WFS1:' + Buffer.from(JSON.stringify(JSON.parse(JSON.stringify(WL.settingsSnapshot(Object.assign(JSON.parse(JSON.stringify(WL.DEFAULT_CONFIG)), {})))))).toString('base64');
-const b2 = JSON.parse(JSON.stringify(WL.BUILDS[5]));
-const buildCode = 'WFB1:' + Buffer.from(JSON.stringify({ v: 1, short: 'My web build', talents: b2.talents, pet: b2.pet, sacrifice: b2.sacrifice || null, oil: b2.oil, rotation: b2.rotation, p: b2.params })).toString('base64');
+const b2 = JSON.parse(JSON.stringify(WL.BUILDS[WL.BUILDS.length - 1]));   // the last ready build
+const buildCode = 'WFB1:' + Buffer.from(JSON.stringify({ v: 1, short: 'My web build', talents: b2.talents, pet: b2.pet, sacrifice: b2.sacrifice || null, oil: b2.oil, rotation: b2.rotation, p: b2.params, aw: b2.actWhen })).toString('base64');
 step('codes: load settings, load a build, make both codes', `local box; for _, f in ipairs(MOCK.frames) do if f.__kind == "EditBox" and not f.template then box = f end end; assert(box, "no code box")
   box:SetText(${JSON.stringify(settingsCode)}); MOCK.click("Load the code")
   box:SetText(${JSON.stringify(buildCode)}); MOCK.click("Load the code"); assert(#WLX.imported == 1 and WLX.db.options.template == "import1", "build not imported")
@@ -266,6 +266,20 @@ step('the fight: 180 s by default, a saved 120 s of the versions before moves ov
   WLX.cfg.fight.duration = 180; WLX.saveSettings()`);
 step('the tip fits on one line', `WLX.refresh(); local t = MOCK.findLike("FontString", "^|cff9482c9Tip:|r "); assert(t, "no tip"); local plain = t.text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
   assert(#plain <= 60, "the tip is " .. #plain .. " characters: " .. plain); return plain`);
+step('a worn trinket and main-hand enchant with an effect count in the fight, and go with the item in an item sim', `MOCK.items[18820] = { name = 'Talisman of Ephemeral Power', loc = 'INVTYPE_TRINKET', class = 4, sub = 0, api = {},
+    lines = { 'Talisman of Ephemeral Power', 'Use: Increases damage and healing done by magical spells and effects by up to 175 for 15 sec. (1 Min, 30 Sec Cooldown)' } }
+  MOCK.equipped[13] = 18820; MOCK.items[1005].ench = 8217; WLX.doReadCharacter()
+  local w = WLX.char.worn; assert(w.trinket1 == 18820 and w.mainHand == 1005 and w.mainEnchant == 8217, 'worn: ' .. tostring(w.trinket1) .. ' ' .. tostring(w.mainEnchant))
+  local cfg = WLX.characterConfig(); assert(cfg.gearBuilder and #WLX.equippedTrinkets(cfg) == 1 and #WLX.equippedEnchantFx(cfg) == 1, 'not in the fight')
+  WLX.refresh(); assert(MOCK.findLike('FontString', 'What these do counts in the fight: Talisman of Ephemeral Power, Revelation'), 'not named on the Character tab')
+  MOCK.refItem = 18820; ItemRefTooltip.shown = true; ${frames}; MOCK.click('Sim this item'); ${pump}; ${frames}
+  local t = WarlockSimItemPanel.text.text
+  local dps = tonumber(t:match('|cff40ff40%+?([%-%d%.]+) DPS'))
+  assert(dps and dps > 5, 'the trinket is worth its use effect: ' .. t); assert(not t:find('Not counted on Talisman', 1, true), 'its effect is counted: ' .. t)
+  assert(not t:find('175 spell power', 1, true), 'its Use: line is no stat: ' .. t)
+  ItemRefTooltip.shown = false; MOCK.refItem = nil; ${frames}; MOCK.equipped[13] = nil; MOCK.items[1005].ench = nil; WLX.doReadCharacter(); ${pump}
+  assert(WLX.characterConfig().gearBuilder == nil, 'gone again')
+  return 'a second Talisman of Ephemeral Power in the empty trinket slot: +' .. dps .. ' DPS'`);
 step('/wsim test', 'SlashCmdList.WARLOCKSIM("test"); local t = WLX.db.selfTest; assert(t and t.ok, "self-test failed: " .. table.concat(t and t.lines or {}, " | ")); return t.fights .. " fights match"');
 step('/wsim dump, read, help, close', 'SlashCmdList.WARLOCKSIM("dump"); assert(WLX.db.dump.character.raw.nodeCount == #WLX.TALENTS); SlashCmdList.WARLOCKSIM("read"); SlashCmdList.WARLOCKSIM("help"); SlashCmdList.WARLOCKSIM(""); assert(not WarlockSimFrame:IsShown()); MOCK.fire("PLAYER_LOGOUT"); assert(WLX.db.settings.v == 1)');
 step('a second session starts from the saved settings', 'local saved = WarlockSimDB; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db == saved and WLX.cfg.fight.duration == 180)');
