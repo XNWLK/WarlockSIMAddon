@@ -3,6 +3,21 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.11.0
+
+- New: the helper, off by default ("Helper" on the Character tab, or `/wsim helper`). On a raid boss a small bar shows
+  the spell the sim would cast next with your character, the two after it, and cooldowns or a mana potion to use with
+  it. The sim's own priority list decides, for the ready build your talents fit ("Play it like" on the Character tab).
+- The bar also shows how many seconds the boss has left, worked out from how fast its health went down in the last 20
+  seconds. The priority list plays with that time: DoTs that would not pay off any more are left out, Death Coil comes
+  at the very end, Life Tap goes by the time left, and the execute phase starts at the boss's real health.
+- Only on raid bosses: a boss encounter in a raid, or a boss you target (world bosses). Not in 5-player dungeons.
+- In combat the game hides some numbers from addons. The helper then follows your own casts (DoT timers, cooldowns,
+  mana). If the boss's health is hidden, the time shown is the fight length of the Fight tab, in grey.
+- `/wsim helper move` lets you drag the bar where you want it. The key that casts a spell on your action bars is shown
+  on its icon.
+- The Character tab's "Sim!" button is narrower to make room for the box.
+
 ## v0.10.0
 
 - Trinkets work in the fight: if you wear one whose effect the sim knows, it is used during the fight. 19 trinkets are

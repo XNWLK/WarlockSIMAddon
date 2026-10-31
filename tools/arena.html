@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helper Practice</title>
+<style>
+  :root {
+    --bg: #0f0d14; --panel: #1a1622; --panel2: #221d2c; --line: #332b40; --text: #e8e4f0; --dim: #9a92a8; --gold: #ffd100;
+    --purple: #9482c9; --green: #59c96b; --red: #e05a5a; --blue: #4a8fe0; --mana: #2f6fd6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 14px 20px 10px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 18px; color: var(--purple); font-weight: 650; }
+  header p { margin: 0; color: var(--dim); font-size: 13px; }
+  main { display: grid; grid-template-columns: 270px minmax(0, 1fr) 300px; gap: 14px; padding: 14px 20px 30px; max-width: 1400px; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .card h2 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); font-weight: 600; }
+  label.row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 7px 0; font-size: 13px; }
+  label.chk { display: flex; align-items: flex-start; gap: 8px; margin: 8px 0; font-size: 13px; cursor: pointer; }
+  label.chk small { display: block; color: var(--dim); font-size: 11.5px; }
+  select, input[type=number] { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font: inherit; font-size: 13px; }
+  select { max-width: 170px; }
+  input[type=range] { width: 100%; accent-color: var(--purple); }
+  .btns { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  button { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  button:hover { border-color: var(--purple); }
+  button.primary { background: #4b3a73; border-color: #6a55a0; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: 4px 9px; }
+  .seg button.on { background: #4b3a73; }
+  .screen { background: radial-gradient(ellipse at 50% 20%, #2a2236 0%, #120f18 70%); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-height: 560px; position: relative; }
+  .boss { max-width: 460px; margin: 0 auto; }
+  .boss .name { display: flex; justify-content: space-between; font-weight: 600; font-size: 14px; }
+  .bar { height: 18px; background: #2a0e0e; border: 1px solid #000; border-radius: 3px; position: relative; overflow: hidden; margin-top: 4px; }
+  .bar > i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(#d33, #911); }
+  .bar > span { position: absolute; inset: 0; text-align: center; font-size: 12px; line-height: 17px; text-shadow: 0 1px 2px #000; }
+  .bar.mana { background: #0c1830; } .bar.mana > i { background: linear-gradient(#3d82f0, #1d4ea8); }
+  .bar.cast { background: #1d1a10; height: 16px; } .bar.cast > i { background: linear-gradient(#f0c040, #b0841a); } .bar.cast > span { line-height: 15px; }
+  .bar.cast.chan > i { background: linear-gradient(#58d27a, #2a8a40); }
+  .debuffs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; min-height: 22px; justify-content: center; }
+  .debuffs span { background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; font-size: 11.5px; }
+  .debuffs span.hidden { color: var(--dim); font-style: italic; }
+  .stage { height: 190px; display: flex; align-items: center; justify-content: center; }
+  .wow { position: relative; transform: scale(1.55); transform-origin: center; }
+  .wow .r { position: absolute; }
+  .wow .fs { white-space: nowrap; font-family: "Friz Quadrata TT", Georgia, serif; text-shadow: 1px 1px 0 #000, 0 0 2px #000; line-height: 1; }
+  .wow .tile { display: flex; align-items: center; justify-content: center; font: 700 11px system-ui, sans-serif; color: #fff; text-shadow: 0 1px 2px #000; border-radius: 2px; overflow: hidden; }
+  .player { max-width: 460px; margin: 0 auto; display: grid; gap: 6px; }
+  .actionbar { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+  .ab { width: 52px; height: 52px; border-radius: 5px; position: relative; cursor: pointer; border: 2px solid #000; box-shadow: 0 0 0 1px #3b334a; font: 700 12px system-ui; color: #fff; display: flex; align-items: center; justify-content: center; text-shadow: 0 1px 2px #000; user-select: none; }
+  .ab .hk { position: absolute; top: 2px; right: 4px; font-size: 11px; color: #ddd; }
+  .ab .cd { position: absolute; inset: 0; background: rgba(0,0,0,.62); display: flex; align-items: center; justify-content: center; font-size: 13px; color: #fff; border-radius: 3px; }
+  .ab.nomana { filter: saturate(.3) brightness(.7); }
+  .ab.hint { box-shadow: 0 0 0 2px var(--gold), 0 0 12px rgba(255,209,0,.6); }
+  .ab .nm { position: absolute; bottom: -16px; left: -6px; right: -6px; text-align: center; font: 500 10px system-ui; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: none; }
+  .note { color: var(--dim); font-size: 12px; margin-top: 30px; text-align: center; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 13px; }
+  .kv b { color: var(--dim); font-weight: 500; }
+  .log { font: 12px/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; color: #cfc8dc; max-height: 270px; overflow: auto; }
+  .result { border-color: #5b4a86; }
+  .big { font-size: 22px; font-weight: 650; color: var(--gold); }
+  svg text { fill: var(--dim); font-size: 10px; }
+  .err { color: var(--red); font-size: 12px; white-space: pre-wrap; }
+  .side { display: grid; gap: 14px; align-content: start; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Helper practice</h1>
+  <p>Xn's Warlock Sim's helper bar, running the addon's real code against a practice boss on this computer. Keys 1&ndash;0, Q, E, R, F, T, G press your spells.</p>
+</header>
+<main>
+  <section class="side">
+    <div class="card">
+      <h2>Your Warlock</h2>
+      <label class="row">Build <select id="build"></select></label>
+      <label class="row">Race <select id="race">
+        <option value="orc">Orc</option><option value="undead">Undead</option><option value="troll">Troll</option><option value="human">Human</option><option value="gnome">Gnome</option>
+      </select></label>
+      <p style="color:var(--dim);font-size:12px;margin:6px 0 0">The talents, demon and race of that ready build are "read" as your character, with the stand-in game's sheet numbers.</p>
+    </div>
+    <div class="card">
+      <h2>The boss</h2>
+      <label class="row">Fight length <span><input id="length" type="number" min="30" max="600" step="10" value="150"> s</span></label>
+      <label class="row" style="display:block">Raid damage per second: <b id="raidv"></b>
+        <input id="raid" type="range" min="500" max="15000" step="250" value="3500"></label>
+      <p style="color:var(--dim);font-size:12px;margin:0">Move it during the fight: the boss dies sooner or later, and the helper's time to kill and its choices follow.</p>
+    </div>
+    <div class="card">
+      <h2>What the game hides in combat</h2>
+      <label class="chk"><input type="checkbox" id="hideHealth"><span>Boss health<small>Blizzard's rules hide it from addons in combat. Then the time to kill is the fight length (grey).</small></span></label>
+      <label class="chk"><input type="checkbox" id="hideAuras" checked><span>Buffs and debuffs<small>Hidden in combat on Forever. The helper then follows your casts.</small></span></label>
+      <label class="chk"><input type="checkbox" id="hideMana"><span>Your mana<small>Not known yet whether Forever hides it. The helper then counts it itself.</small></span></label>
+    </div>
+    <div class="card">
+      <h2>Play</h2>
+      <label class="chk"><input type="checkbox" id="auto"><span>Auto-play<small>Presses whatever the helper shows, the moment you could cast.</small></span></label>
+      <label class="row">Speed <span class="seg" id="speed"><button data-v="1" class="on">1&times;</button><button data-v="2">2&times;</button><button data-v="4">4&times;</button><button data-v="8">8&times;</button></span></label>
+      <div class="btns"><button class="primary" id="pull">Pull</button><button id="reset">New fight</button><button id="pause">Pause</button></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="screen">
+      <div class="boss">
+        <div class="name"><span id="bossName">Practice Boss</span><span id="fightTime" style="color:var(--dim)"></span></div>
+        <div class="bar"><i id="hpFill" style="width:100%"></i><span id="hpText"></span></div>
+        <div class="debuffs" id="debuffs"></div>
+      </div>
+      <div class="stage"><div class="wow" id="wow"></div></div>
+      <div class="player">
+        <div class="bar cast" id="castBar" style="visibility:hidden"><i id="castFill"></i><span id="castText"></span></div>
+        <div class="bar mana"><i id="manaFill" style="width:100%"></i><span id="manaText"></span></div>
+      </div>
+      <div class="actionbar" id="actionbar"></div>
+      <div class="note" id="note"></div>
+      <div class="err" id="err"></div>
+    </div>
+  </section>
+
+  <section class="side">
+    <div class="card">
+      <h2>The helper says</h2>
+      <div class="kv">
+        <b>Next</b><span id="hNext">&ndash;</span>
+        <b>With it</b><span id="hExtra">&ndash;</span>
+        <b>Time to kill</b><span id="hTtk">&ndash;</span>
+        <b>Really</b><span id="hTrue">&ndash;</span>
+        <b>Your DPS</b><span id="hDps">&ndash;</span>
+      </div>
+      <svg id="chart" viewBox="0 0 270 110" width="100%" style="margin-top:10px;max-width:360px;display:block"></svg>
+      <div style="color:var(--dim);font-size:11.5px">When the boss will die, as the helper saw it each second (purple), and the true time (gold, after the kill).</div>
+    </div>
+    <div class="card result" id="resultCard" style="display:none">
+      <h2>The fight</h2>
+      <div id="result"></div>
+    </div>
+    <div class="card">
+      <h2>Log</h2>
+      <div class="log" id="log"></div>
+    </div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const SCHOOL = { shadow: ['#5b2f8f', '#2a1046'], fire: ['#d9661e', '#6e2008'], racial: ['#8a7a40', '#3a3010'], item: ['#3d7a5a', '#163626'] };
+const SHORT = { shadowBolt: 'SB', immolate: 'Imm', corruption: 'Cor', baneOfAgony: 'BoA', baneOfDoom: 'BoD', siphonLife: 'SL', curseOfElements: 'CoE',
+  searingPain: 'SP', incinerate: 'Inc', conflagrate: 'Conf', shadowburn: 'SBn', soulFire: 'SF', wrack: 'Wr', deathCoil: 'DC', lifeTap: 'LT', racial: 'Rac' };
+let speed = 1, paused = false, busy = false, queue = [], pullReq = false, st = null, idInfo = {};
+
+function settings() {
+  return { raidDps: +$('raid').value, length: +$('length').value, hideHealth: $('hideHealth').checked, hideAuras: $('hideAuras').checked, hideMana: $('hideMana').checked, auto: $('auto').checked };
+}
+async function api(url, body) {
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error);
+  return j;
+}
+async function reset() {
+  busy = true;
+  try { st = await api('/api/reset', { build: $('build').value, race: $('race').value, set: settings() }); $('err').textContent = ''; draw(); }
+  catch (e) { $('err').textContent = e.message; }
+  busy = false;
+}
+async function loop() {
+  if (!busy && !paused && st) {
+    busy = true;
+    const press = queue; queue = [];
+    const pull = pullReq; pullReq = false;
+    try { st = await api('/api/step', { dt: 0.1 * speed, press, pull, set: settings() }); $('err').textContent = ''; draw(); }
+    catch (e) { $('err').textContent = e.message; }
+    busy = false;
+  }
+  setTimeout(loop, 100);
+}
+
+// ---------- the addon's helper bar, drawn from its frames ----------
+const PT = { TOPLEFT: ['l', 't'], TOP: ['cx', 't'], TOPRIGHT: ['r', 't'], LEFT: ['l', 'cy'], CENTER: ['cx', 'cy'], RIGHT: ['r', 'cy'], BOTTOMLEFT: ['l', 'b'], BOTTOM: ['cx', 'b'], BOTTOMRIGHT: ['r', 'b'] };
+const FONTS = {
+  GameFontNormalLarge: [15, '#ffd100'], GameFontHighlightSmall: [10, '#ffffff'], GameFontDisableSmall: [10, '#808080'], GameFontNormalSmall: [10, '#ffd100'],
+  NumberFontNormal: [13, '#ffffff'], NumberFontNormalSmall: [11, '#ffffff'],
+};
+const measure = document.createElement('canvas').getContext('2d');
+function textWidth(t, size) { measure.font = size + 'px Georgia, serif'; return measure.measureText(t.replace(/\|c[0-9a-fA-F]{8}|\|r/g, '')).width; }
+function colorText(t) {
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  return esc(t).replace(/\|c[0-9a-fA-F]{2}([0-9a-fA-F]{6})/g, '<span style="color:#$1">').replace(/\|r/g, '</span>');
+}
+function drawBar(regions) {
+  const box = $('wow');
+  box.innerHTML = '';
+  if (!regions || !regions.length) return;
+  const by = {}; regions.forEach(r => by[r.id] = r);
+  const root = regions[0];
+  const memo = {};
+  function size(r) {
+    let w = r.w, h = r.h;
+    if (r.kind === 'FontString') { const f = FONTS[r.font] || [11, '#fff']; if (!r.wSet) w = textWidth(r.text || '', f[0]); if (!r.hSet) h = f[0] + 2; }
+    return [w, h];
+  }
+  function rect(r) {
+    if (memo[r.id]) return memo[r.id];
+    if (r === root) return memo[r.id] = { x: 0, y: 0, w: r.w, h: r.h };
+    const parent = by[r.parent] ? rect(by[r.parent]) : rect(root);
+    const [w, h] = size(r);
+    const c = {};
+    (r.points.length ? r.points : [['TOPLEFT', 0, 'TOPLEFT', 0, 0]]).forEach(([p, rel, rp, x, y]) => {
+      const R = by[rel] ? rect(by[rel]) : parent;
+      const [hx, vy] = PT[rp] || PT.CENTER, [mx, my] = PT[p] || PT.CENTER;
+      const ax = hx === 'l' ? R.x : hx === 'r' ? R.x + R.w : R.x + R.w / 2;
+      const ay = vy === 't' ? R.y : vy === 'b' ? R.y + R.h : R.y + R.h / 2;
+      c[mx] = ax + x; c[my] = ay - y;
+    });
+    const o = { w, h };
+    if (c.l != null && c.r != null) { o.x = c.l; o.w = c.r - c.l; } else if (c.l != null) o.x = c.l; else if (c.r != null) o.x = c.r - w; else o.x = (c.cx ?? parent.x + parent.w / 2) - w / 2;
+    if (c.t != null && c.b != null) { o.y = c.t; o.h = c.b - c.t; } else if (c.t != null) o.y = c.t; else if (c.b != null) o.y = c.b - h; else o.y = (c.cy ?? parent.y + parent.h / 2) - h / 2;
+    return memo[r.id] = o;
+  }
+  function visible(r) { for (let q = r; q; q = by[q.parent]) { if (!q.shown) return false; if (q === root) break; } return true; }
+  function alpha(r) { let a = 1; for (let q = r; q; q = by[q.parent]) { if (q.alpha != null) a *= q.alpha; if (q === root) break; } return a; }
+  function depth(r) { let d = 0; for (let q = r; q && q !== root; q = by[q.parent]) d++; return d; }
+  const LAYER = { BACKGROUND: 0, BORDER: 1, ARTWORK: 2, OVERLAY: 3 };
+  box.style.width = root.w + 'px'; box.style.height = root.h + 'px';
+  regions.forEach(r => {
+    if (r.kind !== 'Texture' && r.kind !== 'FontString') return;
+    if (!visible(r)) return;
+    const q = rect(r), el = document.createElement('div');
+    el.className = 'r';
+    Object.assign(el.style, { left: q.x + 'px', top: q.y + 'px', width: q.w + 'px', height: q.h + 'px', opacity: alpha(r), zIndex: depth(r) * 10 + (LAYER[r.layer] ?? 2) });
+    if (r.kind === 'Texture') {
+      if (r.color) el.style.background = `rgba(${r.color[0] * 255},${r.color[1] * 255},${r.color[2] * 255},${r.color[3]})`;
+      else if (r.tex) {
+        const m = String(r.tex).match(/^(spell|item):(\d+)/);
+        const info = m && idInfo[m[2]];
+        const sch = SCHOOL[m && m[1] === 'item' ? 'item' : info ? info.school : 'shadow'] || SCHOOL.shadow;
+        el.classList.add('tile');
+        el.style.background = `linear-gradient(145deg, ${sch[0]}, ${sch[1]})`;
+        el.style.fontSize = Math.max(8, q.w * 0.3) + 'px';
+        el.textContent = info ? (SHORT[info.key] || info.name.slice(0, 3)) : '?';
+      }
+    } else {
+      const f = FONTS[r.font] || [11, '#fff'];
+      el.classList.add('fs');
+      el.style.fontSize = f[0] + 'px';
+      el.style.color = r.tcolor ? `rgb(${r.tcolor[0] * 255},${r.tcolor[1] * 255},${r.tcolor[2] * 255})` : f[1];
+      el.style.textAlign = (r.justify || 'CENTER').toLowerCase();
+      if (r.justify === 'LEFT') el.style.textAlign = 'left';
+      el.innerHTML = colorText(r.text || '');
+    }
+    box.appendChild(el);
+  });
+}
+
+function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
+function draw() {
+  if (!st) return;
+  idInfo = {};
+  st.spells.forEach(s => idInfo[s.id] = { key: s.key, name: s.name, school: s.key === 'racial' ? 'racial' : s.school });
+  const b = st.boss, p = st.player, h = st.helper;
+  $('bossName').textContent = b.name;
+  $('fightTime').textContent = st.combat ? st.t.toFixed(1) + ' s' : (st.result ? 'dead' : 'not pulled');
+  $('hpFill').style.width = b.pct + '%';
+  $('hpText').textContent = `${fmt(b.hp)} / ${fmt(b.max)}  (${b.pct.toFixed(1)}%)`;
+  const hideA = st.combat && $('hideAuras').checked;
+  $('debuffs').innerHTML = b.debuffs.map(d => `<span>${d.name} ${d.left.toFixed(0)}s</span>`).join('') + (hideA ? '<span class="hidden">the addon cannot see these</span>' : '');
+  $('manaFill').style.width = (100 * p.mana / p.maxMana) + '%';
+  $('manaText').textContent = `${fmt(p.mana)} / ${fmt(p.maxMana)} mana`;
+  const cb = $('castBar');
+  if (p.cast) {
+    cb.style.visibility = 'visible'; cb.classList.toggle('chan', !!p.cast.channel);
+    $('castFill').style.width = (100 * (p.cast.channel ? p.cast.left : (p.cast.full - p.cast.left)) / p.cast.full) + '%';
+    $('castText').textContent = `${p.cast.name}  ${Math.max(0, p.cast.left).toFixed(1)}`;
+  } else cb.style.visibility = 'hidden';
+  drawBar(st.bar);
+  const ab = $('actionbar');
+  if (ab.children.length !== st.spells.length) {
+    ab.innerHTML = '';
+    st.spells.forEach(s => {
+      const el = document.createElement('div');
+      el.className = 'ab'; el.dataset.key = s.key;
+      const sch = SCHOOL[s.key === 'racial' ? 'racial' : s.school] || SCHOOL.shadow;
+      el.style.background = `linear-gradient(145deg, ${sch[0]}, ${sch[1]})`;
+      el.innerHTML = `<span class="hk">${s.hotkey}</span>${SHORT[s.key] || s.name.slice(0, 3)}<span class="nm">${s.name}</span><span class="cd" style="display:none"></span>`;
+      el.title = s.name;
+      el.onclick = () => queue.push(s.key);
+      ab.appendChild(el);
+    });
+  }
+  const want = h.keys[0] && h.keys[0].key;
+  st.spells.forEach((s, i) => {
+    const el = ab.children[i], cd = el.querySelector('.cd');
+    const left = Math.max(s.cd, s.key !== 'racial' ? p.gcd : 0);
+    cd.style.display = left > 0.05 ? 'flex' : 'none';
+    cd.textContent = s.cd > 1.5 ? Math.ceil(s.cd) : '';
+    el.classList.toggle('nomana', s.key !== 'lifeTap' && s.key !== 'racial' && p.mana < s.cost);
+    el.classList.toggle('hint', s.key === want && h.active);
+  });
+  $('hNext').textContent = h.active ? (h.msg || h.keys.map(k => k.name).join(' › ') || '–') + (h.clip ? '  (stop the channel)' : '') + (h.pre ? '  (before the pull)' : '') : 'nothing (no raid boss fight)';
+  $('hExtra').textContent = h.extras.length ? h.extras.join(', ') : '–';
+  $('hTtk').textContent = h.active && !h.pre && h.ttk != null ? `${h.ttk.toFixed(0)} s ${h.ttkKnown ? '(from the boss\'s health)' : '(fight length: health hidden)'}` : '–';
+  $('hTrue').textContent = b.trueTtk != null ? `${b.trueTtk.toFixed(0)} s at today's damage` : '–';
+  $('hDps').textContent = st.combat ? p.dps.toFixed(0) : (st.result ? st.result.dps.toFixed(0) : '–');
+  $('note').textContent = st.combat ? '' : st.result ? 'The boss is dead. "New fight" for another one.' : 'Press Pull, or any spell, to start the fight. Before the pull the bar shows your opener.';
+  $('err').textContent = h.error ? 'Helper error: ' + h.error : $('err').textContent;
+  $('log').textContent = st.log.join('\n');
+  drawChart();
+  const rc = $('resultCard');
+  if (st.result) {
+    rc.style.display = '';
+    const r = st.result, casts = Object.entries(r.casts).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${(st.spells.find(s => s.key === k) || { name: k }).name} ${n}`).join(', ');
+    $('result').innerHTML = `<div class="big">${r.dps.toFixed(0)} DPS</div><div class="kv" style="margin-top:6px"><b>Length</b><span>${r.length.toFixed(1)} s</span>
+      <b>As the helper said</b><span>${r.agree} of ${r.presses} presses</span><b>Time to kill off by</b><span>${r.ttkError != null ? r.ttkError.toFixed(1) + ' s on average (after 10 s)' : '–'}</span>
+      <b>Casts</b><span>${casts}</span></div>`;
+  } else rc.style.display = 'none';
+}
+function drawChart() {
+  const svg = $('chart'), L = st.ttkLog || [];
+  const W = 270, H = 110, pad = 22;
+  const end = st.result ? st.result.length : null;
+  const maxT = Math.max(30, ...L.map(e => e.t), end || 0);
+  const maxY = Math.max(60, ...L.map(e => e.t + e.ttk), end || 0) * 1.05;
+  const X = t => pad + (W - pad - 4) * t / maxT, Y = v => H - 14 - (H - 24) * v / maxY;
+  let s = `<line x1="${pad}" y1="${H - 14}" x2="${W - 4}" y2="${H - 14}" stroke="#332b40"/><text x="${pad}" y="${H - 2}">0 s</text><text x="${W - 40}" y="${H - 2}">${maxT.toFixed(0)} s</text>`;
+  s += `<text x="0" y="${Y(maxY / 1.05) + 8}">${(maxY / 1.05).toFixed(0)}</text>`;
+  if (end) s += `<line x1="${pad}" x2="${W - 4}" y1="${Y(end)}" y2="${Y(end)}" stroke="#ffd100" stroke-dasharray="4 3"/>`;
+  if (L.length > 1) s += `<polyline fill="none" stroke="#9482c9" stroke-width="2" points="${L.map(e => X(e.t).toFixed(1) + ',' + Y(e.t + e.ttk).toFixed(1)).join(' ')}"/>`;
+  svg.innerHTML = s;
+}
+
+// ---------- controls ----------
+$('raid').oninput = () => $('raidv').textContent = (+$('raid').value).toLocaleString('en-US');
+$('raid').oninput();
+$('reset').onclick = reset;
+$('build').onchange = reset; $('race').onchange = reset; $('length').onchange = reset;
+$('pull').onclick = () => { pullReq = true; };
+$('pause').onclick = () => { paused = !paused; $('pause').textContent = paused ? 'Resume' : 'Pause'; };
+document.querySelectorAll('#speed button').forEach(b => b.onclick = () => {
+  speed = +b.dataset.v; document.querySelectorAll('#speed button').forEach(x => x.classList.toggle('on', x === b));
+});
+const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'q', 'e', 'r', 'f', 't', 'g'];
+document.addEventListener('keydown', ev => {
+  if (ev.target.tagName === 'INPUT' || ev.target.tagName === 'SELECT' || ev.ctrlKey || ev.altKey || ev.metaKey) return;
+  const i = KEYS.indexOf(ev.key.toLowerCase());
+  if (st && i >= 0 && st.spells[i]) { queue.push(st.spells[i].key); ev.preventDefault(); }
+});
+(async () => {
+  try {
+    const r = await fetch('/api/builds', { method: 'POST' }); const builds = await r.json();
+    $('build').innerHTML = builds.map(b => `<option value="${b.key}">${b.short}</option>`).join('');
+    $('build').value = 'wrack_succubus';
+  } catch (e) { $('err').textContent = 'The practice server is not running: ' + e.message; }
+  await reset();
+  loop();
+})();
+</script>
+</body>
+</html>

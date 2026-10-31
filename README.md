@@ -47,6 +47,13 @@ practise its priority list in Forever Warlocking — it reads the same build and
 | **Fight** | Number of fights, fight length, 1–3 targets, when cooldowns are used, precast, movement, hits taken, latency, stat weights on or off, stopping early once the result is exact enough, how much of each frame the sim may take, the click that sims an item and how many fights it plays, the minimap button. |
 | **Codes** | Paste a settings code or a build code from the website, or make one from your character to open there. *My gear as a code* makes a gear code of everything you wear (items and enchants) for the website's gear builder. |
 
+**The helper** (off by default; *Helper* on the Character tab, or `/wsim helper`): on a raid boss a small bar shows the
+spell the sim would cast next with your character, the two after it, cooldowns to use with it and the seconds the boss
+has left. The time comes from how fast the boss loses health, and the sim's priority list plays with it (DoTs that no
+longer pay off, Death Coil at the end, Life Tap by the time left, the execute phase at the boss's real health). In combat
+the game hides some numbers from addons; the helper then follows your own casts, and if the boss's health is hidden it
+counts with the fight length of the Fight tab. `/wsim helper move` places the bar.
+
 The result shows DPS with its margin, a bar per spell (hover for casts, crits and misses), the stat weights in spell
 power, Life Taps, lowest mana and threat.
 
@@ -122,6 +129,10 @@ node gen-data.js            # data from the simulator -> WarlockSim/Data.lua
 node gen-expected.js        # exact results for the in-game self-test -> WarlockSim/Expected.lua
 node check-all.js           # every check; "full" for the long engine comparison
 ```
+
+`node arena-server.js` opens a practice page at http://localhost:8642: the addon's real code against a practice boss, to
+try the helper bar in a browser (build, race, raid damage, what the game hides, auto-play). `check-helper.js` plays
+a fight per build with it.
 
 `check-engine.js` plays the same fights in both engines and compares damage, casts, crits, mana, health and threat per
 spell. A changed fight rule in the simulator has to be carried into `Sim.lua` / `Engine.lua` by hand; the check fails

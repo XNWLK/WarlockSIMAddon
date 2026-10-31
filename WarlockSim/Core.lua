@@ -2,7 +2,7 @@
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
 
-WL.VERSION = '0.10.0'
+WL.VERSION = '0.11.0'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -17,7 +17,7 @@ end
 -- WL.cfg       the settings the sim runs with (the sim's defaults + what you changed)
 -- WL.char      the character read from the game (nil until "Read my character")
 local DEFAULT_OPTIONS = { fights = 300, weights = true, speed = 'auto', speedDefault = 2, template = nil, stone = 'sheet', race = nil, pet = 'auto', sacrifice = 'auto', minimapHint = true,
-                          itemClick = 'shift-right', itemClickDefault = 2, itemFights = 150, sheetNumbers = true, minimapButton = true, minimapAngle = 200, stopEarly = true, gearBags = false }
+                          itemClick = 'shift-right', itemClickDefault = 2, itemFights = 150, sheetNumbers = true, minimapButton = true, minimapAngle = 200, stopEarly = true, gearBags = false, helper = false }
 -- The click that sims an item (options.itemClick). 'off' also hides the button under the item link window.
 WL.ITEM_CLICKS = {
   { value = 'shift-right', label = 'Shift + right-click' }, { value = 'alt-right', label = 'Alt + right-click' }, { value = 'alt-left', label = 'Alt + left-click' },
@@ -562,8 +562,14 @@ SlashCmdList['WARLOCKSIM'] = function(msg)
     if WL.updateMinimapButton then WL.updateMinimapButton() end
     WL.print('Minimap button ' .. (WL.db.options.minimapButton and 'shown.' or 'hidden. /wsim minimap brings it back.'))
     if WL.refresh then WL.refresh() end
+  elseif msg == 'helper' or msg == 'helper on' or msg == 'helper off' then
+    local on = WL.helper.toggle(msg == 'helper' and nil or msg == 'helper on')
+    WL.print(on and 'Helper on: on a raid boss a bar shows what the sim would cast next and the time to kill. /wsim helper move places the bar.' or 'Helper off.')
+    if WL.refresh then WL.refresh() end
+  elseif msg == 'helper move' then
+    WL.print(WL.helper.toggleMove() and 'Drag the helper bar where you want it, then type /wsim helper move again.' or 'Helper bar placed.')
   elseif msg == 'help' or msg == '?' then
-    WL.print('/wsim - open or close the window  |  /wsim read - read your character  |  /wsim minimap - show or hide the minimap button  |  /wsim test - check the maths against the DPS sim  |  /wsim dump - save what the game returned (for bug reports)  |  /wsim stop - stop a running sim  |  /wsim blocked - actions of this addon the game blocked')
+    WL.print('/wsim - open or close the window  |  /wsim read - read your character  |  /wsim minimap - show or hide the minimap button  |  /wsim helper - the helper bar on or off (/wsim helper move places it)  |  /wsim test - check the maths against the DPS sim  |  /wsim dump - save what the game returned (for bug reports)  |  /wsim stop - stop a running sim  |  /wsim blocked - actions of this addon the game blocked')
   else
     if WL.toggleWindow then WL.toggleWindow() end
   end

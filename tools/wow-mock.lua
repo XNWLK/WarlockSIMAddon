@@ -1,6 +1,7 @@
 -- A stand-in for the game, just enough to run the addon's window code outside it (tools/check-ui.js).
 -- Frames answer every method; the few that matter (scripts, text, shown, checked) behave like the real ones.
--- It cannot tell whether the window looks right - only that no line of the addon's own code fails.
+-- It cannot tell whether the window looks right - only that no line of the addon's own code fails. It keeps where a frame
+-- is anchored, its textures and colours, so that tools/arena-server.js can draw the helper bar in a browser.
 MOCK = { frames = {}, chat = {}, calls = 0 }
 
 local function newObject(kind, name)
@@ -18,18 +19,34 @@ local function newObject(kind, name)
     GetText = function(self) return self.text end,
     SetChecked = function(self, v) self.checked = v and true or false end,
     GetChecked = function(self) return self.checked end,
-    SetSize = function(self, w, h) assert(type(w) == 'number' and type(h) == 'number', 'SetSize needs numbers'); self.width, self.height = w, h end,
-    SetWidth = function(self, w) assert(type(w) == 'number'); self.width = w end,
-    SetHeight = function(self, h) assert(type(h) == 'number'); self.height = h end,
+    SetSize = function(self, w, h) assert(type(w) == 'number' and type(h) == 'number', 'SetSize needs numbers'); self.width, self.height = w, h; self.wSet, self.hSet = true, true end,
+    SetWidth = function(self, w) assert(type(w) == 'number'); self.width = w; self.wSet = true end,
+    SetHeight = function(self, h) assert(type(h) == 'number'); self.height = h; self.hSet = true end,
     GetWidth = function(self) return self.width end,
     GetHeight = function(self) return self.height end,
     GetStringWidth = function(self) return #self.text * 6 end,
-    GetPoint = function() return 'CENTER', nil, 'CENTER', 0, 0 end,
-    SetPoint = function(self, p, rel) assert(type(p) == 'string', 'SetPoint needs a point name'); if type(rel) == 'table' then self.anchor = rel end end,
+    GetPoint = function(self) local q = self.points and self.points[1]; if q then return q[1], q[2], q[3], q[4], q[5] end; return 'CENTER', nil, 'CENTER', 0, 0 end,
+    SetPoint = function(self, p, rel, rp, x, y)
+      assert(type(p) == 'string', 'SetPoint needs a point name')
+      if type(rel) == 'table' then self.anchor = rel end
+      if type(rel) == 'number' then rel, rp, x, y = nil, p, rel, rp end
+      if type(rel) == 'string' then rel = _G[rel] end
+      self.points = self.points or {}
+      self.points[#self.points + 1] = { p, rel, rp or p, x or 0, y or 0 }
+    end,
+    ClearAllPoints = function(self) self.points = {} end,
+    SetAllPoints = function(self, rel) self.points = { { 'TOPLEFT', rel, 'TOPLEFT', 0, 0 }, { 'BOTTOMRIGHT', rel, 'BOTTOMRIGHT', 0, 0 } } end,
+    SetTexture = function(self, t) self.tex = t; self.color = nil end,
+    SetColorTexture = function(self, r, g, b, a) self.color = { r, g, b, a or 1 }; self.tex = nil end,
+    SetAlpha = function(self, a) self.alpha = a end,
+    SetTextColor = function(self, r, g, b, a) self.tcolor = { r, g, b, a or 1 } end,
+    SetJustifyH = function(self, j) self.justifyH = j end,
+    RegisterUnitEvent = function(self, e) self.events[e] = true end,
+    UnregisterAllEvents = function(self) self.events = {} end,
     HasFocus = function() return false end,
     RegisterEvent = function(self, e) self.events[e] = true end,
-    CreateFontString = function(self) return newObject('FontString') end,
-    CreateTexture = function(self) return newObject('Texture') end,
+    CreateFontString = function(self, _, layer, font) local o = newObject('FontString'); o.parent, o.layer, o.font = self, layer, font; return o end,
+    CreateTexture = function(self, _, layer) local o = newObject('Texture'); o.parent, o.layer = self, layer; return o end,
     SetValue = function(self, v) assert(type(v) == 'number', 'SetValue needs a number'); self.value = v end,
     SetEnabled = function(self, v) self.enabled = v and true or false end,
     IsEnabled = function(self) return self.enabled ~= false end,
@@ -48,6 +65,7 @@ function CreateFrame(kind, name, parent, template)
   assert(type(kind) == 'string', 'CreateFrame needs a frame type')
   local f = newObject(kind, name)
   f.template = template
+  f.parent = parent
   if name then _G[name] = f end
   if kind == 'Frame' and parent == nil then f.shown = true end
   return f

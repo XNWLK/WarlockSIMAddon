@@ -353,7 +353,10 @@ local function buildCharacterPage(p)
   local sheet = keep(Check(p, 'Sheet numbers', function() return WL.db.options.sheetNumbers ~= false end, function(v) WL.db.options.sheetNumbers = v end,
     'Shows numbers on your character sheet: over every item you wear, the DPS that item is worth to you (your character as it is against the same character with that slot empty), and over your character the DPS it sims at.\n\nThey are worked out in the background when you open the character sheet, one item after the other, and again when your items, talents or the sim\'s settings change. A sim you start yourself always goes first.'))
   sheet:SetPoint('BOTTOMLEFT', 158, 0)
-  p.sim = Button(p, 'Sim!', 110, function() startSim(WL.simCharacter) end, 'Plays the fights with your character and shows your DPS, the share of each spell and (if switched on) what each stat is worth.')
+  local helper = keep(Check(p, 'Helper', function() return WL.db.options.helper == true end, function(v) WL.helper.toggle(v) end,
+    "A small bar on raid bosses: the spell the sim would cast next with your character, the two after it, cooldowns and mana items to use with it, and the seconds until the boss dies. The sim's own priority list decides, with the time left worked out from how fast the boss loses health.\n\nOnly if your talents fit one of the sim's builds (the one under \"Play it like\"), and only on raid bosses. /wsim helper move places the bar.\n\nIn combat the game hides some numbers from addons. Then the helper follows your casts instead, and if the boss's health is hidden the time to kill is the fight length on the Fight tab, shown in grey."))
+  helper:SetPoint('BOTTOMLEFT', 252, 0)
+  p.sim = Button(p, 'Sim!', 72, function() startSim(WL.simCharacter) end, 'Plays the fights with your character and shows your DPS, the share of each spell and (if switched on) what each stat is worth.')
   p.sim:SetPoint('BOTTOMRIGHT', 0, 0)
 
   p.sync = function()
