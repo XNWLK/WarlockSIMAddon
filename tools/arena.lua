@@ -6,7 +6,7 @@
 ARENA = { now = 1000, SECRET = setmetatable({}, { __tostring = function() return '(hidden)' end }), log = {}, seq = 0 }
 local A = ARENA
 local floor, max, min = math.floor, math.max, math.min
-A.set = { raidDps = 3500, length = 150, hideHealth = false, hideAuras = true, hideMana = false, auto = false }
+A.set = { raidDps = 3500, length = 150, hideHealth = false, hideAuras = false, hideMana = false, auto = false }
 A.RACES = { human = { 'Human', 'Human' }, gnome = { 'Gnome', 'Gnome' }, orc = { 'Orc', 'Orc' }, undead = { 'Undead', 'Scourge' }, troll = { 'Troll', 'Troll' } }
 A.race = 'orc'
 A.PET_NPC = { imp = '416', succubus = '1863', felhunter = '417', voidwalker = '1860' }
@@ -93,12 +93,21 @@ C_UnitAuras.GetPlayerAuraBySpellID = function(id)
 end
 local mockAuraByIndex = C_UnitAuras.GetAuraDataByIndex
 C_UnitAuras.GetAuraDataByIndex = function(u, i, filter)
+  local S = A.SECRET
   if isBoss(u) then
-    if hidden('hideAuras') or not A.boss then return nil end
-    local list = A.debuffList()
-    local d = list[i]
+    if not A.boss then return nil end
+    local d = A.debuffList()[i]
     if not d then return nil end
+    if hidden('hideAuras') then return { name = S, spellId = S, expirationTime = S, sourceUnit = S, isFromPlayerOrPlayerPet = S } end
     return { name = d.name, spellId = d.id, expirationTime = d.expires, sourceUnit = 'player', isFromPlayerOrPlayerPet = true }
+  end
+  if u == 'player' and A.p and A.combat then                   -- your buff frame in the fight: Shadow Trance first
+    local list = {}
+    if (A.p.buffs.shadowTrance or 0) > A.now then list[1] = { name = 'Shadow Trance', spellId = 17941, expirationTime = A.p.buffs.shadowTrance, sourceUnit = 'player' } end
+    for j = 1, #MOCK.auras do list[#list + 1] = { name = MOCK.auras[j].name, spellId = MOCK.auras[j].spellId, expirationTime = 0 } end
+    local e = list[i]
+    if e and hidden('hideAuras') then return { name = S, spellId = S, expirationTime = S, sourceUnit = S } end
+    return e
   end
   return mockAuraByIndex(u, i, filter)
 end

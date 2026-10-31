@@ -50,9 +50,9 @@ practise its priority list in Forever Warlocking — it reads the same build and
 **The helper** (off by default; *Helper* on the Character tab, or `/wsim helper`): on a raid boss a small bar shows the
 spell the sim would cast next with your character, the two after it, cooldowns to use with it and the seconds the boss
 has left. The time comes from how fast the boss loses health, and the sim's priority list plays with it (DoTs that no
-longer pay off, Death Coil at the end, Life Tap by the time left, the execute phase at the boss's real health). In combat
-the game hides some numbers from addons; the helper then follows your own casts, and if the boss's health is hidden it
-counts with the fight length of the Fight tab. `/wsim helper move` places the bar.
+longer pay off, Death Coil at the end, Life Tap by the time left, the execute phase at the boss's real health). It reads
+the boss's health, your mana, your buffs and the boss's debuffs from the game; should the game hide one of them from
+addons, it follows your own casts instead. `/wsim helper move` places the bar.
 
 The result shows DPS with its margin, a bar per spell (hover for casts, crits and misses), the stat weights in spell
 power, Life Taps, lowest mana and threat.

@@ -12,8 +12,9 @@ What changed in each version, newest first. Download a version from the
   seconds. The priority list plays with that time: DoTs that would not pay off any more are left out, Death Coil comes
   at the very end, Life Tap goes by the time left, and the execute phase starts at the boss's real health.
 - Only on raid bosses: a boss encounter in a raid, or a boss you target (world bosses). Not in 5-player dungeons.
-- In combat the game hides some numbers from addons. The helper then follows your own casts (DoT timers, cooldowns,
-  mana). If the boss's health is hidden, the time shown is the fight length of the Fight tab, in grey.
+- It reads the boss's health, your mana, your buffs (Shadow Trance) and the boss's debuffs (your DoTs, Improved Shadow
+  Bolt, Curse of the Elements) from the game. Should the game ever hide one of them from addons, the helper follows your
+  own casts instead; without the boss's health the time shown is the fight length of the Fight tab, in grey.
 - `/wsim helper move` lets you drag the bar where you want it. The key that casts a spell on your action bars is shown
   on its icon.
 - The Character tab's "Sim!" button is narrower to make room for the box.

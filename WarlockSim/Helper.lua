@@ -5,9 +5,10 @@
 -- it happens:
 --   - your casts: the game reports your own spells, so DoT timers, cooldowns, Life Taps, Curse of the Elements,
 --     Decimation and Demonic Brand are followed from them, with the sim's durations;
---   - your mana, your buffs, the boss's debuffs and its health: read from the game while it shows them. In combat the
---     game hides many numbers from addons ("secret values"); then the copy works them out itself (mana from costs and
---     regeneration, debuffs from your casts) and the time to kill falls back to the fight length of the Fight tab.
+--   - your mana, your buffs, the boss's debuffs and its health: read from the game (Xn: the player frame, the buff
+--     frame and the target frame show them in Forever). Should the game hide one of them from addons ("secret
+--     values"), the copy works it out itself (mana from costs and regeneration, debuffs from your casts) and the time
+--     to kill falls back to the fight length of the Fight tab.
 -- The time to kill comes from how fast the boss's health went down in the last 20 seconds. The priority list uses it
 -- as the time left in the fight (DoTs that would not pay off, Death Coil at the end, Life Tap by need) and the boss's
 -- health for the execute phase.
@@ -419,21 +420,38 @@ function H.timeToKill(C, F, now)
   return fall, 100 * (1 - min(t, dur) / dur), -100 / dur, false
 end
 
--- Buffs and debuffs read from the game when it shows them (out of combat, or for auras it never hides).
+-- The auras of a unit as the game lists them (the list your buff frame and the target frame show): name, spell id, end
+-- time, yours or not. nil only if the game hides them from addons right now (a field comes back hidden).
+local function scanAuras(unit, filter)
+  if not (C_UnitAuras and C_UnitAuras.GetAuraDataByIndex) then return nil end
+  local out = {}
+  for i = 1, 40 do
+    local ok, a = pcall(C_UnitAuras.GetAuraDataByIndex, unit, i, filter)
+    if not ok or isSecret(a) then return nil end
+    if type(a) ~= 'table' then break end
+    local name, exp, id, src, own = a.name, a.expirationTime, a.spellId, a.sourceUnit, a.isFromPlayerOrPlayerPet
+    if isSecret(name) or isSecret(exp) or isSecret(id) then return nil end
+    local mine = (not isSecret(src) and (src == 'player' or src == 'pet')) or (not isSecret(own) and own == true)
+    out[#out + 1] = { name = name, id = id, exp = type(exp) == 'number' and exp or 0, mine = mine }
+  end
+  return out
+end
+H.scanAuras = scanAuras
+
+-- Your buffs and the boss's debuffs, read from the game. Only if it hides them does the copy of the fight keep what it
+-- worked out from your casts.
 function H.readAuras(C, F, now)
   local t0 = F.t0
-  local function auraHidden(id)
-    local s = call(C_Secrets and C_Secrets.ShouldSpellAuraBeSecret, id)
-    if s ~= nil then return s end
-    return call(C_Secrets and C_Secrets.ShouldAurasBeSecret) ~= false
-  end
-  -- Shadow Trance: the buff, or the Shadow Bolt's cast time (0 while it is up)
+  -- Shadow Trance: your buff; else the Shadow Bolt's cast time (0 while it is up)
   if C.tbl.shadowBolt and WL.talentValue(C.build, 'nightfall') ~= 0 then
-    if not auraHidden(SHADOW_TRANCE) then
-      local a = call(C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID, SHADOW_TRANCE)
-      if type(a) == 'table' and type(a.expirationTime) == 'number' and not isSecret(a.expirationTime) then
-        F.buffs.shadowTrance = (a.expirationTime > 0 and a.expirationTime or now + 10) - t0
-      else F.buffs.shadowTrance = nil end
+    local mine = scanAuras('player', 'HELPFUL')
+    if mine then
+      local trance = spellName(SHADOW_TRANCE)
+      F.buffs.shadowTrance = nil
+      for i = 1, #mine do
+        local a = mine[i]
+        if a.id == SHADOW_TRANCE or (trance and a.name == trance) then F.buffs.shadowTrance = (a.exp > 0 and a.exp or now + 10) - t0 end
+      end
     else
       local info = call(C_Spell and C_Spell.GetSpellInfo, C.SPELLS.shadowBolt.id)
       local ct = type(info) == 'table' and info.castTime
@@ -443,21 +461,16 @@ function H.readAuras(C, F, now)
     end
   end
   -- the boss's debuffs: your DoTs, Improved Shadow Bolt, Curse of the Elements
-  if not F.unit or call(C_Secrets and C_Secrets.ShouldAurasBeSecret) ~= false then F.auraSeen = false; return end
-  local found, any = {}, false
-  for i = 1, 40 do
-    local a = call(C_UnitAuras and C_UnitAuras.GetAuraDataByIndex, F.unit, i, 'HARMFUL')
-    if type(a) ~= 'table' then break end
-    any = true
-    local name, exp = a.name, a.expirationTime
-    if not isSecret(name) and not isSecret(exp) and type(exp) == 'number' then
-      local k = C.byName[name]
-      local mine = a.sourceUnit == 'player' or a.isFromPlayerOrPlayerPet
-      if k and (mine or k == 'curseOfElements') then found[k] = exp - t0 end
-      if name == spellName(17800) then found.isb = exp - t0 end
-    end
+  local list = F.unit and scanAuras(F.unit, 'HARMFUL')
+  F.auraSeen = list ~= nil
+  if not list then return end
+  local found, isbName = {}, spellName(17800)
+  for i = 1, #list do
+    local a = list[i]
+    local k = C.byId[a.id] or C.byName[a.name]
+    if k and (a.mine or k == 'curseOfElements') then found[k] = a.exp - t0 end
+    if a.id == 17800 or (isbName and a.name == isbName) then found.isb = a.exp - t0 end
   end
-  F.auraSeen = true
   for k, s in pairs(C.SPELLS) do
     if (s.kind == 'dot' or s.kind == 'hybrid') and C.tbl[k] then F.dots[k] = found[k] end
   end
