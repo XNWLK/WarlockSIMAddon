@@ -7,8 +7,27 @@ what each spell contributes and what each stat is worth to you.
 **Download it on [CurseForge](https://www.curseforge.com/wow/addons/xns-warlock-sim)** (or from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases) here).
 
-> Built for the WoW: Forever beta client (interface 16001). What changed in each version:
+> Built for the WoW: Forever client (interface 16001). What changed in each version:
 > [changelog](CHANGELOG.md).
+
+## At a glance
+
+- **Sim your character:** your DPS with its margin, a bar per spell (casts, crits, misses), Life Taps, lowest mana and threat.
+- **Stat weights:** what hit, crit, haste, Intellect and Spell Pierce are worth in spell power for your build.
+- **What if:** +10 spell power, +1% hit, +1% crit, +1% haste or +20 Intellect in one click, or any change you type in.
+- **Rank the builds:** every ready build of the sim played with your gear, in order; your own character is in the list in gold.
+- **Sim an item:** Shift + right-click an item in your bags, on your character sheet, at a vendor or in a loot window — how
+  much DPS it would gain or lose you against what you wear. A worn item is simmed against an empty slot.
+- **Numbers on your character sheet:** over every item, the DPS it is worth to you; above the weapons, the DPS your
+  character sims at.
+- **Trinkets and weapon enchants:** known trinkets (Talisman of Ephemeral Power, Zandalarian Hero Charm, The Black Book and
+  more) and main-hand enchants like Revelation count in the fight.
+- **The helper** (off by default): on a raid boss, a small bar shows the spell the sim would cast next, the two after it,
+  cooldowns to use with it and the seconds the boss has left — and the rotation follows that time.
+- **Codes:** settings and build codes from the website go in and out; *My gear as a code* sends everything you wear to the
+  website's gear builder.
+- **Your settings:** raid buffs, debuffs on the boss, consumables, fight length, 1 to 3 targets, precast, movement, latency
+  and more, as on the website.
 
 ## One of three
 
@@ -79,7 +98,8 @@ you can see what was counted.
 - **An item you are wearing** is simmed against an empty slot: the panel says what the item is worth to you.
 - **An item link in chat:** click it, and under the window that opens there is a **Sim this item** button.
 
-Enchants and set bonuses are left out on both sides, and "Use:" and "Chance on hit:" effects are not simulated (the
+Enchants and set bonuses are left out on both sides. A trinket the sim knows brings its "Use:" effect with it; other "Use:"
+and "Chance on hit:" effects are not simulated (the
 panel names them).
 
 The click can be changed on the Fight tab ("Sim an item with": Alt + right-click, Alt + left-click and others, or off) if
@@ -90,7 +110,8 @@ Shift + right-click is taken by another addon or gets in your way.
 | `/wsim` | Opens or closes the window (`/warlocksim` works too). |
 | `/wsim read` | Reads your character. |
 | `/wsim minimap` | Shows or hides the minimap button. |
-| `/wsim test` | Plays 14 fights and compares them with the website's engine: the maths check. |
+| `/wsim helper` | The helper bar on or off; `/wsim helper move` lets you drag it where you want it. |
+| `/wsim test` | Plays 10 fights and compares them with the website's engine: the maths check. |
 | `/wsim dump` | Saves what the game returned when your character was read (for bug reports). |
 | `/wsim stop` | Stops a running sim. |
 | `/wsim blocked` | Lists actions of this addon the game blocked, if any (for bug reports). |
