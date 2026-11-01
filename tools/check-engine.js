@@ -76,6 +76,20 @@ const scenes = [
     b.groups = { Top: ['rule:0', 'rule:1'], Empty: [] };
     b.rotation = ['group:Top', 'group:Empty', 'rule:2', 'rule:3', 'rule:4'].concat(b.rotation.slice(0, -1)).concat(['rule:5']);
   } }),
+  // the APL conditions of sim v154-v155: the built-in actions' own checks as conditions, cast time and execute as numbers
+  S('rules: the built-in checks as conditions', [], { builds: ['demo_pact_fire', 'sm_ruin_classic', 'wrack_succubus', 'destro_incin_imp'], mod: b => {
+    b.rules = [{ spell: 'lifeTap', when: { t: 'all', c: [{ t: 'manaNeed' }, { t: 'not', c: { t: 'freeMana' } }, { t: 'mana', op: '<', v: 40 }] } },
+      { spell: 'corruption', when: { t: 'refresh', spell: 'corruption' } },
+      { spell: 'immolate', when: { t: 'all', c: [{ t: 'paysOff', spell: 'immolate' }, { t: 'dot', spell: 'immolate', op: '<=', v: { cast: 'immolate' } }] } },
+      { spell: 'searingPain', when: { t: 'all', c: [{ t: 'known', spell: 'searingPain' }, { t: 'fight', what: 'bossHp', op: '<', v: { exec: 1 } }, { t: 'talent', talent: 'ruin', op: '>=', v: 1 }] } },
+      { spell: 'shadowBolt', when: { t: 'all', c: [{ t: 'talent', talent: 'improvedShadowBolt', op: '>=', v: 1 }, { t: 'aura', aura: 'isb', op: '<=', v: { cast: 'shadowBolt' } }] } },
+      { spell: 'deathCoil', when: { t: 'check', act: 'deathCoilFinisher' } },
+      { spell: 'wrack', when: { t: 'all', c: [{ t: 'pet' }, { t: 'minDot', op: '>', v: 4 }] } },
+      { spell: 'curseOfElements', when: { t: 'all', c: [{ t: 'setting', key: 'coe' }, { t: 'aura', aura: 'coe', op: '<=', v: 0 }] } },
+      { spell: 'shadowBolt' }];
+    b.actWhen = { shadowBolt: { t: 'not', c: { t: 'refresh', spell: 'siphonLife' } }, lifeTapPet: { t: 'check', act: 'lifeTapPet' } };
+    b.rotation = ['rule:0', 'rule:7', 'rule:1', 'rule:2', 'rule:5', 'rule:3', 'rule:4', 'rule:6'].concat(b.rotation.slice(0, -1)).concat(['rule:8']);
+  } }),
   // trinkets and weapon enchants (the gear builder's slots; in the game: the items you wear)
   S('trinkets: spell power, pierce', [['gearBuilder', { on: true, slots: { trinket1: { id: 18820 }, trinket2: { id: 21473 } } }], ['combat.targetResist.shadow', 60], ['combat.targetResist.fire', 60]]),
   S('trinkets: decay, stacks', [['gearBuilder', { on: true, slots: { trinket1: { id: 19950 }, trinket2: { id: 22678 } } }], ['options.trinketUse', { trinket1: 'ready', trinket2: 'execute' }]]),

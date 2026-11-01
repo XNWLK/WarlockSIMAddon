@@ -3,6 +3,15 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.11.1
+
+- Build codes from the website can now use the new conditions of its priority editor: "needs a recast", "still pays
+  off", "you know a spell", points in a talent, "a demon is out", "Keep Curse of the Elements up", mana needed for the
+  rest of the fight, free mana ready, the shortest DoT time left, a spell's cast time and the execute % as numbers, and
+  the full checks of Death Coil at the end, Searing Pain before Soul Fire and Life Tap for the pet.
+- Conditions compare exactly, as the built-in priority actions do; the mana % condition uses the same sum as Life Tap.
+- The ready builds and their results are unchanged. Same rules as the website's version of 2026-11-01.
+
 ## v0.11.0
 
 - New: the helper, off by default ("Helper" on the Character tab, or `/wsim helper`). On a raid boss a small bar shows

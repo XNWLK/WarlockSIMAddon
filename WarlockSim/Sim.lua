@@ -1352,7 +1352,9 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function altBelow(idx)
     for i = (idx or 0) + 1, #ROT do
       local a = ACTS[i]
-      if a and not NOT_ALT[ROT[i]] then
+      local rs = a and a.rule and SPELLS[a.rule.spell]
+      if a and not NOT_ALT[ROT[i]] and not a.deep                  -- deep: its condition runs this DoT check itself
+        and not (a.rule and not (rs and (rs.kind == 'direct' or rs.kind == 'channel'))) then   -- a rule for a DoT, curse or Life Tap
         local k = a.pick(S)
         local s = k and SPELLS[k]
         if s and tbl[k] and (s.kind == 'direct' or s.kind == 'channel') then return k end

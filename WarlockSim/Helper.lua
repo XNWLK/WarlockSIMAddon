@@ -221,7 +221,8 @@ function H.dotWorth(C, P, S, key)
   local f = nil                                                 -- the filler: the first action below that casts a direct spell or channel
   for i = (S.actionIndex or 0) + 1, #C.rot do
     local a = C.acts[i]
-    if a and not NOT_ALT[C.rot[i]] then
+    local rs = a and a.rule and C.SPELLS[a.rule.spell]
+    if a and not NOT_ALT[C.rot[i]] and not a.deep and not (a.rule and not (rs and (rs.kind == 'direct' or rs.kind == 'channel'))) then
       local ok, k = pcall(a.pick, S)
       local fs = ok and k and C.SPELLS[k]
       if fs and C.tbl[k] and (fs.kind == 'direct' or fs.kind == 'channel') then f = k; break end

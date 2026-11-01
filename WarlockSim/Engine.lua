@@ -671,6 +671,10 @@ end
 -- Conditions: { t = 'all' | 'any', c = { ... } }, { t = 'not', c = node }, { t = 'dot', spell, op, v }, { t = 'aura', aura, op, v },
 -- { t = 'cd', spell, op, v }, { t = 'fight', what = 'remaining' | 'elapsed' | 'bossHp', op, v }, { t = 'mana' | 'shards' | 'brand', op, v },
 -- { t = 'var', name } (a named condition of build.vars). v = a number, or { var = name } (a named number: build.vars[name] = { num }).
+-- The built-in actions' own checks as conditions (sim v154): { t = 'refresh', spell } (the DoT needs a recast), { t = 'paysOff', spell }
+-- (it still pays off before the end), { t = 'known', spell }, { t = 'talent', talent, op, v }, { t = 'pet' }, { t = 'setting', key = 'coe' },
+-- { t = 'manaNeed' }, { t = 'freeMana' }, { t = 'minDot', op, v } (the shortest DoT this priority keeps up), { t = 'check', act }
+-- (the whole check of a built-in action, WL.APL_CHECKS). More numbers: { cast = spell } (its cast time now), { exec = 1 } (execute %).
 WL.RULE_SPELLS = {}
 for i = 1, #WL.SPELL_ORDER do local k = WL.SPELL_ORDER[i]; if k ~= 'drainSoul' and k ~= 'baneOfHavoc' then WL.RULE_SPELLS[#WL.RULE_SPELLS + 1] = k end end
 WL.RULE_DOTS = { 'corruption', 'immolate', 'siphonLife', 'baneOfAgony', 'baneOfDoom' }
@@ -678,15 +682,22 @@ WL.RULE_AURAS = { { 'shadowTrance', 'Shadow Trance (Nightfall)' }, { 'decimation
   { 'coe', 'Curse of the Elements on the boss' }, { 'brand', 'Demonic Brand on the boss' }, { 'snfFire', 'Shadow and Flame (Fire)' }, { 'snfShadow', 'Shadow and Flame (Shadow)' },
   { 'bloodFury', 'Blood Fury' }, { 'berserking', 'Berserking' }, { 'eureka', 'Eureka!' }, { 'powerInfusion', 'Power Infusion' }, { 'spPotion', 'Spellblasting potion' } }
 WL.RULE_OPS = { '<', '<=', '>', '>=', '=' }
+WL.APL_CHECKS = { deathCoilFinisher = 'the filler would not land before the boss dies', searingPainDecimation = 'the next Soul Fire needs Decimation',
+  lifeTapPet = 'the pet is nearly out of mana and a whole Life Tap fits' }
+WL.APL_SETTINGS = { coe = '"Keep Curse of the Elements up" is on' }
 local function auraName(k) for i = 1, #WL.RULE_AURAS do if WL.RULE_AURAS[i][1] == k then return WL.RULE_AURAS[i][2] end end end
+-- exact, like the built-in actions (sim v154); '=' keeps a tolerance
 local function ruleCmp(a, op, b)
-  if op == '<' then return a < b - 1e-9 elseif op == '<=' then return a <= b + 1e-9 elseif op == '>' then return a > b + 1e-9
-  elseif op == '>=' then return a >= b - 1e-9 end
+  if op == '<' then return a < b elseif op == '<=' then return a <= b elseif op == '>' then return a > b
+  elseif op == '>=' then return a >= b end
   return abs(a - b) < 1e-6
 end
 local function vars(b) return (b and type(b.vars) == 'table') and b.vars or {} end
-function WL.ruleNum(v, build)
+function WL.ruleNum(v, build, S)
   if type(v) == 'table' and v.var ~= nil then local x = vars(build)[v.var]; return (type(x) == 'table' and type(x.num) == 'number') and x.num or 0 / 0 end
+  if type(v) == 'table' and v.cast ~= nil then if not WL.SPELLS[v.cast] then return 0 / 0 end; return S and S.castTime(v.cast) or 1 end   -- S: in a fight; without it a stand-in for the checks
+  if type(v) == 'table' and v.exec then return S and S.cfg.fight.executePct or 1 end
+  if type(v) == 'table' then return 0 / 0 end
   return tonumber(v) or 0 / 0
 end
 local function list(c) return type(c) == 'table' and c or {} end
@@ -700,14 +711,29 @@ function WL.ruleCond(n, S, build, depth)
   if t == 'any' then local c = list(n.c); for i = 1, #c do if WL.ruleCond(c[i], S, b, depth + 1) then return true end end; return false end
   if t == 'not' then return not WL.ruleCond(n.c, S, b, depth + 1) end
   if t == 'var' then local x = vars(b)[n.name]; return (type(x) == 'table' and x.cond ~= nil) and WL.ruleCond(x.cond, S, b, depth + 1) or false end
-  local v = WL.ruleNum(n.v, b)
+  local v = WL.ruleNum(n.v, b, S)
   if t == 'dot' then return ruleCmp(max(0, S.dotLeft(n.spell)), n.op, v) end
   if t == 'aura' then return ruleCmp(S.buff(n.aura) and S.buffs[n.aura] - S.t or 0, n.op, v) end
   if t == 'cd' then return ruleCmp(max(0, (S.cds[n.spell] or 0) - S.t), n.op, v) end
   if t == 'fight' then return ruleCmp(n.what == 'elapsed' and S.t or n.what == 'bossHp' and S.targetHpPct or S.remaining, n.op, v) end
-  if t == 'mana' then return ruleCmp(100 * S.mana / S.maxMana, n.op, v) end
+  if t == 'mana' then return ruleCmp(S.mana, n.op, S.maxMana * v / 100) end   -- the same sum as the Life Tap actions
   if t == 'shards' then return ruleCmp(S.shards, n.op, v) end
   if t == 'brand' then return ruleCmp(S.buff('brand') and (S.brandCharges or 0) or 0, n.op, v) end
+  -- the built-in actions' own checks (each exactly as the action makes it)
+  if t == 'known' then return S.has(n.spell) and true or false end
+  if t == 'talent' then return ruleCmp(((b and type(b.talents) == 'table') and b.talents[n.talent] or 0) or 0, n.op, v) end
+  if t == 'pet' then return (b and b.pet) and true or false end
+  if t == 'setting' then return (n.key == 'coe' and S.cfg.options.useCurseOfElements) and true or false end
+  if t == 'refresh' then return (WL.SPELLS[n.spell] and dotNeeded(S, n.spell)) and true or false end
+  if t == 'paysOff' then
+    if not WL.SPELLS[n.spell] or not S.has(n.spell) then return false end
+    local k = n.spell
+    return dotWorthOr(S, k, 0, k == 'baneOfAgony' and S.remaining >= 12 or k ~= 'baneOfAgony' and S.remaining - S.castTime(k) >= WL.SPELLS[k].tickEvery * 2) and true or false
+  end
+  if t == 'manaNeed' then return (S.manaNeedLeft and S.mana < S.manaNeedLeft()) and true or false end
+  if t == 'freeMana' then return (S.freeManaLevel and S.mana >= S.freeManaLevel() and S.freeManaLevel() > 0) and true or false end
+  if t == 'minDot' then return ruleCmp(WL.minDotLeft(S), n.op, v) end
+  if t == 'check' then return (WL.APL_CHECKS[n.act] and WL.ACTIONS[n.act].pick(S) ~= nil) and true or false end
   return false
 end
 -- The action of a priority key for this build (a built-in one, or one of the build's rules); nil when unknown.
@@ -719,6 +745,7 @@ function WL.actionOf(key, build)
     if not w then return base end
     local o = setmetatable({}, { __index = base })
     o.when = w; o.baseLabel = base.label; o.label = base.label .. ' — only when ' .. WL.condText(w, build)
+    o.deep = WL.condDeep(w, build)                                    -- see WL.condDeep
     if base.filler then o.filler = false; o.preFiller = true end   -- a filler with a condition can pass: the next filler below it is cast then
     o.pick = function(S) if WL.ruleCond(w, S, build) then return base.pick(S) end return nil end
     return o
@@ -727,10 +754,23 @@ function WL.actionOf(key, build)
   local r = m and build and type(build.rules) == 'table' and build.rules[tonumber(m) + 1]
   if type(r) ~= 'table' or not indexOf(WL.RULE_SPELLS, r.spell) then return nil end
   local spell = r.spell
-  return { rule = r, label = WL.ruleText(r, build), filler = not r.when, pick = function(S)
+  return { rule = r, label = WL.ruleText(r, build), filler = not r.when, deep = WL.condDeep(r.when, build), pick = function(S)
     if not S.has(spell) or not S.ready(spell) then return nil end
     return WL.ruleCond(r.when, S, build) and spell or nil
   end }
+end
+-- Does a condition run the end-of-fight DoT check or a whole built-in check (refresh, paysOff, check)? The sim asks the
+-- actions below a DoT what they would cast instead (to value the DoT); such a condition is not asked there - it would
+-- start that DoT check again, without end.
+function WL.condDeep(n, build, depth)
+  depth = depth or 0
+  if type(n) ~= 'table' or depth > 12 then return false end
+  local t = n.t
+  if t == 'refresh' or t == 'paysOff' or t == 'check' then return true end
+  if t == 'all' or t == 'any' then local c = list(n.c); for i = 1, #c do if WL.condDeep(c[i], build, depth + 1) then return true end end; return false end
+  if t == 'not' then return WL.condDeep(n.c, build, depth + 1) end
+  if t == 'var' then local x = vars(build)[n.name]; return (type(x) == 'table' and x.cond ~= nil) and WL.condDeep(x.cond, build, depth + 1) or false end
+  return false
 end
 local function numText(x)
   if x == floor(x) and abs(x) < 1e15 then return string.format('%d', x) end
@@ -741,7 +781,8 @@ end
 function WL.condText(n, build)
   if type(n) ~= 'table' then return 'always' end
   local function sn(k) return (WL.SPELLS[k] or {}).name or tostring(k) end
-  local function v() if type(n.v) == 'table' and n.v.var ~= nil then return tostring(n.v.var) end; return type(n.v) == 'number' and numText(n.v) or tostring(n.v) end
+  local function v() return WL.valText(n.v) end
+  local function u() if type(n.v) == 'table' and n.v.var == nil then return '' end; return ' s' end
   local t, op = n.t, tostring(n.op)
   if t == 'all' or t == 'any' then
     local c, parts = list(n.c), {}
@@ -750,9 +791,9 @@ function WL.condText(n, build)
     return '(' .. table.concat(parts, t == 'all' and ' and ' or ' or ') .. ')'
   end
   if t == 'not' then return 'not ' .. WL.condText(n.c, build) end
-  if t == 'dot' then return sn(n.spell) .. ' time left ' .. op .. ' ' .. v() .. ' s' end
-  if t == 'aura' then return (auraName(n.aura) or tostring(n.aura)) .. ' time left ' .. op .. ' ' .. v() .. ' s' end
-  if t == 'cd' then return sn(n.spell) .. ' cooldown ' .. op .. ' ' .. v() .. ' s' end
+  if t == 'dot' then return sn(n.spell) .. ' time left ' .. op .. ' ' .. v() .. u() end
+  if t == 'aura' then return (auraName(n.aura) or tostring(n.aura)) .. ' time left ' .. op .. ' ' .. v() .. u() end
+  if t == 'cd' then return sn(n.spell) .. ' cooldown ' .. op .. ' ' .. v() .. u() end
   if t == 'fight' then
     return (n.what == 'elapsed' and 'fight time gone' or n.what == 'bossHp' and 'boss health %' or 'fight time left') .. ' ' .. op .. ' ' .. v() .. (n.what == 'bossHp' and '' or ' s')
   end
@@ -760,7 +801,27 @@ function WL.condText(n, build)
   if t == 'shards' then return 'Soul Shards ' .. op .. ' ' .. v() end
   if t == 'brand' then return 'Demonic Brand charges ' .. op .. ' ' .. v() end
   if t == 'var' then return tostring(n.name) end
+  if t == 'known' then return 'you know ' .. sn(n.spell) end
+  if t == 'talent' then return ((WL.TALENT_BY_KEY[n.talent] or {}).name or tostring(n.talent)) .. ' points ' .. op .. ' ' .. v() end
+  if t == 'pet' then return 'a demon is out' end
+  if t == 'setting' then return WL.APL_SETTINGS[n.key] or tostring(n.key) end
+  if t == 'refresh' then return sn(n.spell) .. ' needs a recast' end
+  if t == 'paysOff' then return sn(n.spell) .. ' still pays off' end
+  if t == 'manaNeed' then return 'the rest of the fight needs more mana than you have' end
+  if t == 'freeMana' then return 'free mana is ready' end
+  if t == 'minDot' then return 'shortest DoT time left ' .. op .. ' ' .. v() .. u() end
+  if t == 'check' then return WL.APL_CHECKS[n.act] or tostring(n.act) end
   return '?'
+end
+-- A number of a condition in words (also a cast time, the execute threshold, and "_" for a number you fill in).
+function WL.valText(x)
+  if type(x) == 'table' then
+    if x.var ~= nil then return tostring(x.var) end
+    if x.cast ~= nil then return ((WL.SPELLS[x.cast] or {}).name or tostring(x.cast)) .. ' cast time' end
+    if x.exec then return 'the execute %' end
+    if x.param ~= nil then return '_' end
+  end
+  return type(x) == 'number' and numText(x) or tostring(x)
 end
 function WL.ruleText(r, build)
   return (r.name and (r.name .. ': ') or '') .. ((WL.SPELLS[r.spell] or {}).name or tostring(r.spell)) .. (r.when and (' if ' .. WL.condText(r.when, build)) or '')
@@ -775,7 +836,8 @@ function WL.condErrors(n, build, where, depth, out)
   local function num()
     local x = WL.ruleNum(n.v, b)
     if not (x == x and x ~= huge and x ~= -huge) then
-      out[#out + 1] = where .. ': ' .. ((type(n.v) == 'table' and n.v.var ~= nil) and ('no number named "' .. tostring(n.v.var) .. '"') or 'a number is missing')
+      out[#out + 1] = where .. ': ' .. ((type(n.v) == 'table' and n.v.var ~= nil) and ('no number named "' .. tostring(n.v.var) .. '"')
+        or (type(n.v) == 'table' and n.v.cast ~= nil) and ('unknown spell "' .. tostring(n.v.cast) .. '"') or 'a number is missing')
     end
     if not indexOf(WL.RULE_OPS, n.op) then out[#out + 1] = where .. ': unknown comparison "' .. tostring(n.op) .. '"' end
   end
@@ -788,6 +850,13 @@ function WL.condErrors(n, build, where, depth, out)
   elseif t == 'fight' then if n.what ~= 'remaining' and n.what ~= 'elapsed' and n.what ~= 'bossHp' then out[#out + 1] = where .. ': unknown fight value' end; num()
   elseif t == 'mana' or t == 'shards' or t == 'brand' then num()
   elseif t == 'var' then local x = vars(b)[n.name]; if type(x) ~= 'table' or x.cond == nil then out[#out + 1] = where .. ': no condition named "' .. tostring(n.name) .. '"' end
+  elseif t == 'known' then if not WL.SPELLS[n.spell] then out[#out + 1] = where .. ': unknown spell "' .. tostring(n.spell) .. '"' end
+  elseif t == 'refresh' or t == 'paysOff' then if not indexOf(WL.RULE_DOTS, n.spell) then out[#out + 1] = where .. ': "' .. tostring(n.spell) .. '" is not a DoT' end
+  elseif t == 'talent' then if not WL.TALENT_BY_KEY[n.talent] then out[#out + 1] = where .. ': unknown talent "' .. tostring(n.talent) .. '"' end; num()
+  elseif t == 'setting' then if not WL.APL_SETTINGS[n.key] then out[#out + 1] = where .. ': unknown setting "' .. tostring(n.key) .. '"' end
+  elseif t == 'check' then if not WL.APL_CHECKS[n.act] then out[#out + 1] = where .. ': unknown check "' .. tostring(n.act) .. '"' end
+  elseif t == 'pet' or t == 'manaNeed' or t == 'freeMana' then -- nothing to check
+  elseif t == 'minDot' then num()
   else out[#out + 1] = where .. ': unknown condition' end
   return out
 end
