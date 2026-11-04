@@ -30,7 +30,6 @@ local BUFF_NAMES = {
   divineSpirit = { 'Divine Spirit', 'Prayer of Spirit' },
   blessingOfKings = { 'Blessing of Kings', 'Greater Blessing of Kings' },
   blessingOfWisdom = { 'Blessing of Wisdom', 'Greater Blessing of Wisdom' },
-  blessingOfSalvation = { 'Salvation', 'Blessing of Salvation', 'Greater Blessing of Salvation' },
   concentrationAura = { 'Concentration Aura' },
   manaSpring = { 'Mana Spring', 'Mana Spring Totem' },
   moonkinAura = { 'Moonkin Aura', 'Moonkin Form' },

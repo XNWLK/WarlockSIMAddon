@@ -67,7 +67,7 @@ builds.forEach(b => {
 // a build's own rules, groups and variables: page -> addon -> page, and the same problems found
 {
   const sorted = x => JSON.stringify(x, (k, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.keys(v).sort().reduce((o, kk) => { o[kk] = v[kk]; return o; }, {}) : v);
-  const sm = () => norm(WL.BUILDS.filter(b => b.key === 'sm_ruin_classic')[0]);
+  const sm = () => norm(WL.BUILDS.concat(WL.RETIRED_BUILDS || []).filter(b => b.key === 'sm_ruin_classic')[0]);   // a retired build since sim v161
   const b = sm();
   b.rules = [{ spell: 'shadowBolt', name: 'Nightfall', when: { t: 'aura', aura: 'shadowTrance', op: '>', v: 0 } },
     { spell: 'corruption', when: { t: 'all', c: [{ t: 'dot', spell: 'corruption', op: '<=', v: 0 }, { t: 'var', name: 'Not ending' }, { t: 'any', c: [] }, { t: 'not', c: { t: 'mana', op: '<', v: 2.5 } }] } }];

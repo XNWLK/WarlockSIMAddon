@@ -351,7 +351,7 @@ document.addEventListener('keydown', ev => {
   try {
     const r = await fetch('/api/builds', { method: 'POST' }); const builds = await r.json();
     $('build').innerHTML = builds.map(b => `<option value="${b.key}">${b.short}</option>`).join('');
-    $('build').value = 'wrack_succubus';
+    $('build').value = 'wrack_ds';
   } catch (e) { $('err').textContent = 'The practice server is not running: ' + e.message; }
   await reset();
   loop();

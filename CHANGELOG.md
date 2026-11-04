@@ -3,6 +3,18 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.12.0
+
+- New ready builds: **Wrack DS** (35/11/5, the Imp sacrificed, no demon out, Spellstone) replaces Wrack Succubus, and
+  **Incinerate DS** (7/11/33, the Succubus sacrificed, no demon out, Firestone) is new. SM Ruin is gone. The five ready
+  builds are Demo Pact Succubus SB, Demo Pact Fire, Incinerate Succubus, Incinerate DS and Wrack DS.
+- Wrack DS only Life Taps right after a full Wrack (6 seconds after you last spent mana).
+- Forever's patch of 2026-11-03: Wrack hits about twice as hard, Improved Drains no longer raises Wrack, Shadow and
+  Flame gives 4-20% (was 2-10%), and Salvation is gone (no longer on the Buffs tab or read from your buffs).
+- Build codes can use one more condition: the time since you last spent mana.
+- If "Play it like" was set to a build that is gone, the closest ready build is used.
+- Same rules as the website's version of 2026-11-04.
+
 ## v0.11.1
 
 - Build codes from the website can now use the new conditions of its priority editor: "needs a recast", "still pays

@@ -261,6 +261,7 @@ end
 function H.sync(S, P)
   S.t, S.remaining, S.targetHpPct, S.mana, S.shards, S.brandCharges = P.t, H.remaining(P, P.t), H.hpAt(P, P.t), P.mana, P.shards, P.brandCharges
   S.buffs, S.cds, S.dots = P.buffs, P.cds, P.dots
+  S.lastSpend, S.spendAt = P.lastSpend or -huge, nil                -- the plan stands where the cast before has ended
 end
 
 -- The spell the priority list casts at P.t (as the sim's pickAction and decide): its key and its place in the list.

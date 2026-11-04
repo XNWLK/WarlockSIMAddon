@@ -36,7 +36,10 @@ const scenes = [
   S('pushback', [['fight.hitEvery', 2], ['buffs.concentrationAura.on', true]]),
   S('precast soul fire, pull', [['fight.precast', 'soulFire'], ['options.activesPolicy', 'pull']]),
   S('precast shadow bolt, execute', [['fight.precast', 'shadowBolt'], ['options.activesPolicy', 'execute']]),
-  S('salvation, high crit', [['buffs.blessingOfSalvation.on', true], ['gear.critPct', 25]], { builds: ['demo_pact_succ_sb', 'wrack_succubus', 'destro_incin_imp'] }),
+  S('high crit', [['gear.critPct', 25]], { builds: ['demo_pact_succ_sb', 'wrack_ds', 'destro_incin_ds'] }),
+  // Improved Drains raises Drain Life but not Wrack (Forever patch of 2026-11-03)
+  S('improved drains: not Wrack', [], { builds: ['wrack_ds'], mod: b => { b.talents.improvedDrains = 3; } }),
+  S('improved drains: Drain Life', [], { builds: ['wrack_ds'], mod: b => { b.talents.improvedDrains = 3; b.rotation = b.rotation.slice(0, -1).concat(['drainLife']); } }),
   S('every race, pushback', [['fight.hitEvery', 1.5]], { builds: ['demo_pact_fire', 'wrack_succubus', 'destro_incin_imp'] }),
   S('mana buffs + potions', [['buffs.manaTide.on', true], ['buffs.innervate.on', true], ['buffs.powerInfusion.on', true], ['buffs.manaSpring.on', true], ['buffs.restorativeTotems.on', true],
     ['consumables.majorManaPotion.on', true], ['gear.int', 20], ['gear.spi', 0], ['fight.duration', 240]]),
@@ -55,7 +58,7 @@ const scenes = [
     ['buffs.powerInfusion.on', true], ['consumables.majorSpellblasting.on', true], ['consumables.demonicRune.on', true], ['fight.duration', 200]]),
   S('hellfire filler 3 targets', [['fight.targets', 3]], { builds: ['destro_incin_imp'], rotation: r => r.slice(0, -1).concat(['hellfire']) }),
   S('rain of fire filler 2 targets', [['fight.targets', 2]], { builds: ['destro_incin_imp'], rotation: r => r.slice(0, -1).concat(['rainOfFire']) }),
-  S('drain life filler', [], { builds: ['sm_ruin_classic', 'wrack_succubus'], rotation: r => r.slice(0, -1).concat(['drainLife']) }),
+  S('drain life filler', [], { builds: ['sm_ruin_classic', 'wrack_succubus', 'wrack_ds'], rotation: r => r.slice(0, -1).concat(['drainLife']) }),
   S('pet swap at execute', [], { builds: ['demo_pact_succ_sb'], rotation: r => ['swapToImp'].concat(r) }),
   // a build's own rules, groups and variables (they come in build codes): the sim's own test build, and one with every condition
   S('rules, groups and variables', [], { builds: ['sm_ruin_classic'], mod: b => {
@@ -86,9 +89,10 @@ const scenes = [
       { spell: 'deathCoil', when: { t: 'check', act: 'deathCoilFinisher' } },
       { spell: 'wrack', when: { t: 'all', c: [{ t: 'pet' }, { t: 'minDot', op: '>', v: 4 }] } },
       { spell: 'curseOfElements', when: { t: 'all', c: [{ t: 'setting', key: 'coe' }, { t: 'aura', aura: 'coe', op: '<=', v: 0 }] } },
-      { spell: 'shadowBolt' }];
+      { spell: 'shadowBolt' },
+      { spell: 'lifeTap', when: { t: 'all', c: [{ t: 'fsr', op: '>=', v: 4 }, { t: 'mana', op: '<', v: 60 }] } }];
     b.actWhen = { shadowBolt: { t: 'not', c: { t: 'refresh', spell: 'siphonLife' } }, lifeTapPet: { t: 'check', act: 'lifeTapPet' } };
-    b.rotation = ['rule:0', 'rule:7', 'rule:1', 'rule:2', 'rule:5', 'rule:3', 'rule:4', 'rule:6'].concat(b.rotation.slice(0, -1)).concat(['rule:8']);
+    b.rotation = ['rule:9', 'rule:0', 'rule:7', 'rule:1', 'rule:2', 'rule:5', 'rule:3', 'rule:4', 'rule:6'].concat(b.rotation.slice(0, -1)).concat(['rule:8']);
   } }),
   // trinkets and weapon enchants (the gear builder's slots; in the game: the items you wear)
   S('trinkets: spell power, pierce', [['gearBuilder', { on: true, slots: { trinket1: { id: 18820 }, trinket2: { id: 21473 } } }], ['combat.targetResist.shadow', 60], ['combat.targetResist.fire', 60]]),
@@ -111,7 +115,7 @@ const scenes = [
   S('cheat mode', [['options.cheat', { hit: { shadowBolt: true, corruption: true, 'pet:melee': true, 'pet:firebolt': true, hellfire: true }, crit: { shadowBolt: true, immolate: true, 'pet:lashOfPain': true, 'pet:melee': true, incinerate: true } }],
     ['gear.hitPct', 0]]),
   S('dark inspiration + kings', [['buffs.darkInspiration.on', true], ['buffs.blessingOfKings.on', true], ['gear.spi', 120]]),
-  S('wrack conditions off, own condition', [], { builds: ['wrack_succubus', 'demo_pact_succ_sb'], mod: b => {
+  S('wrack conditions off, own condition', [], { builds: ['wrack_succubus', 'wrack_ds', 'demo_pact_succ_sb'], mod: b => {
     b.actWhen = { shadowBolt: { t: 'fight', what: 'remaining', op: '>', v: 20 }, lifeTapNeed: { t: 'mana', op: '<', v: 50 } };
     if (b.rotation.indexOf('drainLife') < 0) b.rotation.push('drainLife');
   } }),

@@ -379,7 +379,7 @@ function WL.buildSpellTable(build, stats, cfg)
       local op22 = sm + agf
         + (key == 'corruption' and tv('improvedCorruption', 'dmgPct') or 0)
         + (key == 'baneOfAgony' and tv('improvedBaneOfAgony', 'dmgPct') or 0)
-        + (s.drain and tv('improvedDrains', 'dmgPct') or 0)
+        + ((s.drain and not s.noImprovedDrains) and tv('improvedDrains', 'dmgPct') or 0)   -- not Wrack (2026-11-03 patch)
       e.op0 = op0 / 100; e.op22 = op22 / 100
       e.directMult = aura * (1 + e.op0)
       e.periodicMult = aura * (1 + e.op22)
@@ -673,7 +673,8 @@ end
 -- { t = 'var', name } (a named condition of build.vars). v = a number, or { var = name } (a named number: build.vars[name] = { num }).
 -- The built-in actions' own checks as conditions (sim v154): { t = 'refresh', spell } (the DoT needs a recast), { t = 'paysOff', spell }
 -- (it still pays off before the end), { t = 'known', spell }, { t = 'talent', talent, op, v }, { t = 'pet' }, { t = 'setting', key = 'coe' },
--- { t = 'manaNeed' }, { t = 'freeMana' }, { t = 'minDot', op, v } (the shortest DoT this priority keeps up), { t = 'check', act }
+-- { t = 'manaNeed' }, { t = 'freeMana' }, { t = 'minDot', op, v } (the shortest DoT this priority keeps up),
+-- { t = 'fsr', op, v } (seconds since you last spent mana; a cast being cast counts as spending now - sim v161), { t = 'check', act }
 -- (the whole check of a built-in action, WL.APL_CHECKS). More numbers: { cast = spell } (its cast time now), { exec = 1 } (execute %).
 WL.RULE_SPELLS = {}
 for i = 1, #WL.SPELL_ORDER do local k = WL.SPELL_ORDER[i]; if k ~= 'drainSoul' and k ~= 'baneOfHavoc' then WL.RULE_SPELLS[#WL.RULE_SPELLS + 1] = k end end
@@ -733,6 +734,7 @@ function WL.ruleCond(n, S, build, depth)
   if t == 'manaNeed' then return (S.manaNeedLeft and S.mana < S.manaNeedLeft()) and true or false end
   if t == 'freeMana' then return (S.freeManaLevel and S.mana >= S.freeManaLevel() and S.freeManaLevel() > 0) and true or false end
   if t == 'minDot' then return ruleCmp(WL.minDotLeft(S), n.op, v) end
+  if t == 'fsr' then return ruleCmp(S.spendAt ~= nil and 0 or S.t - S.lastSpend, n.op, v) end   -- nothing spent yet: infinity
   if t == 'check' then return (WL.APL_CHECKS[n.act] and WL.ACTIONS[n.act].pick(S) ~= nil) and true or false end
   return false
 end
@@ -810,6 +812,7 @@ function WL.condText(n, build)
   if t == 'manaNeed' then return 'the rest of the fight needs more mana than you have' end
   if t == 'freeMana' then return 'free mana is ready' end
   if t == 'minDot' then return 'shortest DoT time left ' .. op .. ' ' .. v() .. u() end
+  if t == 'fsr' then return 'time since you last spent mana ' .. op .. ' ' .. v() .. u() end
   if t == 'check' then return WL.APL_CHECKS[n.act] or tostring(n.act) end
   return '?'
 end
@@ -856,7 +859,7 @@ function WL.condErrors(n, build, where, depth, out)
   elseif t == 'setting' then if not WL.APL_SETTINGS[n.key] then out[#out + 1] = where .. ': unknown setting "' .. tostring(n.key) .. '"' end
   elseif t == 'check' then if not WL.APL_CHECKS[n.act] then out[#out + 1] = where .. ': unknown check "' .. tostring(n.act) .. '"' end
   elseif t == 'pet' or t == 'manaNeed' or t == 'freeMana' then -- nothing to check
-  elseif t == 'minDot' then num()
+  elseif t == 'minDot' or t == 'fsr' then num()
   else out[#out + 1] = where .. ': unknown condition' end
   return out
 end
