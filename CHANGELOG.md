@@ -11,7 +11,11 @@ What changed in each version, newest first. Download a version from the
 - Wrack DS only Life Taps right after a full Wrack (6 seconds after you last spent mana).
 - Forever's patch of 2026-11-03: Wrack hits about twice as hard, Improved Drains no longer raises Wrack, Shadow and
   Flame gives 4-20% (was 2-10%), and Salvation is gone (no longer on the Buffs tab or read from your buffs).
-- Build codes can use one more condition: the time since you last spent mana.
+- Build codes can use the new conditions of the website's priority editor (0.11.1 and 0.12.0): "needs a recast",
+  "still pays off", "you know a spell", points in a talent, "a demon is out", "Keep Curse of the Elements up", mana
+  needed for the rest of the fight, free mana ready, the shortest DoT time left, the time since you last spent mana, a
+  spell's cast time and the execute % as numbers, and the full checks of Death Coil at the end, Searing Pain before Soul
+  Fire and Life Tap for the pet. Conditions compare exactly, as the built-in priority actions do.
 - If "Play it like" was set to a build that is gone, the closest ready build is used.
 - Same rules as the website's version of 2026-11-04.
 
