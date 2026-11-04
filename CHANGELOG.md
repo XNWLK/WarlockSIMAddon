@@ -3,6 +3,12 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.12.1
+
+- Three ready builds have new names, as on the website: **Shadow Demo** (was Demo Pact Shadow Bolt Succubus), **Fire
+  Demo** (was Demo Pact Fire Imp) and **Incinerate Pandemic** (was Destro Incinerate Succubus). Their talents and
+  priority lists are the same.
+
 ## v0.12.0
 
 - New ready builds: **Wrack DS** (35/11/5, the Imp sacrificed, no demon out, Spellstone) replaces Wrack Succubus, and

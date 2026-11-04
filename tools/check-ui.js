@@ -19,7 +19,7 @@ host.loadAddon(toc);
 const lua = code => host.eval(code);
 const step = (name, code) => { const r = lua('local ok, e = xpcall(function() ' + code + ' end, debug.traceback); if not ok then return "ERR " .. tostring(e) end; return e'); if (typeof r === 'string' && r.indexOf('ERR ') === 0) { console.log('FAIL at "' + name + '":\n' + r.slice(4)); process.exit(1); } console.log('ok   ' + name + (r !== null && r !== undefined && r !== true ? ': ' + r : '')); return r; };
 const pump = 'local n = 0; while WLX.jobRunning() do MOCK.frame(); n = n + 1; if n > 2000000 then error("the job never ends") end end';
-const build = WL.BUILDS[2];                                  // Demo Pact Fire Imp
+const build = WL.BUILDS.filter(b => b.key === 'destro_incin_succ')[0];   // Incinerate Pandemic (by key: the list order changes)
 
 step('start-up', 'MOCK.talents = ' + toLua(build.talents) + '; MOCK.fire("ADDON_LOADED", "SomethingElse"); MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db and WLX.cfg); MOCK.fire("PLAYER_LOGIN"); assert(#MOCK.chat == 1, "no hello line"); WLX.db.options.fights = 10');
 step('open the window (in combat: nothing is read)', 'MOCK.combat = true; SlashCmdList.WARLOCKSIM(""); MOCK.combat = false; assert(WarlockSimFrame and WarlockSimFrame:IsShown()); assert(WLX.char == nil, "read in combat"); return MOCK.find("FontString", "No result yet") and "empty result shown"');
