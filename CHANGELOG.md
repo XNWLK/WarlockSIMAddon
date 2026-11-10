@@ -3,6 +3,21 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.13.0
+
+- Forever's Wrack patch of 2026-11-10:
+  - While you channel Wrack, your Corruption, Bane of Agony and Siphon Life tick twice as often. They last just as
+    long. Bane of Doom and Immolate are not affected. A DoT that ends between two ticks deals the part of a tick it
+    has built up.
+  - Wrack deals 70% of its old damage, and its old +10% to your DoTs is gone.
+  - Wrack cast again while it still channels does not cut it short: the new Wrack keeps the ticks the old one had left.
+  - Soul Siphon counts only Corruption, Bane of Agony and Siphon Life (no longer Bane of Doom or Curse of the
+    Elements).
+- Wrack DS keeps Bane of Agony and Siphon Life up again (it used Bane of Doom and no Siphon Life before).
+- Near the end of a fight, "is this DoT still worth casting" counts the faster ticks when Wrack is the filler (also
+  on the helper bar).
+- Same rules as the website's version of 2026-11-10.
+
 ## v0.12.1
 
 - Three ready builds have new names, as on the website: **Shadow Demo** (was Demo Pact Shadow Bolt Succubus), **Fire

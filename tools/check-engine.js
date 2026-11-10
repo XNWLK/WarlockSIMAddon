@@ -40,7 +40,16 @@ const scenes = [
   // Improved Drains raises Drain Life but not Wrack (Forever patch of 2026-11-03)
   S('improved drains: not Wrack', [], { builds: ['wrack_ds'], mod: b => { b.talents.improvedDrains = 3; } }),
   S('improved drains: Drain Life', [], { builds: ['wrack_ds'], mod: b => { b.talents.improvedDrains = 3; b.rotation = b.rotation.slice(0, -1).concat(['drainLife']); } }),
-  S('every race, pushback', [['fight.hitEvery', 1.5]], { builds: ['demo_pact_fire', 'wrack_succubus', 'destro_incin_imp'] }),
+  // Wrack makes Corruption, Bane of Agony and Siphon Life tick twice as often; Wrack cast on Wrack keeps the old one's ticks (patch of 2026-11-10)
+  S('wrack: recast on itself', [], { builds: ['wrack_ds'], mod: b => {
+    b.rotation = ['deathCoilFinisher', 'baneOfAgony', 'corruption', 'siphonLife', 'wrackDots', 'lifeTapNeed', 'wrack'];
+    b.params = Object.assign({}, b.params, { wrackDots: { sec: 0 } });
+    b.actWhen = Object.assign({}, b.actWhen, { wrackDots: { t: 'fight', what: 'elapsed', op: '>=', v: 20.5 } }); } }),
+  S('wrack: Bane of Doom, pushback, movement', [['fight.duration', 200], ['fight.hitEvery', 2], ['fight.moveEvery', 25], ['fight.moveDuration', 4]],
+    { builds: ['wrack_ds'], mod: b => { b.rotation = ['bane', 'corruption', 'siphonLife', 'lifeTapNeed', 'wrack']; } }),
+  S('wrack: short fights, the end check', [['fight.duration', 47]], { builds: ['wrack_ds'] }),
+  S('wrack: 2 targets multi-DoT, haste', [['fight.targets', 2], ['fight.multiDot', true], ['gear.hastePct', 8]], { builds: ['wrack_ds'] }),
+  S('every race, pushback', [['fight.hitEvery', 1.5]],{ builds: ['demo_pact_fire', 'wrack_succubus', 'destro_incin_imp'] }),
   S('mana buffs + potions', [['buffs.manaTide.on', true], ['buffs.innervate.on', true], ['buffs.powerInfusion.on', true], ['buffs.manaSpring.on', true], ['buffs.restorativeTotems.on', true],
     ['consumables.majorManaPotion.on', true], ['gear.int', 20], ['gear.spi', 0], ['fight.duration', 240]]),
   S('several Druids and Priests', [['buffs.innervate.on', true], ['buffs.innervate.count', 3], ['buffs.powerInfusion.on', true], ['buffs.powerInfusion.count', 3],

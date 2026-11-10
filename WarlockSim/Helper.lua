@@ -212,12 +212,6 @@ function H.dotWorth(C, P, S, key)
   local s, e = C.SPELLS[key], C.tbl[key]
   if not s or not e or not e.tickDmg then return nil end
   local castT, rem = H.castTime(C, P, key), S.remaining
-  local ticks = 0
-  for i = 1, e.ticks do
-    if castT + i * s.tickEvery > rem + EPS then break end
-    ticks = ticks + (s.ramp and s.ramp[i] or 1)
-  end
-  local value = ticks * e.tickDmg + (s.kind == 'hybrid' and (e.directDmg or 0) or 0)
   local f = nil                                                 -- the filler: the first action below that casts a direct spell or channel
   for i = (S.actionIndex or 0) + 1, #C.rot do
     local a = C.acts[i]
@@ -229,6 +223,22 @@ function H.dotWorth(C, P, S, key)
     end
   end
   f = f or (C.tbl.shadowBolt and 'shadowBolt')
+  -- Wrack as the filler: this DoT ticks faster while Wrack channels (same duration). As the sim guesses before it has seen
+  -- 20 s of the fight: Wrack channels 80% of the time, so the ticks come 1 + 80% of the speed-up as often.
+  local step = s.tickEvery
+  if f == 'wrack' and WL.WRACK_SPEED_SET[key] then step = s.tickEvery / (1 + ((C.SPELLS.wrack.dotSpeedPct or 0) / 100) * 0.8) end
+  local ticks, n = 0, 0
+  while true do
+    local at = (n + 1) * step
+    if at > s.duration + 1e-6 or castT + at > rem + EPS then break end
+    n = n + 1
+    local ri = math.min(e.ticks, math.max(1, math.ceil(at / s.tickEvery - 1e-6)))   -- the ramp by time since the cast
+    ticks = ticks + (s.ramp and s.ramp[ri] or 1)
+  end
+  if step < s.tickEvery and castT + s.duration <= rem + EPS then   -- the smaller last tick when it ends between two ticks
+    ticks = ticks + (s.ramp and s.ramp[e.ticks] or 1) * math.min(1, (s.duration - n * step) / step)
+  end
+  local value = ticks * e.tickDmg + (s.kind == 'hybrid' and (e.directDmg or 0) or 0)
   local fe = f and C.tbl[f]
   if not fe then return true end
   local fDmg = fe.directDmg or ((fe.tickDmg or 0) * (fe.ticks or 0))
@@ -294,7 +304,7 @@ function H.activesOpen(C, P, S, key)
   if pol == 'execute' then open = S.targetHpPct < C.cfg.fight.executePct
   elseif pol == 'doom' then
     local d = P.dots.baneOfDoom
-    if not d or d <= P.t + EPS then open = P.doomSeen or not C.castsDoom or P.dots.baneOfAgony ~= nil
+    if not d or d <= P.t + EPS then open = P.doomSeen or not C.castsDoom or (P.dots.baneOfAgony or 0) > P.t + EPS
     else
       local toBoom = d - P.t
       open = toBoom > S.remaining or toBoom <= H.occupies(C, P, key) + EPS

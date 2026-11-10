@@ -68,7 +68,7 @@ local function setOf(list) local s = {}; for i = 1, #list do s[list[i]] = true e
 local PANDEMIC, NIGHTFALL = setOf(WL.PANDEMIC_SPELLS), setOf(WL.NIGHTFALL_SPELLS)
 WL.NIGHTFALL_SET = NIGHTFALL
 WL.SOUL_SIPHON_SET = setOf(WL.SOUL_SIPHON_EFFECTS)
-WL.WRACK_DEBUFF_SET = setOf(WL.SPELLS.wrack.debuffSpells)
+WL.WRACK_SPEED_SET = setOf(WL.SPELLS.wrack.dotSpeedSpells or {})   -- the DoTs that tick faster while you channel Wrack
 
 function WL.spellsFor(cfg)
   if not (cfg and cfg.options and cfg.options.bookRanks) then return WL.SPELLS end

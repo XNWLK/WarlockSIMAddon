@@ -8,7 +8,7 @@ local ADDON, WL = ...
 local floor, min, max, huge = math.floor, math.min, math.max, math.huge
 local sub = string.sub
 local makeRng, xorSeed, indexOf, copy, racialOf = WL.makeRng, WL.xorSeed, WL.indexOf, WL.copy, WL.racialOf
-local NIGHTFALL, SIPHON_SET, WRACK_SET = WL.NIGHTFALL_SET, WL.SOUL_SIPHON_SET, WL.WRACK_DEBUFF_SET
+local NIGHTFALL, SIPHON_SET, WRACK_SET = WL.NIGHTFALL_SET, WL.SOUL_SIPHON_SET, WL.WRACK_SPEED_SET
 local SIPHON_LIST = WL.SOUL_SIPHON_EFFECTS
 local EPS = 1e-9
 local TWO32 = 4294967296
@@ -103,8 +103,9 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- ---------- tiny binary heap ----------
   local HA, HN, HSEQ = {}, 0, 0
   local function push(ev)
-    local seq = HSEQ
-    ev.seq = seq; HSEQ = seq + 1
+    local seq = ev.seqAt                                   -- seqAt: a place in the order kept for it (Wrack's sped-up DoT ticks)
+    if seq == nil then seq = HSEQ; HSEQ = seq + 1 end
+    ev.seq = seq
     local i = HN + 1
     HN = i
     local t, o = ev.t, ev.o
@@ -152,6 +153,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     mana = stats.maxMana, health = stats.maxHealth, shards = huge,
     busyUntil = 0, gcdReady = 0, lastRegen = 0,
     lastSpend = -huge, spendAt = nil, innervateUntil = 0,
+    wrackRate = 1, wrackOn = false, wrackTime = 0, wrackOnAt = 0, wrackCarry = nil,
     cds = cds, dots = dots, buffs = buffs, channel = nil,
     targetHpPct = 100,
   }
@@ -174,6 +176,13 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- Keys: spell keys, 'pet:firebolt', 'pet:lashOfPain', 'pet:melee'.
   local CH = (cfg.options and cfg.options.cheat) or {}
   local CHH, CHC = type(CH.hit) == 'table' and CH.hit or {}, type(CH.crit) == 'table' and CH.crit or {}
+  -- Wrack (patch of 2026-11-10): while you channel it, the DoTs in dotSpeedSpells tick dotSpeedPct faster on the boss; their
+  -- duration stays, and a sped-up DoT that ends between two ticks deals the part of a tick it has built up.
+  -- (The sim's measuring options wrackMode / wrackLastTick are not carried over: the website never sets them.)
+  local WK = { gain = 1 + ((SPELLS.wrack and SPELLS.wrack.dotSpeedPct) or 0) / 100, fast = {}, any = false }
+  if tbl.wrack and SPELLS.wrack.dotSpeedSpells then
+    for _, k in ipairs(SPELLS.wrack.dotSpeedSpells) do WK.fast[k] = true; WK.any = true end
+  end
 
   -- ---------- helpers exposed to rotation conditions ----------
   local function has(k) return tbl[k] ~= nil end
@@ -274,7 +283,6 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       e = buffs.snfFire
       if e ~= nil and e > now then m = m * (1 + tv('shadowAndFlame', 'schoolPct') / 100) end
     end
-    if periodic and S.channel and S.channel.key == 'wrack' and WRACK_SET[key] then m = m * (1 + SPELLS.wrack.debuffPct / 100) end
     if s.drain and tv('soulSiphon') ~= 0 then
       local n = 0
       for i = 1, #SIPHON_LIST do
@@ -396,7 +404,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     castsDoom()
     local d = dots.baneOfDoom
     if d then doomSeen = true end
-    if not d or d.expires <= S.t + EPS then return doomSeen or not ACT_DOOM or dots.baneOfAgony ~= nil end
+    if not d or d.expires <= S.t + EPS then return doomSeen or not ACT_DOOM or dotLeft('baneOfAgony') > 0 end
     local toBoom = d.expires - S.t
     if toBoom > S.remaining then return true end
     if not gateKey then return false end
@@ -423,7 +431,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     castsDoom()
     local d = dots.baneOfDoom
     if d then doomSeen = true end
-    if not d or d.expires <= S.t + EPS then actOpen = doomSeen or not ACT_DOOM or dots.baneOfAgony ~= nil; return actOpen end
+    if not d or d.expires <= S.t + EPS then actOpen = doomSeen or not ACT_DOOM or dotLeft('baneOfAgony') > 0; return actOpen end
     local toBoom, sp = d.expires - S.t, SPELLS[key]
     local len = sp.kind == 'channel' and sp.duration or max(castTime(key), gcd())
     actOpen = toBoom > S.remaining or toBoom <= len + EPS
@@ -835,12 +843,31 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     scheduleDecide(max(S.busyUntil, S.gcdReady))
   end
 
+  -- A DoT Wrack speeds up: d.prog = seconds of its normal tick timer built up since its last tick, growing at d.rate
+  -- (2 while you channel Wrack, else 1) since d.at. The next tick comes when it reaches tickEvery, while the DoT lasts.
+  local function nextFastTick(key, d)
+    local s = SPELLS[key]
+    local t = S.t + max(0, s.tickEvery - d.prog) / d.rate
+    local sq = d.seq0 + min(d.n, d.ticks - 1)
+    if t <= d.expires + 1e-6 then
+      push({ t = min(t, d.expires), o = 0, type = 'dotTick', key = key, inst = d.inst, gen = d.gen, fast = 1, seqAt = sq }); return
+    end
+    local frac = (d.prog + (d.expires - S.t) * d.rate) / s.tickEvery
+    if frac > 1e-6 then push({ t = d.expires, o = 0, type = 'dotTick', key = key, inst = d.inst, gen = d.gen, fast = 1, seqAt = sq, frac = min(1, frac) }) end
+  end
+
   local function applyDot(key, snap)
     local s, e = SPELLS[key], tbl[key]
     inst = inst + 1
     local id = inst
     if s.bane then dots.baneOfAgony = nil; dots.baneOfDoom = nil end
-    dots[key] = { inst = id, applied = S.t, expires = S.t + s.duration, tick = 0, ticks = e.ticks, snap = snap }
+    local d = { inst = id, applied = S.t, expires = S.t + s.duration, tick = 0, ticks = e.ticks, snap = snap }
+    dots[key] = d
+    if WK.fast[key] then                                   -- Wrack can speed it up: one tick at a time
+      d.fast = true; d.prog = 0; d.at = S.t; d.rate = (S.channel and S.channel.key == 'wrack') and WK.gain or 1; d.gen = 0; d.n = 0
+      d.seq0 = HSEQ; HSEQ = HSEQ + e.ticks                 -- its ticks keep the places in the order the fixed schedule gives them
+      nextFastTick(key, d); return
+    end
     for i = 1, e.ticks do push({ t = S.t + i * s.tickEvery, o = 0, type = 'dotTick', key = key, inst = id, i = i - 1 }) end
   end
 
@@ -908,16 +935,42 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- castMult multiplies every tick of this cast as a whole (Amplify Curse).
   makeSnap = function(castMult) return { castMult = castMult or 1 } end
 
-  local function periodicTick(key, snap, i)
+  local function periodicTick(key, snap, i, frac)        -- frac: part of a tick (a sped-up DoT that ends between two ticks)
     local s, e = SPELLS[key], tbl[key]
     local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * liveMult(key, true) * (snap.castMult or 1)
     if s.ramp then amt = amt * s.ramp[i + 1] end
+    if frac then amt = amt * frac end
     amt = amt * vulnMult(s.school)
     local cx = Rcrit() * 100
     local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
     if crit then amt = amt * e.critMult end
     deal(key, amt, crit, true)
     nightfallRoll(key)
+  end
+
+  local function fastTick(key, d, frac)
+    local s = SPELLS[key]
+    local n = d.n
+    d.n = n + 1
+    -- Bane of Agony's ramp follows the time since it was cast: a tick in the 3rd normal 2-second slot uses ramp[2].
+    local ri = s.ramp and min(#s.ramp - 1, max(0, math.ceil((S.t - d.applied) / s.tickEvery - 1e-6) - 1)) or n
+    periodicTick(key, d.snap, ri, frac)
+    d.prog = 0; d.at = S.t
+    if frac == nil then nextFastTick(key, d) end
+  end
+  -- Wrack started or stopped: bring every sped-up DoT's timer up to now and re-time its next tick.
+  local function syncWrack()
+    local on = S.channel ~= nil and S.channel.key == 'wrack'
+    if on == S.wrackOn then return end
+    if S.wrackOn then S.wrackTime = S.wrackTime + (S.t - S.wrackOnAt) else S.wrackOnAt = S.t end
+    local r = on and WK.gain or 1
+    S.wrackOn = on; S.wrackRate = r
+    for k, d in pairs(dots) do
+      if d.fast and d.expires > S.t + EPS then
+        d.prog = d.prog + (S.t - d.at) * d.rate; d.at = S.t
+        if r ~= d.rate then d.rate = r; d.gen = d.gen + 1; nextFastTick(k, d) end
+      end
+    end
   end
 
   -- A tick of an area channel (Hellfire, Rain of Fire): every target takes its own damage event.
@@ -1088,7 +1141,12 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     S.cast = nil
     if s.kind == 'channel' then
       local r = row(key)
+      -- Wrack recast on a running Wrack (patch of 2026-11-10): the ticks the old one had left carry over (a whole number of them).
+      local wc = S.wrackCarry
+      local carry = (key == 'wrack' and wc and math.abs(wc.t - S.t) < EPS) and wc.left or 0
+      S.wrackCarry = nil
       if not s.aoe and Rhit() * 100 >= stats.hitPct and not CHH[key] then
+        if carry ~= 0 then res.clipped = res.clipped + 1; r.castTime = r.castTime - carry end   -- the recast missed: the old Wrack is gone
         r.misses = r.misses + 1
         if fromTL then TL.turn = true end
         S.busyUntil = S.t; S.gcdReady = S.t + gcdT; scheduleDecide(S.gcdReady)
@@ -1099,10 +1157,12 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       jowProc(false)
       inst = inst + 1
       local id = inst
-      S.channel = { key = key, inst = id, snap = makeSnap(), start = S.t, finish = S.t + s.duration, tl = fromTL and true or false, idx = actIdx }
-      for i = 1, e.ticks do push({ t = S.t + i * s.tickEvery, o = 0, type = 'chanTick', key = key, inst = id, i = i - 1 }) end
-      S.busyUntil = S.t + s.duration; S.gcdReady = S.t + gcdT
-      r.castTime = r.castTime + s.duration
+      local nCh = e.ticks + (carry ~= 0 and floor(carry / s.tickEvery + 1e-6) or 0)
+      local chDur = carry ~= 0 and nCh * s.tickEvery or s.duration
+      S.channel = { key = key, inst = id, snap = makeSnap(), start = S.t, finish = S.t + chDur, ticks = nCh, tl = fromTL and true or false, idx = actIdx }
+      for i = 1, nCh do push({ t = S.t + i * s.tickEvery, o = 0, type = 'chanTick', key = key, inst = id, i = i - 1 }) end
+      S.busyUntil = S.t + chDur; S.gcdReady = S.t + gcdT
+      r.castTime = r.castTime + (chDur - carry)                -- the carried part was counted with the old cast
       scheduleDecide(S.busyUntil)
     elseif castT > EPS then
       S.busyUntil = S.t + castT; S.gcdReady = S.t + gcdT
@@ -1373,7 +1433,25 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local finish, g, value = min(dur, tL + s.duration), gcd(), 0
     local castMult = (key == 'baneOfAgony' and tv('amplifyCurse') ~= 0 and ready('amplifyCurse') and slotGate('amplifyCurse') ~= 0) and 1 + tv('amplifyCurse', 'boaPct') / 100 or 1
     local tickAmt = (s.tickBase + s.tickCoef * spNow(e)) * castMult * e.periodicMult * lmult(key, ti, true) * expVuln(s.school, ti) * expCrit(e.critPct, e.critMult)
-    if f == 'wrack' and WRACK_SET[key] then tickAmt = tickAmt * (1 + SPELLS.wrack.debuffPct / 100) end
+    -- Wrack as the filler (patch of 2026-11-10): this DoT ticks faster. Its tick times: the normal pace until Wrack can start
+    -- after this cast, then faster by Wrack's share of the fight so far (80% until 20 s have passed).
+    local times, lastPart = nil, 0                         -- lastPart: the smaller last tick (share of a tick)
+    if f == 'wrack' and ti <= 1 and tv('wrack') ~= 0 and WRACK_SET[key] then
+      times = {}
+      local wOn = S.wrackTime + (S.wrackOn and S.t - S.wrackOnAt or 0)
+      local share = S.t >= 20 and wOn / S.t or 0.8
+      local wg = 1 + (WK.gain - 1) * share
+      local tW, tEnd, tc = max(tL, S.t + occupies(key) + LAT), tL + s.duration, tL
+      while true do
+        local nt = tc < tW - EPS and min(tc + s.tickEvery, tW) or tc
+        if nt < tc + s.tickEvery - EPS then nt = nt + (s.tickEvery - (nt - tc)) / wg end   -- part of the way at the normal pace, the rest faster
+        if nt > tEnd + 1e-6 then
+          lastPart = min(1, (max(0, min(tW, tEnd) - tc) + max(0, tEnd - max(tW, tc)) * wg) / s.tickEvery)
+          break
+        end
+        times[#times + 1] = nt; tc = nt
+      end
+    end
     local hit, tConf, keep = hitChance(), huge, 1
     local cfx = indexOf(ROT, 'conflagrateExpire') ~= nil and indexOf(ROT, 'conflagrate') == nil
     if key == 'immolate' and ti <= 1 and (indexOf(ROT, 'conflagrate') or indexOf(ROT, 'conflagrateSnF') or cfx) and has('conflagrate') then
@@ -1384,12 +1462,15 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       else tConf = huge end
     end
     local nTicks, ticks = 0, 0
-    for i = 1, e.ticks do
-      local tt = tL + i * s.tickEvery
+    local nTimes = times and #times or e.ticks
+    for i = 1, nTimes do
+      local tt = times and times[i] or tL + i * s.tickEvery
       if tt > dur + EPS then break end
       nTicks = nTicks + 1
-      ticks = ticks + tickAmt * (s.ramp and s.ramp[i] or 1) * (tt > tConf + EPS and keep or 1)
+      local ri = min(e.ticks - 1, max(0, math.ceil((tt - tL) / s.tickEvery - 1e-6) - 1))   -- the ramp by time since the cast
+      ticks = ticks + tickAmt * (s.ramp and s.ramp[ri + 1] or 1) * (tt > tConf + EPS and keep or 1)
     end
+    if lastPart > 1e-6 and nTicks == nTimes and tL + s.duration <= dur + EPS then ticks = ticks + tickAmt * (s.ramp and s.ramp[e.ticks] or 1) * lastPart end
     value = value + hit * ticks
     if s.kind == 'hybrid' then value = value + expCast(key, ti) end
     local up = max(0, finish - (S.t + occupies(key)))
@@ -1399,7 +1480,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local sbKey = (tbl.shadowBolt and (indexOf(ROT, 'shadowTrance') or (f and f == 'shadowBolt'))) and 'shadowBolt' or nil
     if NIGHTFALL[key] and tv('nightfall') ~= 0 and sbKey then
       local procTicks = 0
-      for j = 1, nTicks do if tL + j * s.tickEvery <= dur - g + EPS then procTicks = procTicks + 1 end end
+      for j = 1, nTicks do if (times and times[j] or tL + j * s.tickEvery) <= dur - g + EPS then procTicks = procTicks + 1 end end
       local sbNow, sbCast = expCast(sbKey, 0), tbl[sbKey].cast / hasteFactor()
       value = value + hit * procTicks * tv('nightfall', 'procPct') / 100 * max(0, sbNow - g * (sbKey == f and sbNow / max(sbCast, g) or fRate))
     end
@@ -1520,7 +1601,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if not c or c.inst ~= ev.inst then return end          -- clipped
     if ev.t > c.finish + EPS then return end               -- cut off by pushback; chanEnd closes the channel
     if SPELLS[ev.key].aoe then aoeTick(ev.key, ev.i) else periodicTick(ev.key, c.snap, ev.i) end
-    local last = ev.i == tbl[ev.key].ticks - 1
+    local last = ev.i == (c.ticks or tbl[ev.key].ticks) - 1
     if last then
       S.channel = nil; return
     end
@@ -1539,8 +1620,12 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if S.t >= S.gcdReady - EPS and not c.tl then
       local idx = c.idx ~= nil and c.idx or indexOf(ROT, ev.key)
       local higher = pickAction(idx or (#ROT + 1))
-      if higher then
-          S.channel = nil; res.clipped = res.clipped + 1
+      if higher == 'wrack' and ev.key == 'wrack' then        -- Wrack on Wrack (patch of 2026-11-10): nothing is clipped,
+        S.wrackCarry = { t = S.t, left = c.finish - S.t }     -- the new Wrack takes over the ticks this one has left
+        S.channel = nil; S.busyUntil = S.t
+        scheduleDecide(S.t)
+      elseif higher then
+        S.channel = nil; res.clipped = res.clipped + 1
         local r = row(ev.key); r.castTime = r.castTime - (c.finish - S.t)
         S.busyUntil = S.t
         scheduleDecide(S.t)
@@ -1581,6 +1666,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if P.c.melee then push({ t = 0, o = 0, type = 'petSwing', gen = P.gen }) end
   end
   while HN > 0 do
+    if WK.any then syncWrack() end                         -- Wrack started or stopped since the last event
     local ev = pop()
     if ev.t > dur + EPS then break end
     updateTime(ev.t)
@@ -1590,8 +1676,12 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     elseif ty == 'dotTick' then
       local d = dots[ev.key]
       if d and d.inst == ev.inst then                      -- else: refreshed or consumed
-        periodicTick(ev.key, d.snap, ev.i)
-        if ev.i == d.ticks - 1 then dots[ev.key] = nil end
+        if ev.fast then                                    -- re-timed by Wrack: only the newest copy counts
+          if ev.gen == d.gen then fastTick(ev.key, d, ev.frac) end
+        else
+          periodicTick(ev.key, d.snap, ev.i)
+          if ev.i == d.ticks - 1 then dots[ev.key] = nil end
+        end
       end
     elseif ty == 'castEnd' then
       if not ev.dead then                                  -- pushed back: a later copy of this event lands it
