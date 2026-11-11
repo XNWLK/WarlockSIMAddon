@@ -3,6 +3,11 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.13.4
+
+- The What if tab has two more boxes: **Shadow power** and **Fire power** (spell damage for that school only, like
+  "Increases damage done by Shadow spells" on gear).
+
 ## v0.13.3
 
 - From the official notes of Forever's patch of 2026-11-10:

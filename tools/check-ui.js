@@ -158,9 +158,15 @@ step('what if: +10 spell power gains, a typed change, nothing entered', `WLX.db.
   assert(MOCK.findLike("FontString", "What if %+10 spell power"), "what changed is shown"); assert(MOCK.findLike("FontString", "DPS for each 1 spell power"), "per point")
   for _, f in ipairs(MOCK.frames) do if f.__kind == "EditBox" and f.template == "InputBoxTemplate" and f.text == "10" then f:SetText("0") end end
   MOCK.click("Clear"); MOCK.click("Sim this change"); assert(not WLX.jobRunning(), "nothing entered: no sim"); assert(MOCK.findLike("FontString", "Enter a change first"), "says why")
-  local n = 0; for _, f in ipairs(MOCK.frames) do if f.__kind == "EditBox" and f.template == "InputBoxTemplate" and f.text == "0" then n = n + 1; if n == 2 then f:SetText("-2") end end end
+  local n = 0; for _, f in ipairs(MOCK.frames) do if f.__kind == "EditBox" and f.template == "InputBoxTemplate" and f.text == "0" then n = n + 1; if n == 4 then f:SetText("-2") end end end
   MOCK.click("Sim this change"); ${pump}; local r2 = WLX.lastResult; assert(r2.kind == "whatif" and r2.delta.hit == -2 and r2.diff < 0, "-2% hit loses: " .. tostring(r2.delta.hit) .. " " .. tostring(r2.diff))
-  WLX.db.options.fights = 10; return string.format("+10 SP: %+.1f DPS +- %.1f; -2%% hit: %+.1f DPS", r.diff, r.err, r2.diff)`);
+  MOCK.click("Clear"); n = 0; for _, f in ipairs(MOCK.frames) do if f.__kind == "EditBox" and f.template == "InputBoxTemplate" and f.text == "0" then n = n + 1; if n == 2 then f:SetText("20") end end end
+  MOCK.click("Sim this change"); ${pump}; local r3 = WLX.lastResult; assert(r3.kind == "whatif" and r3.delta.shadowSp == 20 and r3.delta.sp == 0 and r3.diff > 0, "+20 Shadow power gains: " .. tostring(r3.delta.shadowSp) .. " " .. tostring(r3.diff))
+  assert(MOCK.findLike("FontString", "What if %+20 Shadow power"), "Shadow power is shown")
+  MOCK.click("Clear"); n = 0; for _, f in ipairs(MOCK.frames) do if f.__kind == "EditBox" and f.template == "InputBoxTemplate" and f.text == "0" then n = n + 1; if n == 3 then f:SetText("20") end end end
+  MOCK.click("Sim this change"); ${pump}; local r4 = WLX.lastResult; assert(r4.kind == "whatif" and r4.delta.fireSp == 20 and r4.diff >= 0, "+20 Fire power: " .. tostring(r4.delta.fireSp) .. " " .. tostring(r4.diff))
+  MOCK.click("Clear")
+  WLX.db.options.fights = 10; return string.format("+10 SP: %+.1f DPS +- %.1f; -2%% hit: %+.1f DPS; +20 Shadow power: %+.1f; +20 Fire power: %+.1f", r.diff, r.err, r2.diff, r3.diff, r4.diff)`);
 step('item sim fights box; minimap button, its clicks, hiding it', `local box; for _, f in ipairs(MOCK.frames) do if f.__kind == "EditBox" and f.text == "150" then box = f end end; assert(box, "no item fights box")
   box:SetText("400"); box.scripts.OnEnterPressed(box); assert(WLX.db.options.itemFights == 400, "item fights: " .. tostring(WLX.db.options.itemFights)); box:SetText("5"); box.scripts.OnEnterPressed(box); assert(WLX.db.options.itemFights == 20, "at least 20"); WLX.db.options.itemFights = 150
   local b = WarlockSimMinimapButton; assert(b and b.shown, "no minimap button"); local was = WarlockSimFrame:IsShown()

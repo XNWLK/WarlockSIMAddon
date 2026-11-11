@@ -399,8 +399,8 @@ local function buildCharacterPage(p)
 end
 
 -- "What if": your character with a few stats more (or less), against your character as it is
-local WHATIF_BOXES = { { 'sp', 'Spell power' }, { 'hit', 'Hit %' }, { 'crit', 'Crit %' }, { 'haste', 'Haste %' }, { 'int', 'Intellect' }, { 'spi', 'Spirit' },
-                       { 'sta', 'Stamina' }, { 'pierce', 'Spell Pierce' }, { 'mp5', 'Mana per 5' } }
+local WHATIF_BOXES = { { 'sp', 'Spell power' }, { 'shadowSp', 'Shadow power' }, { 'fireSp', 'Fire power' }, { 'hit', 'Hit %' }, { 'crit', 'Crit %' },
+                       { 'haste', 'Haste %' }, { 'int', 'Intellect' }, { 'spi', 'Spirit' }, { 'sta', 'Stamina' }, { 'pierce', 'Spell Pierce' }, { 'mp5', 'Mana per 5' } }
 local WHATIF_QUICK = { { '+10 SP', 'sp', 10 }, { '+1% hit', 'hit', 1 }, { '+1% crit', 'crit', 1 }, { '+1% haste', 'haste', 1 }, { '+20 Int', 'int', 20 } }
 local function buildWhatIfPage(p)
   local change = {}
@@ -433,8 +433,8 @@ local function buildWhatIfPage(p)
     e:SetPoint('TOPLEFT', x + 76, y)
     boxes[i] = keep(e)
   end
-  local n = Text(p, 'GameFontDisableSmall', 'Hit, crit and haste are in percent. Intellect also adds crit, by the sim\'s rule. The number of fights is the one on the Fight tab.')
-  n:SetPoint('TOPLEFT', 0, -162); n:SetWidth(W - 2 * PAD)
+  local n = Text(p, 'GameFontDisableSmall', 'Shadow / Fire power: spell damage for that school only. Hit, crit and haste are in percent; Intellect also adds crit. Fights: as set on the Fight tab.')
+  n:SetPoint('TOPLEFT', 0, -186); n:SetWidth(W - 2 * PAD)
   p.go = Button(p, 'Sim this change', 130, simChange, 'Sims your character as it is and with the change above, and shows the difference in DPS and where it comes from.')
   p.go:SetPoint('BOTTOMRIGHT', 0, 0)
   local clear = Button(p, 'Clear', 80, function()
