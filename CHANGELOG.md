@@ -3,6 +3,11 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.13.1
+
+- Shadow Demo and Fire Demo take 2 points of Demonic Embrace (+6% Stamina) instead of Master Summoner, as on the
+  website. Still 2/31/18. Only Undead see a difference (Touch of the Grave grows with your health): about +0.07%.
+
 ## v0.13.0
 
 - Forever's Wrack patch of 2026-11-10:
