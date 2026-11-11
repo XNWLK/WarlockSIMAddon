@@ -3,6 +3,14 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.13.2
+
+- New talents in the two Demo builds, as on the website (both still 2/31/18):
+  - **Fire Demo:** Demonic Embrace 4, Demonic Energies 1, Demonic Brand 2.
+  - **Shadow Demo:** Demonic Embrace 3, Demonic Energies 1, Demonic Brand 3.
+- DPS barely moves: Fire Demo changes by less than 0.1% depending on race, and Shadow Demo is the same except a hair
+  more for Undead.
+
 ## v0.13.1
 
 - Shadow Demo and Fire Demo take 2 points of Demonic Embrace (+6% Stamina) instead of Master Summoner, as on the
