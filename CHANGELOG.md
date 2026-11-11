@@ -3,6 +3,16 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.13.3
+
+- From the official notes of Forever's patch of 2026-11-10:
+  - Wrack deals 60 + 20% of your spell power per tick (was 60.2).
+  - Bane of Havoc now takes a global cooldown. With 2 or more targets it is cast at the pull, and your first spell
+    comes one global cooldown later. Incinerate builds lose about 1% against 2 or 3 targets; one target is unchanged.
+- Amplify Curse stays up when its Bane of Agony misses: the next Bane of Agony still gets the bonus.
+- Wrack DS casts Corruption before Bane of Agony, and uses a Nightfall proc only once it has 8 seconds or less left,
+  so it does not cut a Wrack short at once. About +0.5%.
+
 ## v0.13.2
 
 - New talents in the two Demo builds, as on the website (both still 2/31/18):

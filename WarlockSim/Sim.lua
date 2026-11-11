@@ -154,7 +154,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     busyUntil = 0, gcdReady = 0, lastRegen = 0,
     lastSpend = -huge, spendAt = nil, innervateUntil = 0,
     wrackRate = 1, wrackOn = false, wrackTime = 0, wrackOnAt = 0, wrackCarry = nil,
-    cds = cds, dots = dots, buffs = buffs, channel = nil,
+    cds = cds, dots = dots, buffs = buffs, channel = nil, ampUp = false,
     targetHpPct = 100,
   }
   local inst, decideToken = 0, 0
@@ -910,6 +910,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local r = row(rk)
     if Rhit() * 100 >= stats.hitPct and not CHH[key] then r.misses = r.misses + 1; return false end
     r.landed = r.landed + 1
+    if key == 'baneOfAgony' then S.ampUp = false end    -- Amplify Curse spent on a landed Bane
     if s.kind == 'utility' then
       if key == 'curseOfElements' then xdeb[ti].coe = S.t + s.duration end
       return true
@@ -998,6 +999,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local s, e, r = SPELLS[key], tbl[key], bySpell[key] or row(key)
     if Rhit() * 100 >= stats.hitPct and not CHH[key] then r.misses = r.misses + 1; return false end
     r.landed = r.landed + 1
+    if key == 'baneOfAgony' then S.ampUp = false end    -- Amplify Curse spent on a landed Bane
     if s.kind == 'utility' then
       if key == 'curseOfElements' then buffs.coe = S.t + s.duration end
       jowProc(false)
@@ -1127,8 +1129,13 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     end
     -- Amplify Curse: off the GCD, next Bane of Agony +50% (its final tick value after all calculations x 1.5); 3 min cooldown.
     local castMult = 1
-    if key == 'baneOfAgony' and tv('amplifyCurse') ~= 0 and ready('amplifyCurse') and slotGate('amplifyCurse') ~= 0 then
-      castMult = 1 + tv('amplifyCurse', 'boaPct') / 100; cds.amplifyCurse = S.t + 180; slotUsed('amplifyCurse')
+    -- Using it starts the 3 min cooldown; the bonus stays up (S.ampUp) until a Bane of Agony LANDS (land / landExtra clear
+    -- it), so a missed Bane passes it to the next (Xn checked it in the game).
+    if key == 'baneOfAgony' and tv('amplifyCurse') ~= 0 then
+      if not S.ampUp and ready('amplifyCurse') and slotGate('amplifyCurse') ~= 0 then
+        S.ampUp = true; cds.amplifyCurse = S.t + 180; slotUsed('amplifyCurse')
+      end
+      if S.ampUp then castMult = 1 + tv('amplifyCurse', 'boaPct') / 100 end
     end
     if s.shards and not (key == 'soulFire' and buff('decimation')) then S.shards = S.shards - s.shards end
     if key == 'soulFire' and buff('decimation') then buffs.decimation = nil end
@@ -1431,7 +1438,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local fRate = f and expCast(f, 0, key == 'immolate') / (occupies(f) + LAT) or 0
     local cost = (occupies(key) + LAT) * fRate
     local finish, g, value = min(dur, tL + s.duration), gcd(), 0
-    local castMult = (key == 'baneOfAgony' and tv('amplifyCurse') ~= 0 and ready('amplifyCurse') and slotGate('amplifyCurse') ~= 0) and 1 + tv('amplifyCurse', 'boaPct') / 100 or 1
+    local castMult = (key == 'baneOfAgony' and tv('amplifyCurse') ~= 0 and (S.ampUp or (ready('amplifyCurse') and slotGate('amplifyCurse') ~= 0))) and 1 + tv('amplifyCurse', 'boaPct') / 100 or 1
     local tickAmt = (s.tickBase + s.tickCoef * spNow(e)) * castMult * e.periodicMult * lmult(key, ti, true) * expVuln(s.school, ti) * expCrit(e.critPct, e.critMult)
     -- Wrack as the filler (patch of 2026-11-10): this DoT ticks faster. Its tick times: the normal pace until Wrack can start
     -- after this cast, then faster by Wrack's share of the fight so far (80% until 20 s have passed).
@@ -1568,10 +1575,13 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
 
   local function decide()
     if S.t >= dur - EPS then return end
-    if HAV ~= 0 and not buff('havoc') then
+    if HAV ~= 0 and not buff('havoc') then                 -- 2 targets: Bane of Havoc on the second one
+      -- Patch of 2026-11-10: it takes a global cooldown (before: off the GCD, the in-game bug the patch fixed).
+      local hg = gcd()
       S.mana = S.mana - tbl.baneOfHavoc.cost; buffs.havoc = S.t + SPELLS.baneOfHavoc.duration
       if tbl.baneOfHavoc.cost > 0 then S.lastSpend = S.t end
-      local r = row('baneOfHavoc'); r.casts = r.casts + 1
+      local r = row('baneOfHavoc'); r.casts = r.casts + 1; r.castTime = r.castTime + hg
+      S.busyUntil = S.t; S.gcdReady = S.t + hg; scheduleDecide(S.gcdReady); return
     end
     manaBuffCheck()
     useManaItems()

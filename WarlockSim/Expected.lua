@@ -9,6 +9,6 @@ WL.EXPECTED = { fights = {
   { build = "destro_incin_succ", race = "troll", i = 1, total = 127428.3286512945 },
   { build = "destro_incin_ds", race = "undead", i = 0, total = 122585.83807669971 },
   { build = "destro_incin_ds", race = "human", i = 1, total = 118643.90309529977 },
-  { build = "wrack_ds", race = "troll", i = 0, total = 122898.17214407354 },
-  { build = "wrack_ds", race = "gnome", i = 1, total = 123169.90850508645 },
+  { build = "wrack_ds", race = "troll", i = 0, total = 120287.39455560531 },
+  { build = "wrack_ds", race = "gnome", i = 1, total = 128141.91960423574 },
 } }
