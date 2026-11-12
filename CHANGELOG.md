@@ -10,6 +10,9 @@ What changed in each version, newest first. Download a version from the
   Bane of Agony's extra ticks grow with the time since it was cast, like its normal ones. Stopping Wrack changes
   nothing else, and a DoT that runs out leaves no smaller last tick. A half-way point gives its extra tick once, even
   when Wrack is cast again at that moment.
+- Wrack cast while Wrack is channelling replaces it, like recasting any drain: the new Wrack runs its own 6 ticks and
+  the ticks the old one had left are lost (before, they were added to the new one). If the new Wrack is resisted, the
+  old one is lost too. The DoTs' extra ticks go on across the recast. The built-in builds never do this.
 
 ## v0.13.5
 

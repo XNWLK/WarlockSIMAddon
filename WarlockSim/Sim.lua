@@ -153,7 +153,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     mana = stats.maxMana, health = stats.maxHealth, shards = huge,
     busyUntil = 0, gcdReady = 0, lastRegen = 0,
     lastSpend = -huge, spendAt = nil, innervateUntil = 0,
-    wrackRate = 1, wrackOn = false, wrackTime = 0, wrackOnAt = 0, wrackCarry = nil,
+    wrackRate = 1, wrackOn = false, wrackTime = 0, wrackOnAt = 0,
     cds = cds, dots = dots, buffs = buffs, channel = nil, ampUp = false,
     targetHpPct = 100,
   }
@@ -1139,12 +1139,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     S.cast = nil
     if s.kind == 'channel' then
       local r = row(key)
-      -- Wrack recast on a running Wrack (patch of 2026-11-10): the ticks the old one had left carry over (a whole number of them).
-      local wc = S.wrackCarry
-      local carry = (key == 'wrack' and wc and math.abs(wc.t - S.t) < EPS) and wc.left or 0
-      S.wrackCarry = nil
       if not s.aoe and Rhit() * 100 >= stats.hitPct and not CHH[key] then
-        if carry ~= 0 then res.clipped = res.clipped + 1; r.castTime = r.castTime - carry end   -- the recast missed: the old Wrack is gone
         r.misses = r.misses + 1
         if fromTL then TL.turn = true end
         S.busyUntil = S.t; S.gcdReady = S.t + gcdT; scheduleDecide(S.gcdReady)
@@ -1155,12 +1150,11 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       jowProc(false)
       inst = inst + 1
       local id = inst
-      local nCh = e.ticks + (carry ~= 0 and floor(carry / s.tickEvery + 1e-6) or 0)
-      local chDur = carry ~= 0 and nCh * s.tickEvery or s.duration
+      local nCh, chDur = e.ticks, s.duration
       S.channel = { key = key, inst = id, snap = makeSnap(), start = S.t, finish = S.t + chDur, ticks = nCh, tl = fromTL and true or false, idx = actIdx }
       for i = 1, nCh do push({ t = S.t + i * s.tickEvery, o = 0, type = 'chanTick', key = key, inst = id, i = i - 1 }) end
       S.busyUntil = S.t + chDur; S.gcdReady = S.t + gcdT
-      r.castTime = r.castTime + (chDur - carry)                -- the carried part was counted with the old cast
+      r.castTime = r.castTime + chDur
       scheduleDecide(S.busyUntil)
     elseif castT > EPS then
       S.busyUntil = S.t + castT; S.gcdReady = S.t + gcdT
@@ -1617,11 +1611,8 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if S.t >= S.gcdReady - EPS and not c.tl then
       local idx = c.idx ~= nil and c.idx or indexOf(ROT, ev.key)
       local higher = pickAction(idx or (#ROT + 1))
-      if higher == 'wrack' and ev.key == 'wrack' then        -- Wrack on Wrack (patch of 2026-11-10): nothing is clipped,
-        S.wrackCarry = { t = S.t, left = c.finish - S.t }     -- the new Wrack takes over the ticks this one has left
-        S.channel = nil; S.busyUntil = S.t
-        scheduleDecide(S.t)
-      elseif higher then
+      -- Wrack cast over a running Wrack is clipped like any channel: the new one runs its own ticks (sim v176).
+      if higher then
         S.channel = nil; res.clipped = res.clipped + 1
         local r = row(ev.key); r.castTime = r.castTime - (c.finish - S.t)
         S.busyUntil = S.t
