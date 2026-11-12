@@ -223,7 +223,7 @@ function H.dotWorth(C, P, S, key)
     end
   end
   f = f or (C.tbl.shadowBolt and 'shadowBolt')
-  -- Wrack as the filler: this DoT ticks faster while Wrack channels (same duration). As the sim guesses before it has seen
+  -- Wrack as the filler: this DoT ticks more often while Wrack channels (same duration). As the sim guesses before it has seen
   -- 20 s of the fight: Wrack channels 80% of the time, so the ticks come 1 + 80% of the speed-up as often.
   local step = s.tickEvery
   if f == 'wrack' and WL.WRACK_SPEED_SET[key] then step = s.tickEvery / (1 + ((C.SPELLS.wrack.dotSpeedPct or 0) / 100) * 0.8) end
@@ -234,9 +234,6 @@ function H.dotWorth(C, P, S, key)
     n = n + 1
     local ri = math.min(e.ticks, math.max(1, math.ceil(at / s.tickEvery - 1e-6)))   -- the ramp by time since the cast
     ticks = ticks + (s.ramp and s.ramp[ri] or 1)
-  end
-  if step < s.tickEvery and castT + s.duration <= rem + EPS then   -- the smaller last tick when it ends between two ticks
-    ticks = ticks + (s.ramp and s.ramp[e.ticks] or 1) * math.min(1, (s.duration - n * step) / step)
   end
   local value = ticks * e.tickDmg + (s.kind == 'hybrid' and (e.directDmg or 0) or 0)
   local fe = f and C.tbl[f]

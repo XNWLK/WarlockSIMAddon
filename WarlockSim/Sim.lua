@@ -103,8 +103,8 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- ---------- tiny binary heap ----------
   local HA, HN, HSEQ = {}, 0, 0
   local function push(ev)
-    local seq = ev.seqAt                                   -- seqAt: a place in the order kept for it (Wrack's sped-up DoT ticks)
-    if seq == nil then seq = HSEQ; HSEQ = seq + 1 end
+    local seq = HSEQ
+    HSEQ = seq + 1
     ev.seq = seq
     local i = HN + 1
     HN = i
@@ -176,12 +176,14 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- Keys: spell keys, 'pet:firebolt', 'pet:lashOfPain', 'pet:melee'.
   local CH = (cfg.options and cfg.options.cheat) or {}
   local CHH, CHC = type(CH.hit) == 'table' and CH.hit or {}, type(CH.crit) == 'table' and CH.crit or {}
-  -- Wrack (patch of 2026-11-10): while you channel it, the DoTs in dotSpeedSpells tick dotSpeedPct faster on the boss; their
-  -- duration stays, and a sped-up DoT that ends between two ticks deals the part of a tick it has built up.
-  -- (The sim's measuring options wrackMode / wrackLastTick are not carried over: the website never sets them.)
-  local WK = { gain = 1 + ((SPELLS.wrack and SPELLS.wrack.dotSpeedPct) or 0) / 100, fast = {}, any = false }
-  if tbl.wrack and SPELLS.wrack.dotSpeedSpells then
-    for _, k in ipairs(SPELLS.wrack.dotSpeedSpells) do WK.fast[k] = true; WK.any = true end
+  -- Wrack (patch of 2026-11-10): while you channel it, the DoTs in dotSpeedSpells tick dotSpeedPct faster on the boss without
+  -- getting shorter. The sim's default model (wrackMode 'halfway'): each DoT keeps its normal ticks and gets one extra tick
+  -- at every half-way point between two of its normal ticks that falls inside a Wrack channel; nothing is left over when
+  -- it ends. (The sim's other models, internal options the website never sets, are not carried over.)
+  -- WK.ord: the order the DoTs came into the dot list (the sim walks it in that order when Wrack starts or stops).
+  local WK = { gain = 1 + ((SPELLS.wrack and SPELLS.wrack.dotSpeedPct) or 0) / 100, xs = {}, any = false, ord = 0 }
+  if WK.gain > 1 and tbl.wrack and SPELLS.wrack.dotSpeedSpells then
+    for _, k in ipairs(SPELLS.wrack.dotSpeedSpells) do WK.xs[k] = true; WK.any = true end
   end
 
   -- ---------- helpers exposed to rotation conditions ----------
@@ -843,17 +845,14 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     scheduleDecide(max(S.busyUntil, S.gcdReady))
   end
 
-  -- A DoT Wrack speeds up: d.prog = seconds of its normal tick timer built up since its last tick, growing at d.rate
-  -- (2 while you channel Wrack, else 1) since d.at. The next tick comes when it reaches tickEvery, while the DoT lasts.
-  local function nextFastTick(key, d)
-    local s = SPELLS[key]
-    local t = S.t + max(0, s.tickEvery - d.prog) / d.rate
-    local sq = d.seq0 + min(d.n, d.ticks - 1)
-    if t <= d.expires + 1e-6 then
-      push({ t = min(t, d.expires), o = 0, type = 'dotTick', key = key, inst = d.inst, gen = d.gen, fast = 1, seqAt = sq }); return
-    end
-    local frac = (d.prog + (d.expires - S.t) * d.rate) / s.tickEvery
-    if frac > 1e-6 then push({ t = d.expires, o = 0, type = 'dotTick', key = key, inst = d.inst, gen = d.gen, fast = 1, seqAt = sq, frac = min(1, frac) }) end
+  -- The next extra tick of DoT d while Wrack channels: the next half-way point between two of its normal ticks (strict:
+  -- right after one came), while the DoT lasts. d.xg = its generation (a new one each time Wrack starts or stops).
+  -- d.xLast = when its last extra tick came: a point that already ticked (Wrack started again at that moment) ticks once.
+  local function xSched(key, d, strict)
+    local te = SPELLS[key].tickEvery
+    local t = d.applied + (math.ceil((S.t - d.applied) / te - 0.5 + (strict and 1e-6 or -1e-6)) + 0.5) * te
+    if d.xLast ~= nil and t <= d.xLast + 1e-6 then t = t + te end
+    if t < d.expires - 1e-6 then push({ t = t, o = 0, type = 'wrackX', key = key, inst = d.inst, gen = d.xg }) end
   end
 
   local function applyDot(key, snap)
@@ -861,12 +860,13 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     inst = inst + 1
     local id = inst
     if s.bane then dots.baneOfAgony = nil; dots.baneOfDoom = nil end
+    local prev = dots[key]
     local d = { inst = id, applied = S.t, expires = S.t + s.duration, tick = 0, ticks = e.ticks, snap = snap }
     dots[key] = d
-    if WK.fast[key] then                                   -- Wrack can speed it up: one tick at a time
-      d.fast = true; d.prog = 0; d.at = S.t; d.rate = (S.channel and S.channel.key == 'wrack') and WK.gain or 1; d.gen = 0; d.n = 0
-      d.seq0 = HSEQ; HSEQ = HSEQ + e.ticks                 -- its ticks keep the places in the order the fixed schedule gives them
-      nextFastTick(key, d); return
+    if WK.xs[key] then                                     -- extra ticks under Wrack
+      if prev then d.ord = prev.ord else WK.ord = WK.ord + 1; d.ord = WK.ord end   -- a refresh keeps its place in the list
+      d.xg = 0
+      if S.wrackOn then xSched(key, d, false) end
     end
     for i = 1, e.ticks do push({ t = S.t + i * s.tickEvery, o = 0, type = 'dotTick', key = key, inst = id, i = i - 1 }) end
   end
@@ -936,11 +936,10 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- castMult multiplies every tick of this cast as a whole (Amplify Curse).
   makeSnap = function(castMult) return { castMult = castMult or 1 } end
 
-  local function periodicTick(key, snap, i, frac)        -- frac: part of a tick (a sped-up DoT that ends between two ticks)
+  local function periodicTick(key, snap, i)
     local s, e = SPELLS[key], tbl[key]
     local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * liveMult(key, true) * (snap.castMult or 1)
     if s.ramp then amt = amt * s.ramp[i + 1] end
-    if frac then amt = amt * frac end
     amt = amt * vulnMult(s.school)
     local cx = Rcrit() * 100
     local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
@@ -949,28 +948,20 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     nightfallRoll(key)
   end
 
-  local function fastTick(key, d, frac)
-    local s = SPELLS[key]
-    local n = d.n
-    d.n = n + 1
-    -- Bane of Agony's ramp follows the time since it was cast: a tick in the 3rd normal 2-second slot uses ramp[2].
-    local ri = s.ramp and min(#s.ramp - 1, max(0, math.ceil((S.t - d.applied) / s.tickEvery - 1e-6) - 1)) or n
-    periodicTick(key, d.snap, ri, frac)
-    d.prog = 0; d.at = S.t
-    if frac == nil then nextFastTick(key, d) end
-  end
-  -- Wrack started or stopped: bring every sped-up DoT's timer up to now and re-time its next tick.
+  -- Wrack started or stopped: every DoT it speeds up drops its queued extra tick and, when Wrack starts, queues the next
+  -- one. In the order the DoTs came into the list (as the sim does), so two extra ticks at the same moment come in its order.
   local function syncWrack()
     local on = S.channel ~= nil and S.channel.key == 'wrack'
     if on == S.wrackOn then return end
     if S.wrackOn then S.wrackTime = S.wrackTime + (S.t - S.wrackOnAt) else S.wrackOnAt = S.t end
-    local r = on and WK.gain or 1
-    S.wrackOn = on; S.wrackRate = r
-    for k, d in pairs(dots) do
-      if d.fast and d.expires > S.t + EPS then
-        d.prog = d.prog + (S.t - d.at) * d.rate; d.at = S.t
-        if r ~= d.rate then d.rate = r; d.gen = d.gen + 1; nextFastTick(k, d) end
-      end
+    S.wrackOn = on; S.wrackRate = on and WK.gain or 1
+    local list = {}
+    for k, d in pairs(dots) do if d.xg then list[#list + 1] = d; d.xkey = k end end
+    if #list > 1 then table.sort(list, function(a, b) return a.ord < b.ord end) end
+    for i = 1, #list do
+      local d = list[i]
+      d.xg = d.xg + 1
+      if on then xSched(d.xkey, d, false) end
     end
   end
 
@@ -1442,7 +1433,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local tickAmt = (s.tickBase + s.tickCoef * spNow(e)) * castMult * e.periodicMult * lmult(key, ti, true) * expVuln(s.school, ti) * expCrit(e.critPct, e.critMult)
     -- Wrack as the filler (patch of 2026-11-10): this DoT ticks faster. Its tick times: the normal pace until Wrack can start
     -- after this cast, then faster by Wrack's share of the fight so far (80% until 20 s have passed).
-    local times, lastPart = nil, 0                         -- lastPart: the smaller last tick (share of a tick)
+    local times = nil
     if f == 'wrack' and ti <= 1 and tv('wrack') ~= 0 and WRACK_SET[key] then
       times = {}
       local wOn = S.wrackTime + (S.wrackOn and S.t - S.wrackOnAt or 0)
@@ -1452,10 +1443,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       while true do
         local nt = tc < tW - EPS and min(tc + s.tickEvery, tW) or tc
         if nt < tc + s.tickEvery - EPS then nt = nt + (s.tickEvery - (nt - tc)) / wg end   -- part of the way at the normal pace, the rest faster
-        if nt > tEnd + 1e-6 then
-          lastPart = min(1, (max(0, min(tW, tEnd) - tc) + max(0, tEnd - max(tW, tc)) * wg) / s.tickEvery)
-          break
-        end
+        if nt > tEnd + 1e-6 then break end
         times[#times + 1] = nt; tc = nt
       end
     end
@@ -1477,7 +1465,6 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       local ri = min(e.ticks - 1, max(0, math.ceil((tt - tL) / s.tickEvery - 1e-6) - 1))   -- the ramp by time since the cast
       ticks = ticks + tickAmt * (s.ramp and s.ramp[ri + 1] or 1) * (tt > tConf + EPS and keep or 1)
     end
-    if lastPart > 1e-6 and nTicks == nTimes and tL + s.duration <= dur + EPS then ticks = ticks + tickAmt * (s.ramp and s.ramp[e.ticks] or 1) * lastPart end
     value = value + hit * ticks
     if s.kind == 'hybrid' then value = value + expCast(key, ti) end
     local up = max(0, finish - (S.t + occupies(key)))
@@ -1686,12 +1673,18 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     elseif ty == 'dotTick' then
       local d = dots[ev.key]
       if d and d.inst == ev.inst then                      -- else: refreshed or consumed
-        if ev.fast then                                    -- re-timed by Wrack: only the newest copy counts
-          if ev.gen == d.gen then fastTick(ev.key, d, ev.frac) end
-        else
-          periodicTick(ev.key, d.snap, ev.i)
-          if ev.i == d.ticks - 1 then dots[ev.key] = nil end
-        end
+        periodicTick(ev.key, d.snap, ev.i)
+        if ev.i == d.ticks - 1 then dots[ev.key] = nil end
+      end
+    elseif ty == 'wrackX' then                             -- an extra DoT tick under Wrack
+      local d = dots[ev.key]
+      if d and d.inst == ev.inst and ev.gen == d.xg and S.wrackOn then
+        local s = SPELLS[ev.key]
+        -- Bane of Agony: the ramp of the 2-second slot it falls in
+        local ri = s.ramp and min(#s.ramp - 1, max(0, math.ceil((S.t - d.applied) / s.tickEvery - 1e-6) - 1)) or 0
+        periodicTick(ev.key, d.snap, ri)
+        d.xLast = S.t
+        xSched(ev.key, d, true)
       end
     elseif ty == 'castEnd' then
       if not ev.dead then                                  -- pushed back: a later copy of this event lands it

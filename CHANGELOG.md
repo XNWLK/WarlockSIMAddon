@@ -3,6 +3,14 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.14.0
+
+- Wrack follows the Warlock SIM's new model: while you channel Wrack, Corruption, Bane of Agony and Siphon Life keep
+  their normal ticks and get one extra tick at every half-way point between two of them that falls inside the channel.
+  Bane of Agony's extra ticks grow with the time since it was cast, like its normal ones. Stopping Wrack changes
+  nothing else, and a DoT that runs out leaves no smaller last tick. A half-way point gives its extra tick once, even
+  when Wrack is cast again at that moment.
+
 ## v0.13.5
 
 - Simming an item now ignores the enchant on the item you would take off: both sides (as you are, and with the new
