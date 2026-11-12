@@ -37,6 +37,10 @@ local st, unknown = WL.itemStats(nil, { 'Robe of Tests', 'Cloth', '+20 Stamina',
   'Use: Does something odd. (2 Min Cooldown)', 'Equip: Increases your pet\\'s happiness.', '"A flavour text."' }, S, pct)
 if ${haveRef ? 'true' : 'false'} then check('classic wording', st, { sta = 20, sp = 40, hit = 1, crit = 2, mp5 = 6, shadowSp = 19, spellPen = 10 })
 else check('classic wording', st, { sp = 40, hit = 1, crit = 2, mp5 = 6, shadowSp = 19, spellPen = 10 }) end
+-- the plain wording without "with spells" (an Emberfury Talisman): counted, and not listed as not understood
+local st2, unknown2 = WL.itemStats({ ITEM_MOD_CRIT_RATING_SHORT = 14 }, { 'Equip: Improves your chance to get a critical strike by 1%.', 'Equip: Improves your chance to hit by 2%.' }, S, pct)
+check('plain crit and hit wording', st2, { crit = 1, hit = 2 })
+n = n + 1; if #unknown2 ~= 0 then bad[#bad + 1] = 'plain wording not understood: ' .. table.concat(unknown2, ' | ') end
 -- by the words: "Spell Penetration" is Spell Penetration, "spell piercing" (the client's ITEM_MOD_SPELL_PENETRATION) Spell Pierce
 check('spell penetration wording', (WL.itemStats(nil, { '+13 Spell Penetration', 'Equip: Increases your spell penetration by 7.' }, S, pct)), { spellPen = 20 })
 n = n + 1; if #unknown ~= 2 then bad[#bad + 1] = 'lines not understood: ' .. #unknown .. ' (' .. table.concat(unknown, ' | ') .. ')' end

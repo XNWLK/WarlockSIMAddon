@@ -3,6 +3,13 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.14.1
+
+- Item sims: an "Equip: Improves your chance to get a critical strike by 1%." line (no "with spells", e.g. Emberfury
+  Talisman) was counted but also listed as "Not counted". Crit that names no type counts for spells and attacks, so it
+  is now read as spell crit and no longer listed; the same for "Improves your chance to hit by X%.". Crit or hit that
+  names attacks only still does nothing for your spells.
+
 ## v0.14.0
 
 - Wrack follows the Warlock SIM's new model: while you channel Wrack, Corruption, Bane of Agony and Siphon Life keep

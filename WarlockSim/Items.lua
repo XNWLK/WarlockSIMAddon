@@ -27,6 +27,9 @@ local CLASSIC_LINES = {
   { 'fireSp', 'Increases damage done by Fire spells and effects by up to (%d+)' },
   { 'hit', 'Improves your chance to hit with spells by (%d+)%%', pct = true },
   { 'crit', 'Improves your chance to get a critical strike with spells by (%d+)%%', pct = true },
+  -- the plain wording (no "with spells"): Forever's crit and hit ratings count for spells too, as on the website
+  { 'hit', 'Improves your chance to hit by (%d+)%%', pct = true },
+  { 'crit', 'Improves your chance to get a critical strike by (%d+)%%', pct = true },
   { 'mp5', 'Restores (%d+) mana per 5 sec' },
   { 'spellPen', 'Decreases the magical resistances of your spell targets by (%d+)' },
   { 'spellPen', '[Ss]pell [Pp]enetration by (%d+)' }, { 'spellPen', '^%+(%d+) [Ss]pell [Pp]enetration' }, { 'spellPen', '[Ss]pell [Pp]enetration %+(%d+)' },
