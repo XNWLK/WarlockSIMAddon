@@ -3,6 +3,12 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.13.5
+
+- Simming an item now ignores the enchant on the item you would take off: both sides (as you are, and with the new
+  item) are simmed without it, so the two items are compared as they are. The result says which enchant was ignored,
+  e.g. "Enchant ignored: Revelation on Witchblade". An enchant text the addon cannot read is named and still counted.
+
 ## v0.13.4
 
 - The What if tab has two more boxes: **Shadow power** and **Fire power** (spell damage for that school only, like

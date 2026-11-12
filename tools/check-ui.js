@@ -80,6 +80,9 @@ step('item link window: a ring against both rings', `MOCK.refItem = 1001; ItemRe
   assert(t:find("Instead of Old Band", 1, true) and t:find("Instead of Plain Loop", 1, true), "both rings: " .. t)
   assert(t:find("Change: +8 spell power, +1% hit, +10 Intellect, -8 Stamina", 1, true), "difference to Old Band: " .. t)
   assert(t:find("Change: +20 spell power, +1% hit, +10 Intellect, -3 Spirit", 1, true), "difference to Plain Loop: " .. t)
+  assert(t:find("Enchant ignored: +30 Spell Power on Old Band. Both sides are simmed without it.", 1, true), "Old Band's enchant is left out and named: " .. t)
+  local _, ignored = t:gsub("Enchant ignored", ""); assert(ignored == 1, "Plain Loop has no enchant: " .. t)
+  assert(t:find("DPS as you are. ", 1, true), "Plain Loop's side is as you are: " .. t)
   assert(WLX.db.lastItem.against[2].unknown[1]:find("Summons a cat") and t:find("Not counted on Plain Loop: Use: Summons a cat", 1, true), "the Use line is noted as not counted: " .. t)
   return (t:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("%c", " / "))`);
 step('item link window: second click reuses the run as you are', `MOCK.refItem = 1003; ${frames}; MOCK.click("Sim this item"); local _, total = WLX.jobProgress(); assert(total == 150, "fights planned: " .. tostring(total)); ${pump}; ${frames}
@@ -87,6 +90,7 @@ step('item link window: second click reuses the run as you are', `MOCK.refItem =
 step('item link window: two-hand weapon, off-hand, worn item, not wearable, switched off', `MOCK.refItem = 1004; ${frames}; MOCK.click("Sim this item"); ${pump}; ${frames}
   assert(WarlockSimItemPanel.text.text:find("Instead of Short Blade and Orb", 1, true), WarlockSimItemPanel.text.text)
   assert(WarlockSimItemPanel.text.text:find("+15 spell power, +1% crit", 1, true), WarlockSimItemPanel.text.text)
+  assert(WarlockSimItemPanel.text.text:find("Enchant ignored: +8 Intellect on Orb.", 1, true) and WarlockSimItemPanel.text.text:find("as you are (without the enchant)", 1, true), "the Orb's enchant: " .. WarlockSimItemPanel.text.text)
   MOCK.equipped[16] = 1004; MOCK.equipped[17] = nil; MOCK.refItem = 1006; ${frames}; MOCK.click("Sim this item"); assert(not WLX.jobRunning()); assert(WarlockSimItemPanel.text.text:find("two-hand weapon", 1, true))
   MOCK.refItem = 1004; ${frames}; MOCK.click("Sim this item"); assert(WLX.jobRunning(), "a worn item is simmed against an empty slot"); ${pump}; ${frames}
   assert(WarlockSimItemPanel.text.text:find("You are wearing this. It is worth", 1, true) and WarlockSimItemPanel.text.text:find("It gives: 60 spell power, 1% crit", 1, true), WarlockSimItemPanel.text.text)
@@ -100,6 +104,7 @@ step('Shift+right-click an item in a bag: the panel opens at the mouse and the s
 step('Shift+right-click a slot of the character sheet: what the worn item is worth', `MOCK.keys = { shift = true }; MOCK.button = "RightButton"; PaperDollItemSlotButton_OnModifiedClick(MOCK.slot(11), "RightButton"); MOCK.keys = {}
   assert(WLX.jobRunning(), "no sim: the game ends this click before its general item handler, the slot hook must catch it"); ${pump}; ${frames}
   assert(WarlockSimItemPanel.text.text:find("You are wearing this. It is worth", 1, true) and WarlockSimItemPanel.text.text:find("It gives: 12 spell power, 8 Stamina", 1, true), WarlockSimItemPanel.text.text)
+  assert(WarlockSimItemPanel.text.text:find("Enchant ignored: +30 Spell Power on Old Band.", 1, true), "a worn item's own enchant: " .. WarlockSimItemPanel.text.text)
   local worth = tonumber((WarlockSimItemPanel.text.text:gsub("|c%x%x%x%x%x%x%x%x", ""):match("worth:%c([%d%.]+) DPS"))); assert(worth and worth > 0, "worth is a positive number: " .. WarlockSimItemPanel.text.text); return worth .. " DPS"`);
 step('other clicks are left alone', `WarlockSimItemPanel:Hide(); MOCK.button = "RightButton"; local bag = MOCK.bagLocation()
   MOCK.keys = { alt = true, shift = true }; HandleModifiedItemClick(MOCK.link(1001), bag); assert(not WarlockSimItemPanel:IsShown() and not WLX.jobRunning(), "Shift+Alt+right")
@@ -283,9 +288,19 @@ step('a worn trinket and main-hand enchant with an effect count in the fight, an
   local dps = tonumber(t:match('|cff40ff40%+?([%-%d%.]+) DPS'))
   assert(dps and dps > 5, 'the trinket is worth its use effect: ' .. t); assert(not t:find('Not counted on Talisman', 1, true), 'its effect is counted: ' .. t)
   assert(not t:find('175 spell power', 1, true), 'its Use: line is no stat: ' .. t)
+  assert(not t:find('Enchant ignored', 1, true), 'a trinket takes no enchant off: ' .. t)
+  local plainBase = tonumber((t:gsub('|c%x%x%x%x%x%x%x%x', ''):match('([%d%.]+) DPS as you are%. ')))
+  -- a new main hand against the worn one with Revelation: the enchant's effect is left out of both sides
+  MOCK.items[1010] = { name = 'Other Blade', loc = 'INVTYPE_WEAPONMAINHAND', class = 2, sub = 7, api = { ITEM_MOD_SPELL_POWER_SHORT = 30 }, lines = { 'Other Blade' } }
+  MOCK.refItem = 1010; ${frames}; MOCK.click('Sim this item'); ${pump}; ${frames}
+  local t2 = WarlockSimItemPanel.text.text
+  assert(t2:find('Enchant ignored: Revelation on Short Blade.', 1, true), 'Revelation named: ' .. t2)
+  local noEnch = tonumber((t2:gsub('|c%x%x%x%x%x%x%x%x', ''):match('([%d%.]+) DPS as you are %(without the enchant%)')))
+  assert(plainBase and noEnch and noEnch < plainBase, 'without Revelation the run as you are is lower: ' .. tostring(plainBase) .. ' / ' .. tostring(noEnch))
+  assert(t2:find('about the same', 1, true), 'the same stats, the enchant on neither side: ' .. t2)
   ItemRefTooltip.shown = false; MOCK.refItem = nil; ${frames}; MOCK.equipped[13] = nil; MOCK.items[1005].ench = nil; WLX.doReadCharacter(); ${pump}
   assert(WLX.characterConfig().gearBuilder == nil, 'gone again')
-  return 'a second Talisman of Ephemeral Power in the empty trinket slot: +' .. dps .. ' DPS'`);
+  return 'a second Talisman of Ephemeral Power in the empty trinket slot: +' .. dps .. ' DPS; as you are ' .. plainBase .. ', without Revelation ' .. noEnch`);
 step('/wsim test', 'SlashCmdList.WARLOCKSIM("test"); local t = WLX.db.selfTest; assert(t and t.ok, "self-test failed: " .. table.concat(t and t.lines or {}, " | ")); return t.fights .. " fights match"');
 step('/wsim dump, read, help, close', 'SlashCmdList.WARLOCKSIM("dump"); assert(WLX.db.dump.character.raw.nodeCount == #WLX.TALENTS); SlashCmdList.WARLOCKSIM("read"); SlashCmdList.WARLOCKSIM("help"); SlashCmdList.WARLOCKSIM(""); assert(not WarlockSimFrame:IsShown()); MOCK.fire("PLAYER_LOGOUT"); assert(WLX.db.settings.v == 1)');
 step('a second session starts from the saved settings', 'local saved = WarlockSimDB; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db == saved and WLX.cfg.fight.duration == 180)');

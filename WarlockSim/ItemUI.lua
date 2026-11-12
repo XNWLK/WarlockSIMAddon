@@ -170,13 +170,15 @@ end
 -- An item you wear against an empty slot: what it is worth.
 local function worth(item)
   local main = try(GetInventoryItemLink, 'player', 16)
-  local slot                                               -- the slot it is in (for trinket and weapon effects)
+  local slot, wornLink                                     -- the slot it is in (for trinket and weapon effects), the worn copy's link
   local list = WL.ITEM_SLOTS[item.equipLoc or ''] or {}
   for i = 1, #list do
     local l = try(GetInventoryItemLink, 'player', list[i])
-    if not slot and type(l) == 'string' and itemID(l) == itemID(item.link) then slot = list[i] end
+    if not slot and type(l) == 'string' and itemID(l) == itemID(item.link) then slot, wornLink = list[i], l end
   end
-  return { { worth = true, label = item.name, olds = { item.stats }, items = {}, slot = slot, mainHand = type(main) == 'string' and itemID(main) == itemID(item.link) } }
+  -- its enchant is read from the copy you wear (a link from chat may have none)
+  return { { worth = true, label = item.name, olds = { item.stats }, items = {}, enchFrom = { wornLink and readItem(wornLink) or item }, slot = slot,
+             mainHand = type(main) == 'string' and itemID(main) == itemID(item.link) } }
 end
 -- The swaps an item stands for: one per slot it could go into. `worn` = the item was clicked on the character sheet.
 -- Returns a list of { label, olds = { stats, ... }, ... } or nil and a plain sentence.
@@ -213,7 +215,8 @@ end
 -- ---------------------------------------------------------------------------------------------------------------------
 -- the sim
 -- ---------------------------------------------------------------------------------------------------------------------
-local baseCache                                           -- the last "as you are" run, reused while nothing changed
+local bases = {}                                          -- the runs "as you are", reused while nothing changed: bases[''] as you are,
+                                                          -- bases[<enchants>] without the enchants named; bases.key = what they were played with
 local results = {}                                        -- what was shown for an item: results[key], key = link (+ "|worn")
 
 local function itemFights() return math.max(20, math.min(2000, math.floor(tonumber(WL.db.options.itemFights) or 150))) end
@@ -232,6 +235,29 @@ function WL.wornSpellPen()
     end
   end
   return sum
+end
+
+-- The enchants on the items a swap takes off (an item you wear: on itself). Both sides of the comparison leave them
+-- out, so the items are compared as they are without enchants (Xn: "make it ignore the enchant that is on my gear").
+-- Returns nil when there is none, else { stats = { stats, ... }, names = { 'Revelation on Witchblade', ... },
+-- fx = true when it is the main hand's enchant with an effect in the fight, unread = { texts not read: still counted } }.
+local function enchantsOn(items, mainHand)
+  local e = { stats = {}, names = {}, unread = {}, fx = false }
+  for _, it in pairs(items or {}) do
+    local eid = type(it.link) == 'string' and tonumber(it.link:match('item:%d+:(%d+)')) or nil
+    local fx = eid and WL.ENCHANT_FX[eid] or nil
+    local lines = it.enchantLines or {}
+    if #lines > 0 or fx then
+      local text = #lines > 0 and table.concat(lines, ' / ') or fx.name
+      local stats, understood = WL.enchantStats(text, gameString, toPct)
+      e.stats[#e.stats + 1] = stats
+      e.names[#e.names + 1] = text .. ' on ' .. (it.name or 'your item')
+      if fx and mainHand and WL.char and WL.char.worn and WL.char.worn.mainEnchant == eid then e.fx = true end
+      if not understood and not fx then e.unread[#e.unread + 1] = text end
+    end
+  end
+  if #e.names == 0 then return nil end
+  return e
 end
 
 -- worn = the item was clicked on the character sheet (sim it against an empty slot).
@@ -253,13 +279,27 @@ function WL.simItem(link, worn)
   if #errs > 0 then return false, errs[1] end
   local cfg, race, n = WL.characterConfig(), WL.raceKey(), itemFights()
   local key = n .. race .. WL.encodeBuild(build) .. WL.jsonEncode(WL.settingsSnapshot(cfg)) .. WL.fxKey(cfg)
-  local cached = baseCache and baseCache.key == key and baseCache.res or nil
+  if bases.key ~= key then bases = { key = key } end
+  local B, plan, planned = bases, {}, {}                   -- plan: the runs as you are still to play
   for i = 1, #alts do
     local a = alts[i]
-    a.gear, a.delta = WL.gearWithSwap(cfg.gear, a.worth and {} or item.stats, a.olds, cfg)
+    -- the enchant on what comes off is left out on both sides: as you are without it, and with the new item without it
+    a.ench = enchantsOn(a.enchFrom or a.items, a.mainHand)
+    local start, w = cfg.gear, WL.char and WL.char.worn
+    a.sub = ''
+    if a.ench then
+      start = WL.gearWithSwap(cfg.gear, {}, a.ench.stats, cfg)
+      if a.ench.fx then w = copy(w); w.mainEnchant = nil end
+      a.sub = table.concat(a.ench.names, '|') .. (a.ench.fx and '|fx' or '')
+    end
+    if not B[a.sub] and not planned[a.sub] then
+      planned[a.sub] = true
+      plan[#plan + 1] = { sub = a.sub, gear = start, gb = w and WL.wornGearBuilder(w) or nil }
+    end
+    a.gear, a.delta = WL.gearWithSwap(start, a.worth and {} or item.stats, a.olds, cfg)
     if WL.char and a.slot and WL.FX_SLOTS[a.slot] then         -- a trinket or weapon: its effect goes with it
       a.fxSwap = true
-      a.gb = WL.wornGearBuilder(WL.wornSwap(WL.char.worn, a.slot, (not a.worth) and itemID(item.link) or nil))
+      a.gb = WL.wornGearBuilder(WL.wornSwap(w, a.slot, (not a.worth) and itemID(item.link) or nil))
     end
   end
   -- kept for /wsim dump: what the game returned for the items of the last comparison
@@ -268,13 +308,17 @@ function WL.simItem(link, worn)
     for _, old in pairs(alts[i].items or {}) do
       WL.db.lastItem.against[#WL.db.lastItem.against + 1] = { link = old.link, name = old.name, stats = old.stats, unknown = old.unknown, raw = old.raw }
     end
+    if alts[i].ench then WL.db.lastItem.ignored = alts[i].ench.names end
   end
-  return WL.startJob('Item', n * (#alts + (cached and 0 or 1)), function(j)
+  return WL.startJob('Item', n * (#alts + #plan), function(j)
     local function onFight() j.done = j.done + 1 end
-    local base = cached or WL.simulate(build, race, cfg, { iterations = n, onFight = onFight })
-    baseCache = { key = key, res = base }
+    for i = 1, #plan do
+      local p, c = plan[i], cfg
+      if p.sub ~= '' then c = copy(cfg); c.gear = p.gear; c.gearBuilder = p.gb end
+      B[p.sub] = WL.simulate(build, race, c, { iterations = n, onFight = onFight })
+    end
     for i = 1, #alts do
-      local c = copy(cfg)
+      local c, base = copy(cfg), B[alts[i].sub]
       c.gear = alts[i].gear
       if alts[i].fxSwap then c.gearBuilder = alts[i].gb end
       local before = j.done
@@ -282,10 +326,13 @@ function WL.simItem(link, worn)
       -- either DPS, and this side can stop as soon as it is exact enough (the run as you are always plays all of them)
       local r = WL.simulate(build, race, c, { iterations = n, onFight = onFight, stop = WL.pairedStop(base.dpsList) })
       j.done = before + n
-      alts[i].dps = r.dps
+      alts[i].dps, alts[i].base = r.dps, base
       alts[i].diff, alts[i].err, alts[i].n = WL.pairedDiff(base.dpsList, r.dpsList)
     end
-    j.result.kind, j.result.link, j.result.worn, j.result.item, j.result.alts, j.result.base, j.result.n = 'item', link, worn, item, alts, base, n
+    j.result.kind, j.result.link, j.result.worn, j.result.item, j.result.alts, j.result.n = 'item', link, worn, item, alts, n
+    -- the line "as you are": the plain run when a comparison used it, else the one without the enchant
+    j.result.base, j.result.plain = alts[1].base, false
+    for i = 1, #alts do if alts[i].sub == '' then j.result.base, j.result.plain = alts[i].base, true end end
   end)
 end
 
@@ -293,7 +340,8 @@ local function resultText(res)
   local lines = {}
   for i = 1, #res.alts do
     local a = res.alts[i]
-    local pct = res.base.dps > 0 and 100 * a.diff / res.base.dps or 0
+    local baseDps = (a.base or res.base).dps
+    local pct = baseDps > 0 and 100 * a.diff / baseDps or 0
     if a.worth then
       -- an item you wear, against an empty slot: the loss without it is what it is worth
       lines[#lines + 1] = string.format('You are wearing this. It is worth:\n|cff40ff40%.1f DPS|r (%.1f%% of your damage)  |cff999999+-%.1f|r', -a.diff, -pct, a.err)
@@ -307,6 +355,10 @@ local function resultText(res)
       lines[#lines + 1] = '|cffaaaaaaChange: ' .. WL.describeStats(a.delta, true) .. '|r'
     end
     if a.note then lines[#lines + 1] = '|cffaaaaaa' .. a.note .. '|r' end
+    if a.ench then
+      lines[#lines + 1] = '|cffffb060Enchant ignored: ' .. table.concat(a.ench.names, ', ') .. '. Both sides are simmed without it.|r'
+      if #a.ench.unread > 0 then lines[#lines + 1] = '|cffffb060Could not be read, so still counted: ' .. table.concat(a.ench.unread, ', ') .. '|r' end
+    end
   end
   -- effects the sim does not know (use effects, procs, odd equip lines): on the new item and on what it would replace
   local function notCounted(name, unknown)
@@ -324,7 +376,8 @@ local function resultText(res)
   end
   local fewest = res.n
   for i = 1, #res.alts do if res.alts[i].n and res.alts[i].n < fewest then fewest = res.alts[i].n end end
-  lines[#lines + 1] = string.format('|cff777777%.1f DPS as you are. %s Enchants and set bonuses are not counted.%s|r', res.base.dps,
+  lines[#lines + 1] = string.format('|cff777777%.1f DPS as you are%s. %s Enchants and set bonuses are not counted.%s|r', res.base.dps,
+    res.plain == false and ' (without the enchant)' or '',
     fewest < res.n and string.format('Exact enough after %d of %d fights.', fewest, res.n) or string.format('%d fights.', res.n),
     (WL.char and (WL.char.level or 60) < 60) and ' Played at level 60.' or '')
   return table.concat(lines, '\n')
