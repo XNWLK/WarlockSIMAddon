@@ -611,6 +611,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       copied = amount * HAV; h.dmg = h.dmg + copied; h.hits = h.hits + 1; res.total = res.total + copied
     end
     if S.targetHpPct < executePct then res.exDmg = res.exDmg + (amount + copied) end
+    if TR.onDamage and not pet and sub(key, 1, 8) ~= 'trinket:' then TR.onDamage() end
     if not pet then
       local bk = BASEK[key]
       if not bk then
@@ -631,19 +632,54 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   do
   local TRU = (cfg.options and cfg.options.trinketUse) or {}
   local trs, eps = {}, {}
-  for i = 1, NTRK do trs[TRK[i].slot] = { upTo = -1, n = 0, pending = 0, procUntil = -1 } end
+  for i = 1, NTRK do trs[TRK[i].slot] = { upTo = -1, n = 0, pending = 0, procUntil = -1, icdUntil = -1, intUntil = -1 } end
+  local TRD = {}                                                -- procs on any damage of yours (Bolt's Charged Eyeball)
+  for i = 1, NTRK do local p = TRK[i].fx.proc; if p and p.onDamage then TRD[#TRD + 1] = TRK[i] end end
   local REV
   for i = 1, #EPR do eps[EPR[i].id] = { upTo = -1 }; if not REV and EPR[i].fx.proc.kind == 'crit' then REV = EPR[i] end end
   TR.REV = REV
   local function epUp(x) return eps[x.id].upTo > S.t + EPS end
   local function trUp(x) return trs[x.slot].upTo > S.t + EPS end
+  -- The fight's boss type / zone multiply an effect (WL.fxMult); the kinds hit, stats, costRed, dmgOver; the Intellect a
+  -- trinket adds or takes (crit); procs that deal damage.
+  local KM = 0                                                  -- Kings on a trinket's attributes
+  for i = 1, #buffList do KM = KM + (buffList[i].statPct or 0) end
+  KM = 1 + KM / 100
+  local COE_SCHOOLS = { shadow = true, fire = true, arcane = true, frost = true }   -- the schools Curse of the Elements raises
+  local function trMult(o) return WL.fxMult(cfg, o) end
+  local function hitNow()
+    local h = 0
+    for i = 1, NTRK do local x = TRK[i]; local u = x.fx.use; if u and u.kind == 'hit' and trUp(x) then h = h + u.pct end end
+    if h ~= 0 then return min(cb.maxHitPct, stats.hitPctUncapped + h) end
+    return stats.hitPct
+  end
+  TR.hitNow = hitNow
+  local function trIntNow()                                     -- Intellect from trinkets now: Golden Banana +, Mindtap -
+    local n = 0
+    for i = 1, NTRK do
+      local x = TRK[i]
+      local u = x.fx.use
+      if u then
+        if u.kind == 'stats' and trUp(x) then n = n + u.stat * trMult(u) end
+        if u.int and trs[x.slot].intUntil > S.t + EPS then n = n - u.int end
+      end
+    end
+    return n * KM
+  end
+  TR.costRed = function()                                       -- Burst of Knowledge
+    local c = 0
+    for i = 1, NTRK do local x = TRK[i]; local u = x.fx.use; if u and u.kind == 'costRed' and trUp(x) then c = c + u.amount end end
+    return c
+  end
+  local function trAmt(u) return u.amount * trMult(u) end      -- a mana trinket's amount (Second Wind: doubled in Mountainous areas)
   TR.sp = function(e)
     local v = 0
     for i = 1, NTRK do
       local x = TRK[i]
-      local u = x.fx.use
+      local u, p = x.fx.use, x.fx.proc
+      if p and p.kind == 'sp' and trs[x.slot].procUntil > S.t + EPS then v = v + p.sp * trMult(p) end   -- Draconic Infused Emblem
       if u and trUp(x) then
-        if u.kind == 'sp' and (not u.school or (e and e.school == u.school)) then v = v + u.sp
+        if u.kind == 'sp' and (not u.school or (e and e.school == u.school)) then v = v + u.sp * trMult(u)
         elseif u.kind == 'spDecay' then v = v + max(0, u.sp - u.per * trs[x.slot].n)
         elseif u.kind == 'spStack' then v = v + u.per * min(u.max, trs[x.slot].n) end
       end
@@ -657,7 +693,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     return p
   end
   TR.crit = function(k)
-    local c, sp = 0, SPELLS[k]
+    local c, sp = trIntNow() * cb.critPerInt, SPELLS[k]
     for i = 1, NTRK do
       local x = TRK[i]
       local u = x.fx.use
@@ -676,6 +712,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       local x = TRK[i]
       local u, p = x.fx.use, x.fx.proc
       if u and u.kind == 'spi' and trUp(x) then v = v + u.spi end
+      if u and u.kind == 'stats' and trUp(x) then v = v + u.stat * trMult(u) * KM end
       if p and p.kind == 'spi' and trs[x.slot].procUntil > S.t + EPS then v = v + p.spi end
     end
     for i = 1, #EPR do local x = EPR[i]; local p = x.fx.proc; if p.kind == 'spiPct' and epUp(x) then v = v + stats.spi * p.pct / 100 end end   -- Insight
@@ -684,10 +721,10 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function trHit(x, u)                                    -- a trinket's own hit
     local key = 'trinket:' .. x.id
     local r = row(key)
-    if Rhit() * 100 >= stats.hitPct then r.misses = r.misses + 1; return end
+    if Rhit() * 100 >= hitNow() then r.misses = r.misses + 1; return end
     r.landed = r.landed + 1
-    local amt = u.min + (u.max - u.min) * Rproc()
-    if buff('coe') then amt = amt * (1 + coePct / 100) end
+    local amt = (u.min + (u.max - u.min) * Rproc()) * trMult(u)  -- x boss type / zone
+    if buff('coe') and COE_SCHOOLS[u.school or 'fire'] then amt = amt * (1 + coePct / 100) end   -- not on Holy / Nature
     local crit = Rcrit() * 100 < stats.critPct
     if crit then amt = amt * cb.critMultiplier end
     deal(key, amt, crit, false)
@@ -701,7 +738,10 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
         if u.kind == 'spStack' and st.n >= u.casts then st.upTo = -1 end
       end
       if u and u.kind == 'dmgAfter' and st.pending > 0 then st.pending = st.pending - 1; if st.pending == 0 then trHit(x, u) end end
-      if p and Rproc() * 100 < p.chancePct then st.procUntil = S.t + p.duration end
+      if p and not p.onDamage and not (p.icd and S.t < st.icdUntil - EPS) and Rproc() * 100 < p.chancePct then
+        if p.icd then st.icdUntil = S.t + p.icd end             -- Draconic Infused Emblem: 60 s internal cooldown
+        if p.kind == 'dmg' then trHit(x, p) else st.procUntil = S.t + p.duration end   -- Cursed Murloc Eye: a hit
+      end
     end
     for i = 1, #EPR do                                          -- weapon enchants
       local x = EPR[i]
@@ -711,6 +751,22 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
         if p.mana then local g = min(p.mana, stats.maxMana - S.mana); S.mana = S.mana + g; res.manaFromConsumables = (res.manaFromConsumables or 0) + g end
       end
     end
+  end
+  if #TRD > 0 then
+    TR.onDamage = function()                                    -- per damage event of yours, with an internal cooldown
+      for i = 1, #TRD do
+        local x = TRD[i]
+        local p, st = x.fx.proc, trs[x.slot]
+        if not (S.t < st.icdUntil - EPS or Rproc() * 100 >= p.chancePct) then
+          st.icdUntil = S.t + p.icd
+          if Rproc() * 100 < (p.selfPct or 0) then loseHealth(p.min + (p.max - p.min) * Rproc(), 'self')   -- it hits you instead
+          else trHit(x, p) end
+        end
+      end
+    end
+  end
+  TR.shot = function(slot)                                      -- one shot of a summoned helper (Cannonball Runner)
+    for i = 1, NTRK do local x = TRK[i]; if x.slot == slot then trHit(x, x.fx.use); return end end
   end
   -- Revelation: the next non-periodic spell + pct % crit; a non-periodic spell that does not crit may trigger it.
   TR.revBonus = function() return (REV and eps[REV.id].upTo > S.t + EPS) and REV.fx.proc.pct or 0 end
@@ -725,12 +781,23 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local u, st = x.fx.use, trs[x.slot]
     if not u or not ready('tr:' .. x.slot) or S.t >= dur - EPS then return false end
     cds['tr:' .. x.slot] = S.t + u.cd
-    if u.duration then st.upTo = S.t + u.duration; st.n = 0 end
+    if u.duration then st.upTo = S.t + u.duration * (u.durZones and trMult({ zones = u.durZones }) or 1); st.n = 0 end   -- Golden Banana: longer in Forest areas
     local r = row('trinket:' .. x.id)
     if u.kind == 'dmg' then r.casts = r.casts + 1; trHit(x, u) end
-    if u.kind == 'dmgAfter' then r.casts = r.casts + 1; st.pending = u.casts end
+    if u.kind == 'dmgOver' then                                 -- Cannonball Runner: shots, one every u.every s
+      r.casts = r.casts + 1
+      for si = 1, u.shots do push({ t = S.t + si * u.every, o = 0, type = 'trShot', slot = x.slot }) end
+    end
+    if u.kind == 'dmgAfter' then
+      r.casts = r.casts + 1; st.pending = u.casts
+      if u.castsZones then                                      -- Everlook Delivery Bot in Snowy areas: 3 or 4
+        local cn = u.casts * trMult({ zones = u.castsZones })
+        if cn ~= u.casts then st.pending = floor(cn) + (Rproc() < cn % 1 and 1 or 0) end
+      end
+    end
+    if u.int then st.intUntil = S.t + u.intDuration end         -- Mindtap Talisman: - Intellect for 2 min
     if u.kind == 'mana' then
-      local amt = min(u.amount, stats.maxMana - S.mana)
+      local amt = min(trAmt(u), stats.maxMana - S.mana)
       S.mana = S.mana + amt; res.manaFromConsumables = (res.manaFromConsumables or 0) + amt
     end
     return true
@@ -755,7 +822,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     for i = 1, NTRK do
       local x = TRK[i]
       local u = x.fx.use
-      if u and u.kind == 'mana' and (TRU[x.slot] or 'cds') ~= 'never' and stats.maxMana - S.mana >= u.amount and trUse(x) then slotUsed(x.slot) end
+      if u and u.kind == 'mana' and (TRU[x.slot] or 'cds') ~= 'never' and stats.maxMana - S.mana >= trAmt(u) and trUse(x) then slotUsed(x.slot) end
     end
   end
   -- The mana level at which free mana that is ready comes by itself (Innervate / Mana Tide below 50%, a mana potion or rune
@@ -767,7 +834,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     for i = 1, NTRK do
       local x = TRK[i]
       local u = x.fx.use
-      if u and u.kind == 'mana' and (TRU[x.slot] or 'cds') ~= 'never' and ready('tr:' .. x.slot) then lv = max(lv, mx - u.amount) end
+      if u and u.kind == 'mana' and (TRU[x.slot] or 'cds') ~= 'never' and ready('tr:' .. x.slot) then lv = max(lv, mx - trAmt(u)) end
     end
     return lv
   end
@@ -908,7 +975,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function landExtra(key, eureka, castMult, ti)
     local s, e, rk = SPELLS[key], tbl[key], xkey(ti, key)
     local r = row(rk)
-    if Rhit() * 100 >= stats.hitPct and not CHH[key] then r.misses = r.misses + 1; return false end
+    if Rhit() * 100 >= (TRX and TR.hitNow() or stats.hitPct) and not CHH[key] then r.misses = r.misses + 1; return false end
     r.landed = r.landed + 1
     if key == 'baneOfAgony' then S.ampUp = false end    -- Amplify Curse spent on a landed Bane
     if s.kind == 'utility' then
@@ -971,7 +1038,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     for ti = 1, NT do
       local rk = ti > 1 and xkey(ti, key) or key
       local r = row(rk)
-      if Rhit() * 100 >= stats.hitPct and not CHH[key] then r.misses = r.misses + 1
+      if Rhit() * 100 >= (TRX and TR.hitNow() or stats.hitPct) and not CHH[key] then r.misses = r.misses + 1
       else
         local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * (ti > 1 and liveMultX(key, ti, true) or liveMult(key, true))
         amt = amt * vulnMult(s.school, ti)
@@ -988,7 +1055,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function land(key, eureka, castMult, target)
     if (target or 0) > 1 then return landExtra(key, eureka, castMult, target) end
     local s, e, r = SPELLS[key], tbl[key], bySpell[key] or row(key)
-    if Rhit() * 100 >= stats.hitPct and not CHH[key] then r.misses = r.misses + 1; return false end
+    if Rhit() * 100 >= (TRX and TR.hitNow() or stats.hitPct) and not CHH[key] then r.misses = r.misses + 1; return false end
     r.landed = r.landed + 1
     if key == 'baneOfAgony' then S.ampUp = false end    -- Amplify Curse spent on a landed Bane
     if s.kind == 'utility' then
@@ -1098,6 +1165,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function effectiveCost(key)
     local c = tbl[key].cost
     if eurekaAt(key, finishesAt(key)) then c = c * (1 - EUREKA.costRedPct / 100) end
+    if TRX and c > 0 then c = max(0, c - TR.costRed()) end      -- Burst of Knowledge
     return c
   end
   -- Cost if Eureka! were popped now (used to decide whether popping racials is worthwhile before this cast).
@@ -1139,7 +1207,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     S.cast = nil
     if s.kind == 'channel' then
       local r = row(key)
-      if not s.aoe and Rhit() * 100 >= stats.hitPct and not CHH[key] then
+      if not s.aoe and Rhit() * 100 >= (TRX and TR.hitNow() or stats.hitPct) and not CHH[key] then
         r.misses = r.misses + 1
         if fromTL then TL.turn = true end
         S.busyUntil = S.t; S.gcdReady = S.t + gcdT; scheduleDecide(S.gcdReady)
@@ -1200,11 +1268,14 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local pc = cfg.pets[key]
     petGen = petGen + 1
     local p = { key = key, c = pc, maxMana = pc.mana * (1 + tv('felVitality', 'manaPct') / 100), lastRegen = S.t, lashReady = 0, gen = petGen }
+    local ra, te = 0, WL.trinketEquipFx(cfg)                    -- Pimgib's Collar: mana per 5 s for the imp
+    for i = 1, #te do local q = te[i]; ra = ra + ((q.petMp5 ~= 0 and (not q.pet or q.pet == key)) and q.petMp5 / 5 or 0) end
+    p.regenAdd = ra
     p.mana = p.maxMana
     return p
   end
   P = makePet(build.pet)
-  petRegen = function() P.mana = min(P.maxMana, P.mana + P.c.manaRegen * (S.t - P.lastRegen)); P.lastRegen = S.t end
+  petRegen = function() P.mana = min(P.maxMana, P.mana + (P.c.manaRegen + (P.regenAdd or 0)) * (S.t - P.lastRegen)); P.lastRegen = S.t end
   S.petManaPct = function() if not P then return 100 end; petRegen(); return 100 * P.mana / P.maxMana end
   S.petSpellCost = function() return (P and P.c.spell) and P.c.spell.cost or huge end
   S.petMana = function() if not P then return huge end; petRegen(); return P.mana end
@@ -1661,6 +1732,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local ty = ev.type
     if ty == 'decide' then
       if ev.token == decideToken then decide() end
+    elseif ty == 'trShot' then TR.shot(ev.slot)                -- a summoned helper's shot (Cannonball Runner)
     elseif ty == 'dotTick' then
       local d = dots[ev.key]
       if d and d.inst == ev.inst then                      -- else: refreshed or consumed

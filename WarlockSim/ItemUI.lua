@@ -64,7 +64,15 @@ local function readItem(link)
   item.enchantLines = enchants
   item.stats, item.unknown = WL.itemStats(type(api) == 'table' and api or nil, lines, gameString, toPct)
   local id = tonumber(link:match('item:(%d+)'))
-  if id and WL.TRINKET_FX[id] then item.unknown, item.fx = {}, WL.TRINKET_FX[id] end   -- its use effect or proc is counted in the fight
+  if id and WL.TRINKET_FX[id] then                              -- its use effect, proc or bonus is counted in the fight
+    local fx = WL.TRINKET_FX[id]
+    item.unknown, item.fx = {}, fx
+    if fx.stats then                                            -- a zone trinket: its own stats, as the website counts them
+      local s = {}
+      for k, v in pairs(fx.stats) do s[(k == 'critPct' and 'crit') or (k == 'hitPct' and 'hit') or (k == 'hastePct' and 'haste') or k] = v end
+      item.stats = s
+    end
+  end
   item.raw = { api = type(api) == 'table' and api or nil, lines = lines }
   return item
 end

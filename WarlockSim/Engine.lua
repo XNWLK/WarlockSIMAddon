@@ -267,6 +267,9 @@ function WL.computeStats(build, raceKey, cfg)
 
   -- Spell power
   local sp = add('sp', 'Gear', gear.sp) + add('sp', 'Stat-weight test', ex.sp or 0) + conStat('sp') + oilStat('sp') + buffStat('sp')   -- buffStat: Atiesh
+  -- a worn trinket's bonus that holds against this boss type / in this zone (Mark of the Champion, Briarwood Reed ...)
+  local trEq = WL.trinketEquipFx(cfg)
+  for i = 1, #trEq do sp = sp + add('sp', trEq[i].name, trEq[i].sp) end
   local dkSp = 0
   if petActive and tv('demonicKnowledge') ~= 0 then
     dkSp = round(60 * tv('demonicKnowledge', 'levelPct') / 100)
@@ -308,6 +311,11 @@ function WL.computeStats(build, raceKey, cfg)
   local pierce = add('pierce', 'Gear', gear.pierce or 0) + add('pierce', 'Stat-weight test', ex.pierce or 0)
   local spellPen = add('spellPen', 'Gear', gear.spellPen or 0) + add('spellPen', 'Stat-weight test', ex.spellPen or 0)   -- lowers resistance down to 0 (Spell Pierce goes below)
   local mp5 = add('mp5', 'Gear', gear.mp5 or 0) + buffStat('mp5') + conStat('mp5') + oilStat('mp5') + add('mp5', 'Stat-weight test', ex.mp5 or 0)
+  do
+    local a, b = 0, 0
+    for i = 1, #trEq do a = a + add('spellPen', trEq[i].name, trEq[i].spellPen); b = b + add('mp5', trEq[i].name, trEq[i].mp5) end
+    spellPen = spellPen + a; mp5 = mp5 + b
+  end
 
   -- Static caster damage auras per school (they multiply with each other and with the talent spell modifiers).
   local mult = { shadow = 1, fire = 1, all = 1 }
@@ -659,6 +667,49 @@ function WL.equippedTrinkets(cfg)
     local id = type(e) == 'table' and (e.id ~= nil and e.id or (type(e.custom) == 'table' and e.custom.id)) or nil
     local fx = id and fxOf(WL.TRINKET_FX, id)
     if fx then out[#out + 1] = { slot = slot, id = tonumber(id), fx = fx } end
+  end
+  return out
+end
+-- The fight's boss type and zone (cfg.fight.bossType / zone, '' = not set): only trinket effects depend on them.
+-- A kind of enemy counts as its creature type too (WL.BOSS_TYPES[].is: a satyr is a demon).
+local BOSS_IS
+function WL.bossIs(cfg, typ)
+  local k = cfg and cfg.fight and cfg.fight.bossType
+  if not k or k == '' then return false end
+  if k == typ then return true end
+  if not BOSS_IS then
+    BOSS_IS = {}
+    for _, b in ipairs(WL.BOSS_TYPES or {}) do if b.is then BOSS_IS[b.key] = b.is end end
+  end
+  return BOSS_IS[k] == typ
+end
+-- The multiplier of an effect's vs / zones conditions in this fight (1 = none apply).
+function WL.fxMult(cfg, o)
+  local m, z = 1, cfg and cfg.fight and cfg.fight.zone
+  if o and o.vs then for k, v in pairs(o.vs) do if WL.bossIs(cfg, k) then m = math.max(m, v) end end end
+  if o and o.zones and z and z ~= '' and o.zones[z] ~= nil then m = m * o.zones[z] end
+  return m
+end
+-- Does an equip effect's condition hold (no condition = always)?
+function WL.fxHolds(cfg, o)
+  local z = cfg and cfg.fight and cfg.fight.zone
+  if o.vs then
+    local any = false
+    for k in pairs(o.vs) do if WL.bossIs(cfg, k) then any = true end end
+    if not any then return false end
+  end
+  if o.zones and not (z and z ~= '' and o.zones[z] and o.zones[z] ~= 0) then return false end
+  return true
+end
+-- The worn trinkets' equip effects that hold in this fight: { { name, sp, spellPen, mp5, petMp5, pet } }.
+function WL.trinketEquipFx(cfg)
+  local out, t = {}, WL.equippedTrinkets(cfg)
+  for i = 1, #t do
+    local x = t[i]
+    local e = x.fx.equip
+    if e and WL.fxHolds(cfg, e) then
+      out[#out + 1] = { name = x.fx.name, sp = e.sp or 0, spellPen = e.spellPen or 0, mp5 = e.mp5 or 0, petMp5 = e.petMp5 or 0, pet = e.pet }
+    end
   end
   return out
 end

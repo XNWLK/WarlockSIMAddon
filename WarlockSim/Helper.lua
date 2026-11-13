@@ -201,7 +201,7 @@ function H.freeMana(C, P)
     local x = C.trinkets[i]
     local u = x.fx.use
     local pol = ((C.cfg.options.trinketUse or {})[x.slot]) or 'cds'
-    if u and u.kind == 'mana' and pol ~= 'never' and not ((P.cds['tr:' .. x.slot] or 0) > P.t + EPS) then lv = max(lv, mx - u.amount) end
+    if u and u.kind == 'mana' and pol ~= 'never' and not ((P.cds['tr:' .. x.slot] or 0) > P.t + EPS) then lv = max(lv, mx - u.amount * WL.fxMult(C.cfg, u)) end
   end
   return lv
 end
@@ -323,7 +323,7 @@ function H.extras(C, P, S, key)
   for i = 1, #C.trinkets do
     local x = C.trinkets[i]
     local u = x.fx.use
-    if u and u.kind == 'mana' and ((C.cfg.options.trinketUse or {})[x.slot] or 'cds') ~= 'never' and miss >= u.amount and not ((P.cds['tr:' .. x.slot] or 0) > P.t + EPS) then
+    if u and u.kind == 'mana' and ((C.cfg.options.trinketUse or {})[x.slot] or 'cds') ~= 'never' and miss >= u.amount * WL.fxMult(C.cfg, u) and not ((P.cds['tr:' .. x.slot] or 0) > P.t + EPS) then
       out[#out + 1] = { item = x.id, label = x.fx.name }
     end
   end

@@ -477,12 +477,12 @@ local function buildFightPage(p)
     'How many fights are played and averaged - with "Stop early" on, the most that are played. More fights = a steadier number and a longer wait. 300 is good for a quick look, 1000 and more to compare close builds.')), 92)
   label('Fight length (s)', 190)
   place(keep(Edit(p, 50, function() return f().duration end, function(v) f().duration = math.max(10, math.min(1800, v)) end, 'Each fight lasts this long, give or take 10%.')), 300)
-  y = y - 26
+  y = y - 24
   label('Targets', 0)
   place(keep(Dropdown(p, 60, function() return { { value = 1, label = '1' }, { value = 2, label = '2' }, { value = 3, label = '3' } } end,
     function() return f().targets end, function(v) f().targets = v end, 'With 2 or 3 targets, Bane of Havoc (if talented) copies damage to the second one.')), 92)
   place(keep(Check(p, 'Keep DoTs on all targets', function() return f().multiDot end, function(v) f().multiDot = v end, 'With 2 or 3 targets: your DoTs and curse are kept up on the extra targets too.')), 186)
-  y = y - 26
+  y = y - 24
   label('Pop cooldowns', 0)
   place(keep(Dropdown(p, 200, function()
     return { { value = 'pull', label = 'At the pull' }, { value = 'doom', label = 'When Bane of Doom explodes' }, { value = 'execute', label = 'In the execute phase' } }
@@ -490,7 +490,7 @@ local function buildFightPage(p)
     local v = WL.cfg.options.activesPolicy
     return (v == 'pull' or v == 'doom' or v == 'execute') and v or 'doom'
   end, function(v) WL.cfg.options.activesPolicy = v end, 'When the racial cooldown, the Spellblasting potion and Power Infusion are used for the first time. Afterwards each is used again whenever it is ready.')), 92)
-  y = y - 26
+  y = y - 24
   label('Precast', 0)
   place(keep(Dropdown(p, 120, function()
     local items = { { value = '', label = 'Nothing' } }
@@ -505,26 +505,34 @@ local function buildFightPage(p)
     return tu.trinket1 or 'cds'
   end, function(v) WL.cfg.options.trinketUse = { trinket1 = v, trinket2 = v } end,
     'When the trinkets you wear are used, if the sim knows what they do (Talisman of Ephemeral Power, Zandalarian Hero Charm, The Black Book and more). "With cooldowns": together with your racial and Power Infusion ("Pop cooldowns"). "When ready": from the pull on, again whenever ready. "Execute phase": only once the boss is low. "Never": not at all.\n\nA mana trinket is used when its mana is missing. A trinket\'s plain stats always count, and so does what your main-hand enchant does (Revelation, Grand Sorcerer, Grand Arcanist, Insight).')), 276)
-  y = y - 26
+  y = y - 24
+  local function typeList(list) return function() local items = {}; for i = 1, #list do items[i] = { value = list[i].key, label = list[i].name } end; return items end end
+  label('Boss type', 0)
+  place(keep(Dropdown(p, 120, typeList(WL.BOSS_TYPES), function() return f().bossType or '' end, function(v) f().bossType = v end,
+    'What the boss is. Only some trinkets care: Mark of the Champion (Demons and Undead), Rune of the Dawn, Royal Seal of Eldre\'Thalas, Draconic Infused Emblem (Dragonkin), Cannonball Runner and more. A kind of enemy counts as its creature type too: a Satyr is a Demon, a Murloc or a Troll a Humanoid, a Dinosaur a Beast.\n\n"Not set": none of those bonuses count.')), 92)
+  label('Zone', 222)
+  place(keep(Dropdown(p, 130, typeList(WL.ZONE_TYPES), function() return f().zone or '' end, function(v) f().zone = v end,
+    'Where the fight is. Only some trinkets care ("This effect is doubled in ... areas"): Briarwood Reed (Marsh / Swamp), Golden Banana, Rune of Perfection, Enriched Seal (Forest / Grassland), Second Wind (Mountainous) and more.\n\n"Not set": none of those bonuses count.')), 276)
+  y = y - 24
   place(keep(Check(p, 'Keep Curse of the Elements up', function() return WL.cfg.options.useCurseOfElements end, function(v) WL.cfg.options.useCurseOfElements = v end)), -2)
   place(keep(Check(p, 'Stat weights', function() return o().weights end, function(v) o().weights = v end,
     'Also works out what hit, crit, haste, Intellect and Spell Pierce are worth in spell power for this build. Needs six more runs on the same fights; each stops as soon as its weight is exact enough.')), 216)
   place(keep(Check(p, 'Stop early', function() return o().stopEarly ~= false end, function(v) o().stopEarly = v end,
     'Stops a sim as soon as its result is exact enough, instead of always playing every fight: the number of fights set becomes the most that are played (never fewer than 40).\n\nA DPS stops when its +- is 0.5% of it. A comparison (an item, What if, a stat weight, the numbers on the character sheet) plays the same fights on both sides and stops when the +- of the difference is 0.5 DPS or a tenth of the difference - often after a few dozen fights.\n\nOff: every sim plays exactly the number of fights set.')), 318)
-  y = y - 26
+  y = y - 24
   label('Move every', 0)
   place(keep(Edit(p, 36, function() return f().moveEvery end, function(v) f().moveEvery = math.max(0, v) end, 'Every this many seconds you have to move (0 = never). Only instants can be cast while moving.')), 92)
   label('s for', 136)
   place(keep(Edit(p, 36, function() return f().moveDuration end, function(v) f().moveDuration = math.max(0, v) end, 'How long each movement lasts, in seconds.')), 176)
   label('s      Hit taken every', 218)
   place(keep(Edit(p, 36, function() return f().hitEvery end, function(v) f().hitEvery = math.max(0, v) end, 'You take a hit every this many seconds (0 = never): casts are pushed back.')), 346)
-  y = y - 26
+  y = y - 24
   label('Latency (ms)', 0)
   place(keep(Edit(p, 50, function() return f().latencyMs end, function(v) f().latencyMs = math.max(0, math.min(2000, v)) end, 'Your reaction delay after each cast.')), 92)
   label('While simming', 190)
   place(keep(Dropdown(p, 110, function() return { { value = 'auto', label = 'Automatic' }, { value = 'smooth', label = 'Stay smooth' }, { value = 'fast', label = 'Sim faster' }, { value = 'fastest', label = 'Fastest' } } end,
     function() return o().speed end, function(v) o().speed = v end, 'The game gives addons one processor core, shared with the game itself. "Automatic" sims faster while you are out of combat and stays smooth while you fight. "Stay smooth" sims for 8 ms of every frame: the game runs nearly as usual. "Sim faster" takes 30 ms: about twice as quick, the game stutters a little. "Fastest" takes 100 ms: the sim gets nearly the whole core, the game drops to about 10 frames a second until it is done.')), 284)
-  y = y - 26
+  y = y - 24
   label('Item sims', 0)
   place(keep(Edit(p, 50, function() return o().itemFights end, function(v) o().itemFights = math.max(20, math.min(2000, floor(v))) end,
     'How many fights an item sim plays (the click on an item, and the numbers on your character sheet). More fights = smaller differences show reliably, and a longer wait. 150 is a quick look; 500 and more to tell close items apart.')), 92)
