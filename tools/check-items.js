@@ -104,6 +104,11 @@ ench('crit rating', '+14 Spell Critical Strike Rating', { crit = 1 }, true)
 ench('healing only', '+24 Healing Spells', {}, false)
 ench('nothing to read', 'Minor Speed Increase', {}, false)
 ench('one of two not read', '+10 Stamina, Minor Speed Increase', { sta = 10 }, false)
+-- the website's Phase 1 enchants (sim v183), by their names
+ench('armor kit', 'Spell Power +6 and Armor +40', { sp = 6 }, true)
+ench('bracers +16', '+16 Spell Power', { sp = 16 }, true)
+ench('gloves haste', 'Haste +1%', { haste = 1 }, true)
+ench('head / legs', 'Healing and Spell Damage +8', { sp = 8 }, true)
 ench('colour codes', '|cff00ff00+15 Spirit|r', { spi = 15 }, true)
 -- every equip location maps to slots that exist
 for loc, slots in pairs(WL.ITEM_SLOTS) do n = n + 1; for _, s in ipairs(slots) do if s < 1 or s > 18 then bad[#bad + 1] = loc .. ' slot ' .. s end end end
