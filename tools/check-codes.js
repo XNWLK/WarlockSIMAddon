@@ -41,6 +41,19 @@ variants.forEach((v, i) => {
   n++;
 });
 
+// a code in the website's Pre-BiS gear mode (its default): no gear numbers in it; the addon keeps its own and says so
+{
+  const pc = norm(WL.pageDefaultConfig()); const snap = norm(WL.settingsSnapshot(pc));
+  assert.strictEqual(snap.gm, 'preBis'); assert(!snap.gear, 'a Pre-BiS code has no gear numbers');
+  const code = 'WFS1:' + b64(JSON.stringify(snap));
+  const back = host.eval('local o = WLX.decodeSettings(' + q(code) + '); local c = WLX.copy(WLX.DEFAULT_CONFIG); c.gear.sp = 345; local u, pb = WLX.applySettings(c, o); return tostring(pb) .. "|" .. #u .. "|" .. c.gear.sp .. "|" .. tostring(c.consumables.wizardOil.on) .. "|" .. WLX.encodeSettings(c)');
+  const [pb, unknown, sp, oil, code2] = back.split('|');
+  assert.strictEqual(pb, 'true', 'Pre-BiS code seen'); assert.strictEqual(unknown, '0'); assert.strictEqual(sp, '345', 'gear numbers kept'); assert.strictEqual(oil, 'true', 'Wizard Oil on');
+  const snap2 = JSON.parse(unb64(code2.slice(5)));
+  assert.strictEqual(snap2.gm, 'custom'); assert.deepStrictEqual(snap2.buffs, snap.buffs); assert.deepStrictEqual(snap2.cons, snap.cons);
+  n++;
+}
+
 // builds: page -> addon -> page
 const builds = WL.BUILDS.concat(WL.RETIRED_BUILDS || []);
 builds.push(Object.assign(norm(WL.BUILDS[0]), { short: 'Tïmeline "test" \ build', timeline: [{ t: 0, k: 'curseOfElements' }, { t: 12.345, k: 'soulFire' }], rotation: ['shadowBoltR2LowMana', 'bane', 'isbUpkeepR2', 'shadowBoltR2'] }));

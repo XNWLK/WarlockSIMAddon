@@ -652,8 +652,9 @@ local function buildCodesPage(p)
       local o, err = WL.decodeSettings(code)
       if not o then say(err, true); return end
       local c = WL.newConfig()
-      local unknown = WL.applySettings(c, o)
+      local unknown, preBis = WL.applySettings(c, o)
       WL.cfg = c; WL.saveSettings()
+      if preBis then say('Settings loaded' .. (#unknown > 0 and (' (not known here: ' .. table.concat(unknown, ', ') .. ')') or '') .. '. The code uses the website\'s Pre-BiS gear (each build its own items); the addon does not have those lists, so it keeps ' .. (WL.char and 'your character\'s gear numbers.' or 'the gear numbers it had. On the website, switch the gear to Custom to put gear numbers in a code.')); WL.refresh(); return end
       say('Settings loaded' .. (#unknown > 0 and (' (not known here: ' .. table.concat(unknown, ', ') .. ')') or '') .. (WL.char and '. Your character\'s own gear numbers still win: the code\'s gear is used when no character is read.' or '.'))
     elseif code:sub(1, #WL.BUILD_CODE_PREFIX) == WL.BUILD_CODE_PREFIX then
       local b, err, known = WL.addImportedBuild(code)

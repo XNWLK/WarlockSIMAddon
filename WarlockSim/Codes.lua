@@ -219,6 +219,7 @@ function WL.settingsSnapshot(c)
     bossArmor = c.combat.bossArmor,
     resist = c.combat.targetResist, levelResist = (c.combat.levelResist and c.combat.levelResist.on) and true or false,
     resModel = c.combat.resistModel or 'classic',
+    gm = 'custom',                                            -- the website's gear mode: the addon always fights in its own gear numbers
   }
 end
 -- Gear codes ("WFG1:", the website's gear builder): the addon only makes them, from what you wear (ItemUI.lua, WL.gearCode).
@@ -247,7 +248,9 @@ function WL.decodeSettings(code)
   return o
 end
 local function isNum(x) return type(x) == 'number' and x == x and x ~= huge and x ~= -huge end
--- Applies a snapshot onto config `c` in place. Returns the list of names in the code that this version does not know.
+-- Applies a snapshot onto config `c` in place. Returns the list of names in the code that this version does not know, and
+-- true when the code is in the website's Pre-BiS gear mode (each build in its own list of items: no gear numbers in it, the
+-- addon has no such lists and keeps the gear numbers it had).
 function WL.applySettings(c, o)
   local unknown = {}
   if c.options and not (type(o.options) == 'table' and o.options.cheat) then c.options.cheat = { hit = {}, crit = {} } end   -- a code without cheat mode = none
@@ -290,7 +293,7 @@ function WL.applySettings(c, o)
       b.count = (isNum(n) and n > 0) and math.min(b.maxCount or 5, floor(n + 0.5)) or 1
     end
   end
-  return unknown
+  return unknown, o.gm == 'preBis'
 end
 
 -- ---------------------------------------------------------------------------------------------------------------------

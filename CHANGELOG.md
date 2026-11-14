@@ -26,6 +26,12 @@ What changed in each version, newest first. Download a version from the
 - An item sim that completes or breaks a set bonus shows three numbers: what the item itself changes, what the set
   bonus changes, and the total. The number over a worn set piece on the character sheet includes the set bonus it keeps up.
 - Resistances use your character's level (the new model depends on it); the rest is still played as a level 60 Warlock.
+- New consumable on the Buffs tab: Wizard Oil (+24 spell damage).
+- Draconic Infused Emblem: 75 seconds between its procs (was 60).
+- Set bonuses: Dreadmist Raiment (3 pieces) gives 12 spell power (was 18); Deathmist Raiment's bonuses are 8 mana per 5
+  seconds (2 pieces) and 12 spell power (5 pieces).
+- Settings codes from the Warlock SIM in its new Pre-BiS gear mode (each build in its own items) load their buffs and
+  fight settings; the addon keeps your own gear numbers and says so.
 
 ## v0.14.1
 

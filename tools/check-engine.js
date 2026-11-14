@@ -57,6 +57,9 @@ const scenes = [
   S('party auras', [['buffs.atieshWarlock.on', true], ['buffs.atieshMage.on', true], ['buffs.atieshDruid.on', true], ['buffs.bloodPact.on', true]]),
   S('stat-weight test slots', [['extra.spi', 40], ['extra.mp5', 10], ['extra.spellPen', 20], ['combat.targetResist.shadow', 30], ['combat.targetResist.fire', 30], ['gear.spi', 0]]),
   S('pet melee hit, part of the misses left', [['gear.hitPct', 11]], { builds: ['demo_pact_succ_sb', 'wrack_succubus'] }),
+  // the website's default since sim v181: an ideal Phase 1 raid (its buffs and consumables, Wizard Oil among them)
+  S("the website's Phase 1 raid setup", [['buffs.*.on', false], ['consumables.*.on', false]].concat((WL.PAGE_BUFFS_ON || []).map(k => ['buffs.' + k + '.on', true]),
+    (WL.PAGE_CONSUMABLES_ON || []).map(k => ['consumables.' + k + '.on', true]))),
   S('engineering', [['professions.engineering', true], ['consumables.goblinSapper.on', true], ['consumables.denseDynamite.on', true]]),
   S('book ranks, old dot rule, no curse', [['options.bookRanks', true], ['options.dotEndCheck', false], ['options.useCurseOfElements', false], ['debuffs.coeOther.on', true]]),
   S('spell pierce + resist', [['gear.pierce', 60], ['combat.targetResist.shadow', 30], ['combat.targetResist.fire', 70]]),
