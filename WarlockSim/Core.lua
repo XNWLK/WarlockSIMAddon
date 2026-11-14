@@ -102,6 +102,7 @@ function WL.characterConfig()
     if WL.db.options.stone == 'sheet' and cfg.consumables.buildOil then cfg.consumables.buildOil.on = false end   -- the stone is in your numbers already
   end
   if WL.char and WL.char.worn then cfg.gearBuilder = WL.wornGearBuilder(WL.char.worn) end   -- trinkets / main-hand enchant with an effect
+  if WL.char and (tonumber(WL.char.level) or 0) > 0 then cfg.combat.casterLevel = WL.char.level end   -- resistances: your level
   return cfg
 end
 -- Your character as a build: talents and demon from the game, the priority list from the chosen ready build.

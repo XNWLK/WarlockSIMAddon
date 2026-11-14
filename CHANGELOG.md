@@ -23,6 +23,9 @@ What changed in each version, newest first. Download a version from the
   rolls only a tenth of that. The default results do not change; Spell Pierce is worth about half of what it was.
 - "Your spells pierce N Magical Resistance" on an item counts as Spell Pierce, and so does Rune of Perfection's bonus.
 - The damage list names trinket hits and set bonuses (it showed a number for them).
+- An item sim that completes or breaks a set bonus shows three numbers: what the item itself changes, what the set
+  bonus changes, and the total. The number over a worn set piece on the character sheet includes the set bonus it keeps up.
+- Resistances use your character's level (the new model depends on it); the rest is still played as a level 60 Warlock.
 
 ## v0.14.1
 

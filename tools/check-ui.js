@@ -301,6 +301,27 @@ step('a worn trinket and main-hand enchant with an effect count in the fight, an
   ItemRefTooltip.shown = false; MOCK.refItem = nil; ${frames}; MOCK.equipped[13] = nil; MOCK.items[1005].ench = nil; WLX.doReadCharacter(); ${pump}
   assert(WLX.characterConfig().gearBuilder == nil, 'gone again')
   return 'a second Talisman of Ephemeral Power in the empty trinket slot: +' .. dps .. ' DPS; as you are ' .. plainBase .. ', without Revelation ' .. noEnch`);
+step('an item that completes a set bonus: the item, the set bonus and the total', `local keep = { MOCK.equipped[1], MOCK.equipped[5], MOCK.equipped[7] }
+  MOCK.items[16686] = { name = 'Magister\\'s Crown', loc = 'INVTYPE_HEAD', class = 4, sub = 1, api = { ITEM_MOD_INTELLECT_SHORT = 10 }, lines = { 'Magister\\'s Crown' } }
+  MOCK.items[16688] = { name = 'Magister\\'s Robes', loc = 'INVTYPE_ROBE', class = 4, sub = 1, api = { ITEM_MOD_INTELLECT_SHORT = 10 }, lines = { 'Magister\\'s Robes' } }
+  MOCK.items[16687] = { name = 'Magister\\'s Leggings', loc = 'INVTYPE_LEGS', class = 4, sub = 1, api = { ITEM_MOD_INTELLECT_SHORT = 10 }, lines = { 'Magister\\'s Leggings' } }
+  MOCK.items[1020] = { name = 'Plain Leggings', loc = 'INVTYPE_LEGS', class = 4, sub = 1, api = { ITEM_MOD_INTELLECT_SHORT = 10 }, lines = { 'Plain Leggings' } }
+  MOCK.equipped[1], MOCK.equipped[5], MOCK.equipped[7] = 16686, 16688, 1020; WLX.doReadCharacter()
+  assert(WLX.char.worn.items[1] == 16686 and WLX.char.worn.items[7] == 1020, 'every worn item is read')
+  assert(WLX.char.level and WLX.characterConfig().combat.casterLevel == WLX.char.level, 'resistances at your level: ' .. tostring(WLX.characterConfig().combat.casterLevel))
+  MOCK.refItem = 16687; ItemRefTooltip.shown = true; ${frames}; MOCK.click('Sim this item'); ${pump}; ${frames}
+  local t = WarlockSimItemPanel.text.text
+  local plain = t:gsub('|c%x%x%x%x%x%x%x%x', ''):gsub('|r', '')
+  local total = tonumber(plain:match('Total: ([%+%-][%d%.]+) DPS'))
+  local it, st = plain:match('Item: ([%+%-][%d%.]+) DPS.-Set bonus: ([%+%-][%d%.]+) DPS')
+  it, st = tonumber(it), tonumber(st)
+  assert(total and it and st, 'three numbers: ' .. plain)
+  assert(math.abs(it) < 0.05 and st > 1 and math.abs(it + st - total) < 0.11, 'the same stats, the set bonus is the gain: ' .. plain)
+  assert(plain:find("Set: Magister's Regalia 2 -> 3 of 8 (+18 spell power)", 1, true), 'the set named: ' .. plain)
+  assert(not plain:find('set bonuses are not counted', 1, true), 'old footer: ' .. plain)
+  ItemRefTooltip.shown = false; MOCK.refItem = nil; ${frames}
+  MOCK.equipped[1], MOCK.equipped[5], MOCK.equipped[7] = keep[1], keep[2], keep[3]; WLX.doReadCharacter(); ${pump}
+  return string.format('a third Magister piece: item %+.1f, set bonus %+.1f, total %+.1f DPS', it, st, total)`);
 step('/wsim test', 'SlashCmdList.WARLOCKSIM("test"); local t = WLX.db.selfTest; assert(t and t.ok, "self-test failed: " .. table.concat(t and t.lines or {}, " | ")); return t.fights .. " fights match"');
 step('/wsim dump, read, help, close', 'SlashCmdList.WARLOCKSIM("dump"); assert(WLX.db.dump.character.raw.nodeCount == #WLX.TALENTS); SlashCmdList.WARLOCKSIM("read"); SlashCmdList.WARLOCKSIM("help"); SlashCmdList.WARLOCKSIM(""); assert(not WarlockSimFrame:IsShown()); MOCK.fire("PLAYER_LOGOUT"); assert(WLX.db.settings.v == 1)');
 step('a second session starts from the saved settings', 'local saved = WarlockSimDB; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db == saved and WLX.cfg.fight.duration == 180)');

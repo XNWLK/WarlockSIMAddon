@@ -1122,6 +1122,323 @@ WL.SET_FX = {
     },
   },
 }
+WL.ITEM_SETS = {
+  [81] = {
+    name = "The Postmaster",
+    size = 5,
+    items = { 13388, 13389, 13390, 13391, 13392 },
+    bonuses = { {
+      n = 3,
+      stats = { sp = 23 },
+    }, {
+      n = 5,
+      stats = { hit = 1 },
+    } },
+  },
+  [122] = {
+    name = "Necropile Raiment",
+    size = 5,
+    items = { 14626, 14629, 14631, 14632, 14633 },
+    bonuses = { {
+      n = 2,
+      stats = { hit = 0.5 },
+    }, {
+      n = 5,
+      stats = { sp = 23 },
+    } },
+  },
+  [181] = {
+    name = "Magister's Regalia",
+    size = 8,
+    items = { 16682, 16683, 16684, 16685, 16686, 16687, 16688, 16689 },
+    bonuses = { {
+      n = 3,
+      stats = { sp = 18 },
+    }, {
+      n = 6,
+      stats = { mp5 = 8 },
+    } },
+  },
+  [182] = {
+    name = "Vestments of the Devout",
+    size = 8,
+    items = { 16690, 16691, 16692, 16693, 16694, 16695, 16696, 16697 },
+    bonuses = { {
+      n = 3,
+      stats = { sp = 18 },
+    }, {
+      n = 6,
+      stats = { mp5 = 8 },
+    } },
+  },
+  [183] = {
+    name = "Dreadmist Raiment",
+    size = 8,
+    items = { 16698, 16699, 16700, 16701, 16702, 16703, 16704, 16705 },
+    bonuses = { {
+      n = 3,
+      stats = { sp = 18 },
+    }, {
+      n = 6,
+      stats = { mp5 = 8 },
+    } },
+  },
+  [345] = {
+    name = "Champion's Threads",
+    size = 4,
+    items = { 272548, 272549, 272552, 272553, 272630, 272643 },
+    bonuses = { {
+      n = 2,
+      stats = { sp = 23 },
+    }, {
+      n = 6,
+      stats = { sta = 20 },
+    } },
+  },
+  [346] = {
+    name = "Lieutenant Commander's Threads",
+    size = 6,
+    items = { 272657, 272671, 272794, 272796, 272800, 272801 },
+    bonuses = { {
+      n = 2,
+      stats = { sp = 23 },
+    }, {
+      n = 6,
+      stats = { sta = 20 },
+    } },
+  },
+  [391] = {
+    name = "Warlord's Threads",
+    size = 6,
+    items = { 272554, 272556, 272558, 272559, 272560, 272561 },
+    bonuses = { {
+      n = 2,
+      stats = { sta = 20 },
+    }, {
+      n = 6,
+      stats = { sp = 23 },
+    } },
+  },
+  [392] = {
+    name = "Field Marshal's Threads",
+    size = 6,
+    items = { 272802, 272803, 272804, 272805, 272807, 272808 },
+    bonuses = { {
+      n = 2,
+      stats = { sta = 20 },
+    }, {
+      n = 6,
+      stats = { sp = 23 },
+    } },
+  },
+  [421] = {
+    name = "Bloodvine Garb",
+    size = 3,
+    items = { 19682, 19683, 19684 },
+    bonuses = { {
+      n = 3,
+      stats = { crit = 2 },
+    } },
+  },
+  [473] = {
+    name = "The Highlander's Intent",
+    size = 3,
+    items = { 20047, 20054, 20061 },
+    bonuses = { {
+      n = 2,
+      stats = { sta = 5 },
+    }, {
+      n = 3,
+      stats = { crit = 1 },
+    } },
+  },
+  [481] = {
+    name = "Demoniac's Threads",
+    size = 5,
+    items = { 19605, 19848, 19849, 19957, 20033 },
+    bonuses = { {
+      n = 2,
+      stats = { sp = 12 },
+    } },
+  },
+  [485] = {
+    name = "The Defiler's Intent",
+    size = 3,
+    items = { 20159, 20163, 20176 },
+    bonuses = { {
+      n = 2,
+      stats = { sta = 5 },
+    }, {
+      n = 3,
+      stats = { crit = 1 },
+    } },
+  },
+  [514] = {
+    name = "Vestments of the Virtuous",
+    size = 8,
+    items = { 22078, 22079, 22080, 22081, 22082, 22083, 22084, 22085 },
+    bonuses = { {
+      n = 6,
+      stats = { sp = 23 },
+    } },
+  },
+  [517] = {
+    name = "Sorcerer's Regalia",
+    size = 8,
+    items = { 22062, 22063, 22064, 22065, 22066, 22067, 22068, 22069 },
+    bonuses = { {
+      n = 6,
+      stats = { sp = 23 },
+    } },
+  },
+  [518] = {
+    name = "Deathmist Raiment",
+    size = 8,
+    items = { 22070, 22071, 22072, 22073, 22074, 22075, 22076, 22077 },
+    bonuses = { {
+      n = 6,
+      stats = { sp = 23 },
+    } },
+  },
+  [520] = {
+    name = "Ironweave Battlesuit",
+    size = 8,
+    items = { 22301, 22302, 22303, 22304, 22305, 22306, 22311, 22313 },
+    bonuses = { {
+      n = 3,
+      stats = { spellPen = 5 },
+    }, {
+      n = 5,
+      stats = { sp = 23 },
+    } },
+  },
+  [541] = {
+    name = "Champion's Dreadgear",
+    size = 6,
+    items = { 22855, 22865, 22881, 22884, 23255, 23256 },
+    bonuses = { {
+      n = 2,
+      stats = { sp = 23 },
+    }, {
+      n = 6,
+      stats = { sta = 20 },
+    } },
+  },
+  [547] = {
+    name = "Lieutenant Commander's Dreadgear",
+    size = 6,
+    items = { 23282, 23283, 23296, 23297, 23310, 23311 },
+    bonuses = { {
+      n = 2,
+      stats = { sp = 23 },
+    }, {
+      n = 6,
+      stats = { sta = 20 },
+    } },
+  },
+  [1633] = {
+    name = "Blood Guard's Dreadweave",
+    size = 6,
+    items = { 220904, 220905, 220906, 220907, 220908, 220909 },
+    bonuses = { {
+      n = 3,
+      stats = { sta = 15 },
+    }, {
+      n = 6,
+      stats = { sp = 18 },
+    } },
+  },
+  [1634] = {
+    name = "Knight-Lieutenant's Dreadweave",
+    size = 6,
+    items = { 220886, 220887, 220888, 220889, 220890, 220891 },
+    bonuses = { {
+      n = 3,
+      stats = { sta = 15 },
+    }, {
+      n = 6,
+      stats = { sp = 18 },
+    } },
+  },
+  [1734] = {
+    name = "Warlord's Threads",
+    size = 6,
+    items = { 231588, 231589, 231590, 231591, 231592, 231593 },
+    bonuses = { {
+      n = 2,
+      stats = { sta = 20 },
+    }, {
+      n = 6,
+      stats = { sp = 23 },
+    } },
+  },
+  [1746] = {
+    name = "Field Marshal's Threads",
+    size = 6,
+    items = { 231582, 231583, 231584, 231585, 231586, 231587 },
+    bonuses = { {
+      n = 2,
+      stats = { sta = 20 },
+    }, {
+      n = 6,
+      stats = { sp = 23 },
+    } },
+  },
+  [1760] = {
+    name = "Champion's Threads",
+    size = 6,
+    items = { 227090, 227092, 227094, 227097, 227098, 227099 },
+    bonuses = { {
+      n = 2,
+      stats = { sp = 23 },
+    }, {
+      n = 6,
+      stats = { sta = 20 },
+    } },
+  },
+  [1774] = {
+    name = "Lieutenant Commander's Threads",
+    size = 6,
+    items = { 227091, 227093, 227095, 227096, 227100, 227101 },
+    bonuses = { {
+      n = 2,
+      stats = { sp = 23 },
+    }, {
+      n = 6,
+      stats = { sta = 20 },
+    } },
+  },
+  [1972] = {
+    name = "Stormcloth Regalia",
+    size = 6,
+    items = { 10010, 10011, 10020, 10032, 10038, 10039 },
+    bonuses = { {
+      n = 3,
+      stats = { spi = 10 },
+    }, {
+      n = 6,
+      stats = { sp = 8 },
+    } },
+  },
+  [2133] = {
+    name = "Rotmender's Raiment",
+    size = 5,
+    items = { 271207, 271214, 286978, 286979, 286980 },
+    bonuses = { {
+      n = 3,
+      stats = { int = 10 },
+    } },
+  },
+  [2134] = {
+    name = "Violet Sorcerer's Vestments",
+    size = 5,
+    items = { 273044, 273051, 286987, 286988, 286989 },
+    bonuses = { {
+      n = 3,
+      stats = { spi = 10 },
+    } },
+  },
+}
 WL.BOSS_TYPES = { { key = "", name = "Not set" }, { key = "beast", name = "Beast" }, { key = "demon", name = "Demon" }, { key = "dragonkin", name = "Dragonkin" }, { key = "elemental", name = "Elemental" }, { key = "giant", name = "Giant" }, { key = "humanoid", name = "Humanoid" }, { key = "mechanical", name = "Mechanical" }, { key = "undead", name = "Undead" }, { key = "dinosaur", name = "Dinosaur", is = "beast" }, { key = "dwarf", name = "Dwarf", is = "humanoid" }, { key = "furbolg", name = "Furbolg", is = "humanoid" }, { key = "gnome", name = "Gnome", is = "humanoid" }, { key = "murloc", name = "Murloc", is = "humanoid" }, { key = "naga", name = "Naga", is = "humanoid" }, { key = "ogre", name = "Ogre", is = "humanoid" }, { key = "orc", name = "Orc", is = "humanoid" }, { key = "plant", name = "Plant" }, { key = "qiraji", name = "Qiraji" }, { key = "satyr", name = "Satyr", is = "demon" }, { key = "silithid", name = "Silithid" }, { key = "swine", name = "Swine" }, { key = "troll", name = "Troll", is = "humanoid" }, { key = "worgen", name = "Worgen", is = "humanoid" } }
 WL.ZONE_TYPES = { { key = "", name = "Not set" }, { key = "forest", name = "Forest / Grassland" }, { key = "marsh", name = "Marsh / Swamp" }, { key = "mountain", name = "Mountainous" }, { key = "snowy", name = "Snowy" }, { key = "volcanic", name = "Volcanic" }, { key = "desert", name = "Desert" }, { key = "wasteland", name = "Wasteland" }, { key = "haunted", name = "Haunted" }, { key = "city", name = "Stronghold / City" } }
 WL.ACTION_META = { { key = "curseOfElements", label = "Curse of the Elements if missing" }, { key = "shadowTrance", label = "Shadow Bolt (max rank) if Shadow Trance (Nightfall) is up" }, { key = "bane", label = "Bane of Doom if \226\137\16560 s left and ready, else Bane of Agony if no Bane (while it still pays off)" }, { key = "baneOfAgony", label = "Bane of Agony if no Bane (never Bane of Doom)" }, { key = "corruption", label = "Corruption if missing/expiring" }, { key = "siphonLife", label = "Siphon Life if missing/expiring" }, { key = "immolate", label = "Immolate if missing/expiring" }, { key = "conflagrate", label = "Conflagrate on cooldown while Immolate is up" }, { key = "conflagrateExpire", label = "Conflagrate only when Immolate is about to expire (\226\137\164 3 s left)" }, { key = "shadowburn", label = "Shadowburn on cooldown (needs a Soul Shard)" }, { key = "shadowburnSnF", label = "Shadowburn only to keep Shadow and Flame (Fire bonus) up (\226\137\164 3 s left)" }, { key = "conflagrateSnF", label = "Conflagrate only to keep Shadow and Flame (Shadow bonus) up (\226\137\164 3 s left)" }, { key = "multiDot", label = "Keep Curse of the Elements and DoTs on the extra targets (multi-DoT)" }, { key = "shadowBoltSpread", label = "Shadow Bolt an extra target that has your DoTs but no Improved Shadow Bolt" }, { key = "isbUpkeep", label = "Shadow Bolt (max rank) to keep Improved Shadow Bolt up on the boss" }, { key = "deathCoil", label = "Death Coil on cooldown" }, { key = "deathCoilFinisher", label = "Death Coil as the finisher (when the filler would not land before the boss dies)" }, { key = "swapToImp", label = "At execute: sacrifice the pet, Fel Domination, summon the Imp" }, { key = "swapToSuccubus", label = "At execute: sacrifice the pet, Fel Domination, summon the Succubus" }, { key = "searingPainExecute", label = "Searing Pain in the execute phase (below the execute threshold)" }, { key = "searingPainDecimation", label = "Searing Pain in the execute phase only to trigger Decimation (for Soul Fire)" }, { key = "soulFire", label = "Soul Fire while Decimation buff is up" }, { key = "lifeTapPet", label = "Life Tap to feed the pet (Demonic Energies) when it is nearly out of mana" }, {

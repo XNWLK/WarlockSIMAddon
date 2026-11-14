@@ -4,7 +4,7 @@
 const fs = require('fs'), path = require('path'), vm = require('vm'), cp = require('child_process');
 const ROOT = path.join(__dirname, '..');
 const SIM = process.env.SIM_DIR || path.join(ROOT, '..', 'wow-forever-warlock-sim');
-const WL = require(path.join(SIM, 'tools', 'load-wl.js')).load(SIM, ['engine/settings-code.js']);   // + the retired settings
+const WL = require(path.join(SIM, 'tools', 'load-wl.js')).load(SIM, ['engine/settings-code.js', 'data/item-db.js']);   // + the retired settings
 
 // ---- Lua writer: keeps the key order of the JS objects (and writes it out where the engine depends on it) ----
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -94,6 +94,15 @@ const byId = o => '{\n' + Object.keys(o || {}).map(k => '  [' + num(+k) + '] = '
 out.push('WL.TRINKET_FX = ' + byId(WL.TRINKET_FX));
 out.push('WL.ENCHANT_FX = ' + byId(WL.ENCHANT_FX));
 out.push('WL.SET_FX = ' + byId(WL.SET_FX));
+// item sets: the pieces and the plain stat bonuses (a set with a bonus of the fight too), for item sims that complete or
+// break a set; stat names as the addon's items have them (hit, crit, haste)
+const SET_STAT = { hitPct: 'hit', critPct: 'crit', hastePct: 'haste' }, itemSets = {};
+Object.keys(WL.ITEM_SETS || {}).forEach(id => {
+  const s = WL.ITEM_SETS[id];
+  const bonuses = (s.bonuses || []).filter(b => b.stats).map(b => { const st = {}; Object.keys(b.stats).forEach(k => { st[SET_STAT[k] || k] = b.stats[k]; }); return { n: b.n, stats: st }; });
+  if (bonuses.length || (WL.SET_FX || {})[id]) itemSets[id] = { name: s.name, size: s.size, items: s.items, bonuses };
+});
+out.push('WL.ITEM_SETS = ' + byId(itemSets));
 out.push('WL.BOSS_TYPES = ' + lua(WL.BOSS_TYPES));
 out.push('WL.ZONE_TYPES = ' + lua(WL.ZONE_TYPES));
 out.push('WL.ACTION_META = ' + lua(actions));

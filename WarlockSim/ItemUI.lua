@@ -305,9 +305,19 @@ function WL.simItem(link, worn)
       plan[#plan + 1] = { sub = a.sub, gear = start, gb = w and WL.wornGearBuilder(w) or nil }
     end
     a.gear, a.delta = WL.gearWithSwap(start, a.worth and {} or item.stats, a.olds, cfg)
-    if WL.char and a.slot and WL.FX_SLOTS[a.slot] then         -- a trinket or weapon: its effect goes with it
-      a.fxSwap = true
-      a.gb = WL.wornGearBuilder(WL.wornSwap(w, a.slot, (not a.worth) and itemID(item.link) or nil))
+    if WL.char and a.slot then
+      local after = WL.wornSwap(w, a.slot, (not a.worth) and itemID(item.link) or nil)
+      if item.equipLoc == 'INVTYPE_2HWEAPON' and not a.worth then after = WL.wornSwap(after, 17, nil) end   -- the off hand comes off too
+      a.set = w and type(w.items) == 'table' and WL.setChange(w.items, after.items) or nil
+      if a.set then                                            -- it completes or breaks a set bonus: the item alone (the sets as
+        local alone = copy(after)                              -- they were), then with the set bonus's change as well
+        alone.items = w.items
+        a.fxSwap, a.gb = true, WL.wornGearBuilder(alone)
+        a.setGear = WL.gearWithSwap(a.gear, a.set.gain, { a.set.lose }, cfg)
+        a.setGb = WL.wornGearBuilder(after)
+      elseif WL.FX_SLOTS[a.slot] then                         -- a trinket or weapon: its effect goes with it
+        a.fxSwap, a.gb = true, WL.wornGearBuilder(after)
+      end
     end
   end
   -- kept for /wsim dump: what the game returned for the items of the last comparison
@@ -318,7 +328,9 @@ function WL.simItem(link, worn)
     end
     if alts[i].ench then WL.db.lastItem.ignored = alts[i].ench.names end
   end
-  return WL.startJob('Item', n * (#alts + #plan), function(j)
+  local sets = 0
+  for i = 1, #alts do if alts[i].set then sets = sets + 1 end end
+  return WL.startJob('Item', n * (#alts + #plan + sets), function(j)
     local function onFight() j.done = j.done + 1 end
     for i = 1, #plan do
       local p, c = plan[i], cfg
@@ -336,6 +348,21 @@ function WL.simItem(link, worn)
       j.done = before + n
       alts[i].dps, alts[i].base = r.dps, base
       alts[i].diff, alts[i].err, alts[i].n = WL.pairedDiff(base.dpsList, r.dpsList)
+      if alts[i].set then                                      -- the same with the set bonus's change: three numbers
+        local c2 = copy(cfg)
+        c2.gear, c2.gearBuilder = alts[i].setGear, alts[i].setGb
+        before = j.done
+        local r2 = WL.simulate(build, race, c2, { iterations = n, onFight = onFight, stop = WL.pairedStop(base.dpsList) })
+        j.done = before + n
+        -- all three over the same fights, so item + set bonus = total
+        local m = math.min(#r.dpsList, #r2.dpsList)
+        local function cut(l) local o = {}; for f = 1, m do o[f] = l[f] end; return o end
+        local A, B1, C1 = cut(base.dpsList), cut(r.dpsList), cut(r2.dpsList)
+        alts[i].itemDiff, alts[i].itemErr = WL.pairedDiff(A, B1)
+        alts[i].setDiff, alts[i].setErr = WL.pairedDiff(B1, C1)
+        alts[i].diff, alts[i].err, alts[i].n = WL.pairedDiff(A, C1)
+        alts[i].dps = r2.dps
+      end
     end
     j.result.kind, j.result.link, j.result.worn, j.result.item, j.result.alts, j.result.n = 'item', link, worn, item, alts, n
     -- the line "as you are": the plain run when a comparison used it, else the one without the enchant
@@ -344,6 +371,20 @@ function WL.simItem(link, worn)
   end)
 end
 
+-- "Item: +5.0 DPS  Set bonus: +7.3 DPS" (signed, coloured), and what the set bonus change is
+local function signed(v, err)
+  local col = math.abs(v) <= err and 'cccccc' or (v > 0 and '40ff40' or 'ff5050')
+  return string.format('|cff%s%+.1f DPS|r |cff999999+-%.1f|r', col, v, err)
+end
+local function setLines(lines, a, sign)
+  lines[#lines + 1] = 'Item: ' .. signed(sign * a.itemDiff, a.itemErr) .. '   Set bonus: ' .. signed(sign * a.setDiff, a.setErr)
+  local d = sign > 0 and a.set.delta or {}
+  if sign < 0 then for k, v in pairs(a.set.delta) do d[k] = -v end end
+  local what = WL.describeStats(d, true)
+  local any = false
+  for _, v in pairs(d) do if v ~= 0 then any = true end end
+  lines[#lines + 1] = '|cffaaaaaaSet: ' .. table.concat(a.set.names, ', ') .. ' (' .. (any and what or '') .. (a.set.fx and ((any and ', ' or '') .. 'its effect in the fight') or '') .. ')|r'
+end
 local function resultText(res)
   local lines = {}
   for i = 1, #res.alts do
@@ -352,14 +393,16 @@ local function resultText(res)
     local pct = baseDps > 0 and 100 * a.diff / baseDps or 0
     if a.worth then
       -- an item you wear, against an empty slot: the loss without it is what it is worth
-      lines[#lines + 1] = string.format('You are wearing this. It is worth:\n|cff40ff40%.1f DPS|r (%.1f%% of your damage)  |cff999999+-%.1f|r', -a.diff, -pct, a.err)
+      lines[#lines + 1] = string.format('You are wearing this. It is worth%s:\n|cff40ff40%.1f DPS|r (%.1f%% of your damage)  |cff999999+-%.1f|r', a.set and ' in total' or '', -a.diff, -pct, a.err)
+      if a.set then setLines(lines, a, -1) end
       lines[#lines + 1] = '|cffaaaaaaIt gives: ' .. WL.describeStats(res.item.stats, false) .. '|r'
     else
       local verdict
       if math.abs(a.diff) <= a.err then verdict = string.format('|cffcccccc%+.1f DPS: about the same|r', a.diff)
       elseif a.diff > 0 then verdict = string.format('|cff40ff40%+.1f DPS|r (%+.1f%%)', a.diff, pct)
       else verdict = string.format('|cffff5050%+.1f DPS|r (%+.1f%%)', a.diff, pct) end
-      lines[#lines + 1] = string.format('Instead of %s:\n%s  |cff999999+-%.1f|r', a.label, verdict, a.err)
+      lines[#lines + 1] = string.format('Instead of %s:\n%s%s  |cff999999+-%.1f|r', a.label, a.set and 'Total: ' or '', verdict, a.err)
+      if a.set then setLines(lines, a, 1) end
       lines[#lines + 1] = '|cffaaaaaaChange: ' .. WL.describeStats(a.delta, true) .. '|r'
     end
     if a.note then lines[#lines + 1] = '|cffaaaaaa' .. a.note .. '|r' end
@@ -384,7 +427,7 @@ local function resultText(res)
   end
   local fewest = res.n
   for i = 1, #res.alts do if res.alts[i].n and res.alts[i].n < fewest then fewest = res.alts[i].n end end
-  lines[#lines + 1] = string.format('|cff777777%.1f DPS as you are%s. %s Enchants and set bonuses are not counted.%s|r', res.base.dps,
+  lines[#lines + 1] = string.format('|cff777777%.1f DPS as you are%s. %s Enchants are not counted.%s|r', res.base.dps,
     res.plain == false and ' (without the enchant)' or '',
     fewest < res.n and string.format('Exact enough after %d of %d fights.', fewest, res.n) or string.format('%d fights.', res.n),
     (WL.char and (WL.char.level or 60) < 60) and ' Played at level 60.' or '')

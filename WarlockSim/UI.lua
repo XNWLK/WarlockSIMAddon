@@ -389,7 +389,7 @@ local function buildCharacterPage(p)
       fmt(g.sp), pctText(floor(g.hitPct * 10 + 0.5) / 10), pctText(floor(g.critPct * 10 + 0.5) / 10), fmt(g.int), fmt(g.spi), fmt(g.sta)))
     local notes = {}
     if ch.restored then notes[#notes + 1] = '|cffaaaaaaAs read ' .. ((ch.readAt or 0) > 0 and ('on ' .. date('%d %b, %H:%M', ch.readAt)) or 'before') .. ' (kept over the reload). Read again if your items or talents changed since.|r' end
-    if ch.level and ch.level < 60 then notes[#notes + 1] = string.format('|cffffb060Level %d: the sim plays your numbers as a level 60 Warlock (level 60 spells, a level 63 boss), so the DPS is what that would do, not what you do now. Item and stat comparisons still give a rough idea; hit counts for more here than against enemies of your own level.|r', ch.level) end
+    if ch.level and ch.level < 60 then notes[#notes + 1] = string.format('|cffffb060Level %d: the sim plays your numbers as a level 60 Warlock (level 60 spells, a level 63 boss; only resistances use your own level), so the DPS is what that would do, not what you do now. Item and stat comparisons still give a rough idea; hit counts for more here than against enemies of your own level.|r', ch.level) end
     if points ~= 51 and (ch.level or 60) >= 60 then notes[#notes + 1] = string.format('|cffffb060%d talent points found (51 expected).|r', points) end
     for i = 1, #ch.notes do notes[#notes + 1] = '|cffffb060' .. ch.notes[i] .. '|r' end
     local on = {}

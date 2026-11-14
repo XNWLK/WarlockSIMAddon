@@ -131,11 +131,17 @@ local function start(key)
       local gear, delta = WL.gearWithSwap(cfg.gear, {}, { item.stats }, cfg)
       local any = false
       for _, v in pairs(delta) do if v ~= 0 then any = true end end
-      local gb, fxSwap = nil, WL.FX_SLOTS[t.id] and WL.char and WL.char.worn
-      if fxSwap then                                         -- a trinket or weapon: its effect goes with it
-        local w = WL.wornSwap(WL.char.worn, t.id, nil)
-        gb = WL.wornGearBuilder(w)
-        if #WL.wornEffectNames(w) ~= #WL.wornEffectNames(WL.char.worn) then any = true end
+      local gb, fxSwap, worn = nil, false, WL.char and WL.char.worn
+      if worn then
+        local w = WL.wornSwap(worn, t.id, nil)
+        local set = type(worn.items) == 'table' and WL.setChange(worn.items, w.items) or nil
+        if set then                                          -- a set piece: the set bonus it keeps up counts with it
+          gear = WL.gearWithSwap(gear, set.gain, { set.lose }, cfg)
+          fxSwap, gb, any = true, WL.wornGearBuilder(w), true
+        elseif WL.FX_SLOTS[t.id] then                       -- a trinket or weapon: its effect goes with it
+          fxSwap, gb = true, WL.wornGearBuilder(w)
+          if #WL.wornEffectNames(w) ~= #WL.wornEffectNames(worn) then any = true end
+        end
       end
       if not any then
         st.worth[t.id] = { link = t.link, dps = 0, err = 0 }   -- nothing on it that the sim counts: no need to play fights

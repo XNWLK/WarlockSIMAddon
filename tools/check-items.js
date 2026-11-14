@@ -41,6 +41,23 @@ else check('classic wording', st, { sp = 40, hit = 1, crit = 2, mp5 = 6, shadowS
 local st2, unknown2 = WL.itemStats({ ITEM_MOD_CRIT_RATING_SHORT = 14 }, { 'Equip: Improves your chance to get a critical strike by 1%.', 'Equip: Improves your chance to hit by 2%.' }, S, pct)
 check('plain crit and hit wording', st2, { crit = 1, hit = 2 })
 n = n + 1; if #unknown2 ~= 0 then bad[#bad + 1] = 'plain wording not understood: ' .. table.concat(unknown2, ' | ') end
+-- item sets: a third piece of Magister's Regalia brings its 3-piece bonus (18 spell power), taking it off loses it,
+-- the fifth brings its bonus of the fight only; an item of no set, or a second copy of a piece, changes nothing
+do
+  local m2, m3 = { [1] = 16686, [5] = 16688 }, { [1] = 16686, [5] = 16688, [7] = 16687 }
+  local sc = WL.setChange(m2, m3)
+  check('a third set piece', sc and sc.gain or {}, { sp = 18 })
+  n = n + 1; if not sc or sc.fx or sc.names[1] ~= "Magister's Regalia 2 -> 3 of 8" or sc.delta.sp ~= 18 then bad[#bad + 1] = 'third set piece: ' .. (sc and table.concat(sc.names, ', ') or 'nil') end
+  local sc2 = WL.setChange(m3, m2)
+  check('a set piece taken off', sc2 and sc2.lose or {}, { sp = 18 })
+  n = n + 1; if not sc2 or sc2.delta.sp ~= -18 then bad[#bad + 1] = 'set piece taken off: delta' end
+  local m4 = { [1] = 16686, [5] = 16688, [7] = 16687, [10] = 16684 }
+  local m5 = { [1] = 16686, [5] = 16688, [7] = 16687, [10] = 16684, [8] = 16682 }
+  local sc3 = WL.setChange(m4, m5)
+  n = n + 1; if not (sc3 and sc3.fx and next(sc3.gain) == nil and next(sc3.lose) == nil) then bad[#bad + 1] = 'fifth set piece: only its effect in the fight' end
+  n = n + 1; if WL.setChange(m2, { [1] = 16686, [5] = 16688, [7] = 12345 }) ~= nil then bad[#bad + 1] = 'an item of no set changed a set' end
+  n = n + 1; if WL.setChange(m2, { [1] = 16686, [5] = 16688, [11] = 16688 }) ~= nil then bad[#bad + 1] = 'a second copy of a piece counted' end
+end
 -- Forever's Spell Pierce wording ("Your spells pierce N Magical Resistance"): Spell Pierce, once with the stat list too
 local st3, unknown3 = WL.itemStats(nil, { 'Equip: Your spells pierce 3 Magical Resistance.' }, S, pct)
 check('spell pierce wording', st3, { pierce = 3 })

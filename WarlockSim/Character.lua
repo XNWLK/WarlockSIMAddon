@@ -159,14 +159,15 @@ function WL.wornEffectNames(worn)
 end
 -- A short text of the effects in a config, for cache keys (the settings snapshot leaves them out).
 function WL.fxKey(cfg)
+  local lv = '|lv' .. tostring(cfg and cfg.combat and cfg.combat.casterLevel or '')   -- your level (resistances)
   local gb = cfg and cfg.gearBuilder
-  if not gb then return '' end
+  if not gb then return lv end
   local s = gb.slots or {}
   local function id(x) return x and tostring(x.id) or '-' end
   local sets = WL.equippedSetFx(cfg)
   local sk = ''
   for i = 1, #sets do sk = sk .. ',' .. sets[i].slot end
-  return '|fx:' .. id(s.trinket1) .. ',' .. id(s.trinket2) .. ',' .. id(s.mainHand) .. ',' .. id(gb.enchants and gb.enchants.mainHand) .. sk
+  return lv .. '|fx:' .. id(s.trinket1) .. ',' .. id(s.trinket2) .. ',' .. id(s.mainHand) .. ',' .. id(gb.enchants and gb.enchants.mainHand) .. sk
 end
 
 -- Talent points per tree as "21/30/0", and their sum.

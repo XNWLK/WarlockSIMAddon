@@ -202,6 +202,47 @@ function WL.gearWithSwap(gear, new, olds, cfg)
   return g, d
 end
 
+-- Item sets (WL.ITEM_SETS, WL.SET_FX): what changes when what you wear goes from `before` to `after` ({ [slot] = item id },
+-- each item counted once). nil when no set bonus changes; else { gain = stats, lose = stats (plain stat bonuses, item stat
+-- names), delta = gain - lose, fx = true when a bonus of the fight changes, names = { "Magister's Regalia 2 -> 3 of 8" } }.
+local SET_OF
+local function setCounts(items)
+  if not SET_OF then
+    SET_OF = {}
+    for sid, s in pairs(WL.ITEM_SETS or {}) do for _, id in ipairs(s.items) do SET_OF[id] = sid end end
+  end
+  local by, seen = {}, {}
+  for _, id in pairs(items or {}) do
+    local sid = SET_OF[id]
+    if sid and not seen[id] then seen[id] = true; by[sid] = (by[sid] or 0) + 1 end
+  end
+  return by
+end
+function WL.setChange(before, after)
+  local a, b, list, seen = setCounts(before), setCounts(after), {}, {}
+  for sid in pairs(a) do if not seen[sid] then seen[sid] = true; list[#list + 1] = sid end end
+  for sid in pairs(b) do if not seen[sid] then seen[sid] = true; list[#list + 1] = sid end end
+  table.sort(list)
+  local gain, lose, names, fx = {}, {}, {}, false
+  for _, sid in ipairs(list) do
+    local s, n0, n1, changed = WL.ITEM_SETS[sid], a[sid] or 0, b[sid] or 0, false
+    for _, bo in ipairs(s.bonuses or {}) do
+      if (n0 >= bo.n) ~= (n1 >= bo.n) then
+        changed = true
+        local to = n1 >= bo.n and gain or lose
+        for k, v in pairs(bo.stats) do to[k] = (to[k] or 0) + v end
+      end
+    end
+    local sf = WL.SET_FX and WL.SET_FX[sid]
+    if sf then for k in pairs(sf.at) do local need = tonumber(k); if (n0 >= need) ~= (n1 >= need) then changed, fx = true, true end end end
+    if changed then names[#names + 1] = string.format('%s %d -> %d of %d', s.name, n0, n1, s.size) end
+  end
+  if #names == 0 then return nil end
+  local delta = {}
+  for i = 1, #WL.ITEM_STAT_ORDER do local k = WL.ITEM_STAT_ORDER[i]; delta[k] = (gain[k] or 0) - (lose[k] or 0) end
+  return { gain = gain, lose = lose, delta = delta, fx = fx, names = names }
+end
+
 -- "+14 spell power, +7 Intellect, -1% hit"; "nothing the sim counts" when all are zero.
 function WL.describeStats(d, signed)
   local parts = {}
