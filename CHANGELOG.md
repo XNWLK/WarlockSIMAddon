@@ -3,6 +3,18 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.15.0
+
+- 25 more trinket effects from the Warlock SIM count in the fight when you wear them, among them Mark of the Champion,
+  Rune of the Dawn, Royal Seal of Eldre'Thalas, Draconic Infused Emblem, Eye of the Beast, Burst of Knowledge, Mindtap
+  Talisman, Second Wind, Golden Banana, Cannonball Runner, Goblin Mortar, Bolt's Charged Eyeball, Cursed Murloc Eye,
+  Pimgib's Collar, Briarwood Reed, Rune of Perfection and the Enriched / Darkspear Voodoo Seals.
+- New on the Fight tab: **Boss type** and **Zone**. Only trinkets care about them: bonuses against Demons, Undead,
+  Dragonkin and so on, and effects that are stronger in some areas ("doubled in Marsh and Swamp areas"). A kind of enemy
+  counts as its creature type too (a Satyr is a Demon). "Not set" = none of those bonuses count.
+- A trinket's own hit of Holy or Nature damage no longer gets Curse of the Elements.
+- Item sims of the zone trinkets use their stats without the zone bonus; the bonus counts when the Zone matches.
+
 ## v0.14.1
 
 - Item sims: an "Equip: Improves your chance to get a critical strike by 1%." line (no "with spells", e.g. Emberfury
