@@ -14,6 +14,15 @@ What changed in each version, newest first. Download a version from the
   counts as its creature type too (a Satyr is a Demon). "Not set" = none of those bonuses count.
 - A trinket's own hit of Holy or Nature damage no longer gets Curse of the Elements.
 - Item sims of the zone trinkets use their stats without the zone bonus; the bonus counts when the Zone matches.
+- Set bonuses that do something in the fight count when you wear the pieces: Magister's Regalia and Vestments of the
+  Devout (5 pieces: a chance for 200 mana), Necropile Raiment (3: Necropile Drain), Rotmender's Raiment (4: mana when you
+  run low, doubled in Haunted and Wasteland areas) and Violet Sorcerer's Vestments (4: a part of your Spirit regeneration
+  also while casting, doubled in a Stronghold or City). Plain stat bonuses of sets were already in your character's numbers.
+- Resistance and Spell Pierce follow the Warlock SIM's new model, fitted to Forever combat logs: each hit is resisted
+  (or, with Spell Pierce past the boss's resistance, deals extra damage) in steps of 10%, and a damage-over-time tick
+  rolls only a tenth of that. The default results do not change; Spell Pierce is worth about half of what it was.
+- "Your spells pierce N Magical Resistance" on an item counts as Spell Pierce, and so does Rune of Perfection's bonus.
+- The damage list names trinket hits and set bonuses (it showed a number for them).
 
 ## v0.14.1
 

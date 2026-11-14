@@ -41,6 +41,11 @@ else check('classic wording', st, { sp = 40, hit = 1, crit = 2, mp5 = 6, shadowS
 local st2, unknown2 = WL.itemStats({ ITEM_MOD_CRIT_RATING_SHORT = 14 }, { 'Equip: Improves your chance to get a critical strike by 1%.', 'Equip: Improves your chance to hit by 2%.' }, S, pct)
 check('plain crit and hit wording', st2, { crit = 1, hit = 2 })
 n = n + 1; if #unknown2 ~= 0 then bad[#bad + 1] = 'plain wording not understood: ' .. table.concat(unknown2, ' | ') end
+-- Forever's Spell Pierce wording ("Your spells pierce N Magical Resistance"): Spell Pierce, once with the stat list too
+local st3, unknown3 = WL.itemStats(nil, { 'Equip: Your spells pierce 3 Magical Resistance.' }, S, pct)
+check('spell pierce wording', st3, { pierce = 3 })
+n = n + 1; if #unknown3 ~= 0 then bad[#bad + 1] = 'pierce wording not understood: ' .. table.concat(unknown3, ' | ') end
+check('spell pierce wording with the list', (WL.itemStats({ ITEM_MOD_SPELL_PENETRATION_SHORT = 3 }, { 'Equip: Your spells pierce 3 Magical Resistance.' }, S, pct)), { pierce = 3 })
 -- by the words: "Spell Penetration" is Spell Penetration, "spell piercing" (the client's ITEM_MOD_SPELL_PENETRATION) Spell Pierce
 check('spell penetration wording', (WL.itemStats(nil, { '+13 Spell Penetration', 'Equip: Increases your spell penetration by 7.' }, S, pct)), { spellPen = 20 })
 n = n + 1; if #unknown ~= 2 then bad[#bad + 1] = 'lines not understood: ' .. #unknown .. ' (' .. table.concat(unknown, ' | ') .. ')' end

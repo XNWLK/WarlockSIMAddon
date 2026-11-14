@@ -31,6 +31,7 @@ local CLASSIC_LINES = {
   { 'hit', 'Improves your chance to hit by (%d+)%%', pct = true },
   { 'crit', 'Improves your chance to get a critical strike by (%d+)%%', pct = true },
   { 'mp5', 'Restores (%d+) mana per 5 sec' },
+  { 'pierce', 'Your spells pierce (%d+) Magical Resistance' },   -- Forever's Spell Pierce wording
   { 'spellPen', 'Decreases the magical resistances of your spell targets by (%d+)' },
   { 'spellPen', '[Ss]pell [Pp]enetration by (%d+)' }, { 'spellPen', '^%+(%d+) [Ss]pell [Pp]enetration' }, { 'spellPen', '[Ss]pell [Pp]enetration %+(%d+)' },
 }

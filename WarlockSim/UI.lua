@@ -163,6 +163,12 @@ local function rowInfo(key, build)
   elseif bk:sub(1, 5) == 'item:' then
     local c = WL.DEFAULT_CONFIG.consumables[bk:sub(6)]
     name = c and c.name
+  elseif bk:sub(1, 11) == 'trinket:set' then
+    local sf = WL.SET_FX and WL.SET_FX[tonumber(bk:sub(12))]
+    name = sf and (sf.name .. ' (set bonus)')
+  elseif bk:sub(1, 8) == 'trinket:' then
+    local tf = WL.TRINKET_FX and WL.TRINKET_FX[tonumber(bk:sub(9))]
+    name = tf and tf.name
   elseif bk == 'touchOfTheGrave' then name, icon = 'Touch of the Grave', 1260201
   elseif WL.SPELLS[bk] then name, icon = WL.SPELLS[bk].name, WL.SPELLS[bk].id end
   name = name or bk
@@ -512,7 +518,7 @@ local function buildFightPage(p)
     'What the boss is. Only some trinkets care: Mark of the Champion (Demons and Undead), Rune of the Dawn, Royal Seal of Eldre\'Thalas, Draconic Infused Emblem (Dragonkin), Cannonball Runner and more. A kind of enemy counts as its creature type too: a Satyr is a Demon, a Murloc or a Troll a Humanoid, a Dinosaur a Beast.\n\n"Not set": none of those bonuses count.')), 92)
   label('Zone', 222)
   place(keep(Dropdown(p, 130, typeList(WL.ZONE_TYPES), function() return f().zone or '' end, function(v) f().zone = v end,
-    'Where the fight is. Only some trinkets care ("This effect is doubled in ... areas"): Briarwood Reed (Marsh / Swamp), Golden Banana, Rune of Perfection, Enriched Seal (Forest / Grassland), Second Wind (Mountainous) and more.\n\n"Not set": none of those bonuses count.')), 276)
+    'Where the fight is. Only some trinkets and set bonuses care ("This effect is doubled in ... areas"): Briarwood Reed (Marsh / Swamp), Golden Banana, Rune of Perfection, Enriched Seal (Forest / Grassland), Second Wind (Mountainous), Rotmender\'s Raiment (Haunted / Wasteland), Violet Sorcerer\'s Vestments (Stronghold / City) and more.\n\n"Not set": none of those bonuses count.')), 276)
   y = y - 24
   place(keep(Check(p, 'Keep Curse of the Elements up', function() return WL.cfg.options.useCurseOfElements end, function(v) WL.cfg.options.useCurseOfElements = v end)), -2)
   place(keep(Check(p, 'Stat weights', function() return o().weights end, function(v) o().weights = v end,

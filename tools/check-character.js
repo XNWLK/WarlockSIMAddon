@@ -56,6 +56,22 @@ for bi = 1, #WL.BUILDS do
   n = n + 1
   if not (r.dps > 50) then bad[#bad + 1] = 'no talents with ' .. WL.BUILDS[bi].key .. ': dps ' .. tostring(r.dps) end
 end
+-- what you wear -> the fight's set bonuses: four pieces of Rotmender's Raiment (4: a bonus), one taken off (none left)
+do
+  local worn = { trinket1 = 1, items = { [1] = 271207, [5] = 271214, [7] = 286978, [10] = 286979, [13] = 1 } }
+  local gb = WL.wornGearBuilder(worn)
+  local fx = gb and WL.equippedSetFx({ gearBuilder = gb }) or {}
+  n = n + 1
+  if #fx ~= 1 or fx[1].fx.proc.kind ~= 'lowMana' then bad[#bad + 1] = 'set bonus from the worn items: ' .. #fx end
+  local names = WL.wornEffectNames(worn)
+  n = n + 1
+  if names[1] ~= "Rotmender's Raiment (set bonus)" then bad[#bad + 1] = 'set bonus name: ' .. tostring(names[1]) end
+  local off = WL.wornSwap(worn, 7, nil)
+  n = n + 1
+  if WL.wornGearBuilder(off) ~= nil or worn.items[7] ~= 286978 then bad[#bad + 1] = 'a set piece taken off still counts (or changed what you wear)' end
+  n = n + 1
+  if WL.wornGearBuilder({ items = { [1] = 271207 } }) ~= nil then bad[#bad + 1] = 'one set piece gave a bonus' end
+end
 return n .. '|' .. table.concat(bad, '\\n')
 `);
 const [n, bad] = out.split('|');

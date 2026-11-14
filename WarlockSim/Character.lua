@@ -122,7 +122,8 @@ function WL.characterBuild(char, template)
 end
 
 -- ---------- the trinkets and main-hand enchant you wear, for the fight (WL.TRINKET_FX / WL.ENCHANT_FX) ----------
--- worn = { trinket1 = item id, trinket2 = item id, mainHand = item id, mainEnchant = enchant id } (Reader.lua).
+-- worn = { trinket1 = item id, trinket2 = item id, mainHand = item id, mainEnchant = enchant id,
+--          items = { [inventory slot] = item id } (every worn item: the pieces of sets with a bonus the fight plays) } (Reader.lua).
 WL.FX_SLOTS = { [13] = 'trinket1', [14] = 'trinket2', [16] = 'mainHand' }   -- inventory slot -> the fight's slot name
 -- The fight's cfg.gearBuilder for what you wear, or nil when nothing of it has an effect the sim knows.
 function WL.wornGearBuilder(worn)
@@ -130,8 +131,9 @@ function WL.wornGearBuilder(worn)
   local gb = { on = true, slots = {}, enchants = {} }
   for _, k in ipairs({ 'trinket1', 'trinket2', 'mainHand' }) do if worn[k] then gb.slots[k] = { id = worn[k] } end end
   if worn.mainEnchant then gb.enchants.mainHand = { id = worn.mainEnchant } end
+  if type(worn.items) == 'table' then for inv, id in pairs(worn.items) do if not WL.FX_SLOTS[inv] then gb.slots['inv' .. inv] = { id = id } end end end
   local c = { gearBuilder = gb }
-  if #WL.equippedTrinkets(c) == 0 and #WL.equippedEnchantFx(c) == 0 then return nil end
+  if #WL.equippedTrinkets(c) == 0 and #WL.equippedEnchantFx(c) == 0 and #WL.equippedSetFx(c) == 0 then return nil end
   return gb
 end
 -- What you wear with the item in inventory slot `inv` changed to `id` (nil = the slot empty). The enchant stays on the
@@ -140,6 +142,7 @@ function WL.wornSwap(worn, inv, id)
   local w = copy(worn or {})
   local k = WL.FX_SLOTS[inv]
   if k then w[k] = id end
+  if type(w.items) == 'table' then w.items = copy(w.items); w.items[inv] = id end
   return w
 end
 -- The names of what counts in the fight beyond plain stats, e.g. { 'The Black Book', 'Revelation' }.
@@ -150,6 +153,8 @@ function WL.wornEffectNames(worn)
   local t, e = WL.equippedTrinkets(c), WL.equippedEnchantFx(c)
   for i = 1, #t do out[#out + 1] = t[i].fx.name end
   for i = 1, #e do out[#out + 1] = e[i].fx.name end
+  local s = WL.equippedSetFx(c)
+  for i = 1, #s do out[#out + 1] = s[i].fx.name .. ' (set bonus)' end
   return out
 end
 -- A short text of the effects in a config, for cache keys (the settings snapshot leaves them out).
@@ -158,7 +163,10 @@ function WL.fxKey(cfg)
   if not gb then return '' end
   local s = gb.slots or {}
   local function id(x) return x and tostring(x.id) or '-' end
-  return '|fx:' .. id(s.trinket1) .. ',' .. id(s.trinket2) .. ',' .. id(s.mainHand) .. ',' .. id(gb.enchants and gb.enchants.mainHand)
+  local sets = WL.equippedSetFx(cfg)
+  local sk = ''
+  for i = 1, #sets do sk = sk .. ',' .. sets[i].slot end
+  return '|fx:' .. id(s.trinket1) .. ',' .. id(s.trinket2) .. ',' .. id(s.mainHand) .. ',' .. id(gb.enchants and gb.enchants.mainHand) .. sk
 end
 
 -- Talent points per tree as "21/30/0", and their sum.

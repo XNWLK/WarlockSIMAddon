@@ -217,6 +217,10 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if S.lastSpend == -huge then return end
     if S.channel then return end
     local from = max(a, S.lastSpend + FSR, S.innervateUntil)
+    if S.castRegen and from > a then                     -- Violet Sorcerer's Vestments: a part of it also while casting
+      local cr, to, lo = S.castRegen(), min(b, from), max(a, S.innervateUntil)
+      if cr > 0 and to > lo then local bc = S.mana; S.mana = min(stats.maxMana, S.mana + SPI_REGEN * cr / 100 * (to - lo)); res.manaFromSpirit = res.manaFromSpirit + (S.mana - bc) end
+    end
     if b <= from then return end
     local before = S.mana
     S.mana = min(stats.maxMana, S.mana + SPI_REGEN * (b - from))
@@ -230,7 +234,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       if S.spendAt ~= nil and S.spendAt <= t + EPS then
         local mid = min(t, max(S.lastRegen, S.spendAt))
         spiritRegen(S.lastRegen, mid); S.lastSpend = S.spendAt; S.spendAt = nil; spiritRegen(mid, t)
-      elseif S.lastSpend ~= -huge and not S.channel and t > S.lastSpend + FSR then spiritRegen(S.lastRegen, t) end
+      elseif S.lastSpend ~= -huge and not S.channel and (S.castRegen or t > S.lastSpend + FSR) then spiritRegen(S.lastRegen, t) end
     end
     S.lastRegen = t
   end
@@ -475,6 +479,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   end
   -- Trinkets and weapon enchants (WL.TRINKET_FX / WL.ENCHANT_FX): TR holds their functions (filled in after deal below).
   local TRK = WL.equippedTrinkets(cfg)
+  do local sf = WL.equippedSetFx(cfg); for i = 1, #sf do TRK[#TRK + 1] = sf[i] end end   -- set bonuses with an effect, shaped like trinkets
   local EPR = WL.equippedEnchantFx(cfg)
   local NTRK, TRX, TR = #TRK, #TRK > 0 or #EPR > 0, {}
   -- Racial cooldown, Spellblasting potion and Power Infusion, right before a damaging cast.
@@ -527,9 +532,9 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   end
 
   -- Resistance / Spell Pierce roll for one Warlock damage event. ti > 1 = an extra target with its own curse.
-  local resCache = { [true] = {}, [false] = {} }            -- [curse up?][school]
+  local resCache = { [true] = {}, [false] = {}, t = { [true] = {}, [false] = {} } }   -- [curse up?][school]; .t: DoT ticks
   local xDotLeft, xDebLeft                                -- defined below
-  local function resProfile(school, ti)
+  local function resProfile(school, ti, periodic)
     local coe
     if (ti or 0) > 1 then coe = xDebLeft(ti, 'coe') > 0
     else
@@ -538,18 +543,18 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     end
     local tp = NTRK > 0 and TR.pierce() or 0                   -- Eye of Moam: -100 resistances while up
     if tp ~= 0 then
-      local k = school .. (coe and '1' or '0') .. 'p' .. tp
+      local k = school .. (coe and '1' or '0') .. 'p' .. tp .. (periodic and 't' or '')
       local pr = resCache[k]
-      if not pr then pr = WL.resistProfile(cfg, stats.pierce, school, coe, stats.spellPen + tp); resCache[k] = pr end
+      if not pr then pr = WL.resistProfile(cfg, stats.pierce, school, coe, stats.spellPen + tp, periodic); resCache[k] = pr end
       return pr
     end
-    local c = resCache[coe]
+    local c = (periodic and resCache.t or resCache)[coe]
     local pr = c[school]
-    if not pr then pr = WL.resistProfile(cfg, stats.pierce, school, coe, stats.spellPen); c[school] = pr end
+    if not pr then pr = WL.resistProfile(cfg, stats.pierce, school, coe, stats.spellPen, periodic); c[school] = pr end
     return pr
   end
-  local function vulnMult(school, ti)
-    local pr = resProfile(school, ti)
+  local function vulnMult(school, ti, periodic)                -- periodic: a DoT tick (a tenth in the fitted model)
+    local pr = resProfile(school, ti, periodic)
     local m, dist = pr.flat, pr.dist
     local n = #dist
     if n > 1 then
@@ -738,9 +743,13 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
         if u.kind == 'spStack' and st.n >= u.casts then st.upTo = -1 end
       end
       if u and u.kind == 'dmgAfter' and st.pending > 0 then st.pending = st.pending - 1; if st.pending == 0 then trHit(x, u) end end
-      if p and not p.onDamage and not (p.icd and S.t < st.icdUntil - EPS) and Rproc() * 100 < p.chancePct then
+      if p and not p.onDamage and not (p.icd and S.t < st.icdUntil - EPS) and Rproc() * 100 < (p.chancePct or -1) then
         if p.icd then st.icdUntil = S.t + p.icd end             -- Draconic Infused Emblem: 60 s internal cooldown
-        if p.kind == 'dmg' then trHit(x, p) else st.procUntil = S.t + p.duration end   -- Cursed Murloc Eye: a hit
+        if p.kind == 'dmg' then trHit(x, p)                     -- Cursed Murloc Eye, Necropile Raiment: a hit
+        elseif p.kind == 'mana' then                            -- Magister's / Devout 5
+          local mg = min(p.amount * trMult(p), stats.maxMana - S.mana)
+          S.mana = S.mana + mg; res.manaFromConsumables = (res.manaFromConsumables or 0) + mg
+        elseif p.kind ~= 'lowMana' then st.procUntil = S.t + p.duration end
       end
     end
     for i = 1, #EPR do                                          -- weapon enchants
@@ -763,6 +772,28 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
           else trHit(x, p) end
         end
       end
+    end
+  end
+  TR.lowMana = function()                                       -- Rotmender's Raiment 4: below belowPct % mana, + amount, once per cd
+    for i = 1, NTRK do
+      local x = TRK[i]
+      local p, st = x.fx.proc, trs[x.slot]
+      if p and p.kind == 'lowMana' and not (S.t < st.icdUntil - EPS) and S.mana < stats.maxMana * p.belowPct / 100 then
+        st.icdUntil = S.t + p.cd
+        local g = min(p.amount * trMult(p), stats.maxMana - S.mana)
+        S.mana = S.mana + g; res.manaFromConsumables = (res.manaFromConsumables or 0) + g
+      end
+    end
+  end
+  for i = 1, NTRK do                                            -- Violet Sorcerer's Vestments 4: Spirit regeneration % while casting
+    local p = TRK[i].fx.proc
+    if p and p.kind == 'castRegen' then
+      S.castRegen = function()
+        local c = 0
+        for j = 1, NTRK do local x = TRK[j]; local q = x.fx.proc; if q and q.kind == 'castRegen' and trs[x.slot].procUntil > S.t + EPS then c = c + q.pct * trMult(q) end end
+        return min(100, c)
+      end
+      break
     end
   end
   TR.shot = function(slot)                                      -- one shot of a summoned helper (Cannonball Runner)
@@ -963,7 +994,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local s, e, rk = SPELLS[key], tbl[key], xkey(ti, key)
     local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * liveMultX(key, ti, true) * (snap.castMult or 1)
     if s.ramp then amt = amt * s.ramp[i + 1] end
-    amt = amt * vulnMult(s.school, ti)
+    amt = amt * vulnMult(s.school, ti, true)
     local cx = Rcrit() * 100
     local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
     if crit then amt = amt * e.critMult end
@@ -1007,7 +1038,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local s, e = SPELLS[key], tbl[key]
     local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * liveMult(key, true) * (snap.castMult or 1)
     if s.ramp then amt = amt * s.ramp[i + 1] end
-    amt = amt * vulnMult(s.school)
+    amt = amt * vulnMult(s.school, nil, true)
     local cx = Rcrit() * 100
     local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
     if crit then amt = amt * e.critMult end
@@ -1439,8 +1470,8 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- ---------- end-of-fight DoT check ----------
   do                                                     -- (a block: these names are only needed in here)
   local DOT_END = not (cfg.options and cfg.options.dotEndCheck == false)
-  local function expVuln(school, ti)
-    local pr = resProfile(school, ti)
+  local function expVuln(school, ti, periodic)
+    local pr = resProfile(school, ti, periodic)
     local a = 0
     for i = 1, #pr.dist do a = a + pr.dist[i].p * (1 + pr.dist[i].pct / 100) end
     return pr.flat * a
@@ -1495,7 +1526,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local cost = (occupies(key) + LAT) * fRate
     local finish, g, value = min(dur, tL + s.duration), gcd(), 0
     local castMult = (key == 'baneOfAgony' and tv('amplifyCurse') ~= 0 and (S.ampUp or (ready('amplifyCurse') and slotGate('amplifyCurse') ~= 0))) and 1 + tv('amplifyCurse', 'boaPct') / 100 or 1
-    local tickAmt = (s.tickBase + s.tickCoef * spNow(e)) * castMult * e.periodicMult * lmult(key, ti, true) * expVuln(s.school, ti) * expCrit(e.critPct, e.critMult)
+    local tickAmt = (s.tickBase + s.tickCoef * spNow(e)) * castMult * e.periodicMult * lmult(key, ti, true) * expVuln(s.school, ti, true) * expCrit(e.critPct, e.critMult)
     -- Wrack as the filler (patch of 2026-11-10): this DoT ticks faster. Its tick times: the normal pace until Wrack can start
     -- after this cast, then faster by Wrack's share of the fight so far (80% until 20 s have passed).
     local times = nil
@@ -1637,7 +1668,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     end
     manaBuffCheck()
     useManaItems()
-    if NTRK > 0 then TR.useMana() end
+    if NTRK > 0 then TR.useMana(); TR.lowMana() end            -- and a set bonus below some mana
     if #explosives > 0 and useExplosive() then return end
     if TL and not TL.turn and timelineStep() then return end
     local fit = (TL and not TL.turn and TL.wake ~= nil) and TL.wake or nil

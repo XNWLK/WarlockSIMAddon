@@ -232,6 +232,8 @@ function WL.readCharacter()
   local worn = { trinket1 = num((try(GetInventoryItemID, 'player', 13))), trinket2 = num((try(GetInventoryItemID, 'player', 14))), mainHand = itemID }
   local mainLink = try(GetInventoryItemLink, 'player', 16)
   if type(mainLink) == 'string' then worn.mainEnchant = tonumber(mainLink:match('item:%d+:(%d+)')) end
+  worn.items = {}                                                    -- every worn item: set bonuses the fight plays
+  for inv = 1, 18 do local id = num((try(GetInventoryItemID, 'player', inv))); if id then worn.items[inv] = id end end
   c.worn = worn
 
   c.state = { raceKey = c.raceKey, talents = c.talents, pet = c.pet, sacrifice = c.sacrifice, buffs = buffs, hitHasSuppression = false }

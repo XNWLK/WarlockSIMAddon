@@ -309,6 +309,7 @@ function WL.computeStats(build, raceKey, cfg)
                + add('hastePct', 'Stat-weight test', ex.hastePct or 0)
                + oilStat('hastePct') + conStat('hastePct')
   local pierce = add('pierce', 'Gear', gear.pierce or 0) + add('pierce', 'Stat-weight test', ex.pierce or 0)
+  do local a = 0; for i = 1, #trEq do a = a + add('pierce', trEq[i].name, trEq[i].pierce or 0) end; pierce = pierce + a end   -- Rune of Perfection in its zone
   local spellPen = add('spellPen', 'Gear', gear.spellPen or 0) + add('spellPen', 'Stat-weight test', ex.spellPen or 0)   -- lowers resistance down to 0 (Spell Pierce goes below)
   local mp5 = add('mp5', 'Gear', gear.mp5 or 0) + buffStat('mp5') + conStat('mp5') + oilStat('mp5') + add('mp5', 'Stat-weight test', ex.mp5 or 0)
   do
@@ -452,8 +453,28 @@ function WL.partialResistDist(m)
   end
   return out
 end
-function WL.resistProfile(cfg, pierce, school, coeActive, pen)
+-- combat.resistModel 'fitted' (fitted to Forever combat logs): the average share a = R / (|R| + 8 x your level + 19)
+-- (a > 0 resisted, a < 0 bonus damage from Spell Pierce); each hit rolls whole tenths: up to a = 10%: 0 / 1 / 2 tenths at
+-- 1 - 7.5a, 5a, 2.5a; past it every tenth within 20% of a at 0.5 - 2.5 x its distance (mirrored from 90%); a DoT tick
+-- (periodic) rolls a tenth of a. 'classic': the mean 0.75 x R / 300, 25% resist chunks / 10% bonus steps around it.
+function WL.fittedShare(R, level) return R / (abs(R) + 8 * ((level and level ~= 0) and level or 60) + 19) end
+function WL.tenthsDist(a)                                      -- a >= 0 -> { { tenths, p } }
+  if not (a > 1e-12) then return { { tenths = 0, p = 1 } } end
+  if a <= 0.1 then return { { tenths = 0, p = 1 - 7.5 * a }, { tenths = 1, p = 5 * a }, { tenths = 2, p = 2.5 * a } } end
+  if a >= 0.9 then local b = 1 - a; return { { tenths = 8, p = 2.5 * b }, { tenths = 9, p = 5 * b }, { tenths = 10, p = 1 - 7.5 * b } } end
+  local out = {}
+  for k = 0, 10 do local p = 0.5 - 2.5 * abs(k / 10 - a); if p > 1e-12 then out[#out + 1] = { tenths = k, p = p } end end
+  return out
+end
+function WL.resistProfile(cfg, pierce, school, coeActive, pen, periodic)
   local cb, R = cfg.combat, WL.effectiveResist(cfg, pierce, school, coeActive, pen)
+  if cb.resistModel == 'fitted' then
+    local a = WL.fittedShare(R, (cb.casterLevel and cb.casterLevel ~= 0) and cb.casterLevel or 60) / (periodic and 10 or 1)
+    local sg, t, d = a > 0 and -1 or 1, nil, {}
+    t = WL.tenthsDist(abs(a))
+    for i = 1, #t do d[i] = { pct = t[i].tenths ~= 0 and sg * t[i].tenths * 10 or 0, p = t[i].p } end
+    return { R = R, flat = 1, dist = d, mean = -a }
+  end
   if R > 0 then
     local mr = min(0.75, cb.pierceAvgPerPoint * R)
     return { R = R, flat = 1, dist = WL.partialResistDist(mr), mean = -mr }
@@ -670,6 +691,35 @@ function WL.equippedTrinkets(cfg)
   end
   return out
 end
+-- Set bonuses with an effect in the fight (WL.SET_FX): the pieces worn anywhere in cfg.gearBuilder.slots ->
+-- { { slot, id, fx = { name, proc } } }, shaped like trinkets (sets in id order, bonuses by pieces needed).
+local SET_IDS
+function WL.equippedSetFx(cfg)
+  local gb = cfg and cfg.gearBuilder
+  if type(gb) ~= 'table' or not gb.on or type(gb.slots) ~= 'table' then return {} end
+  local worn = {}
+  for _, e in pairs(gb.slots) do
+    local id = type(e) == 'table' and (e.id ~= nil and e.id or (type(e.custom) == 'table' and e.custom.id)) or nil
+    if id then worn[tonumber(id) or id] = true end
+  end
+  if not SET_IDS then
+    SET_IDS = {}
+    for k in pairs(WL.SET_FX or {}) do SET_IDS[#SET_IDS + 1] = k end
+    table.sort(SET_IDS)
+  end
+  local out = {}
+  for _, sid in ipairs(SET_IDS) do
+    local s, n = WL.SET_FX[sid], 0
+    for _, id in ipairs(s.pieces) do if worn[id] then n = n + 1 end end
+    local needs = {}
+    for k in pairs(s.at) do needs[#needs + 1] = k end
+    table.sort(needs, function(a, b) return tonumber(a) < tonumber(b) end)
+    for _, k in ipairs(needs) do
+      if n >= tonumber(k) then out[#out + 1] = { slot = 'set' .. sid .. '_' .. k, id = 'set' .. sid, fx = { name = s.name, proc = s.at[k] } } end
+    end
+  end
+  return out
+end
 -- The fight's boss type and zone (cfg.fight.bossType / zone, '' = not set): only trinket effects depend on them.
 -- A kind of enemy counts as its creature type too (WL.BOSS_TYPES[].is: a satyr is a demon).
 local BOSS_IS
@@ -701,14 +751,14 @@ function WL.fxHolds(cfg, o)
   if o.zones and not (z and z ~= '' and o.zones[z] and o.zones[z] ~= 0) then return false end
   return true
 end
--- The worn trinkets' equip effects that hold in this fight: { { name, sp, spellPen, mp5, petMp5, pet } }.
+-- The worn trinkets' equip effects that hold in this fight: { { name, sp, pierce, spellPen, mp5, petMp5, pet } }.
 function WL.trinketEquipFx(cfg)
   local out, t = {}, WL.equippedTrinkets(cfg)
   for i = 1, #t do
     local x = t[i]
     local e = x.fx.equip
     if e and WL.fxHolds(cfg, e) then
-      out[#out + 1] = { name = x.fx.name, sp = e.sp or 0, spellPen = e.spellPen or 0, mp5 = e.mp5 or 0, petMp5 = e.petMp5 or 0, pet = e.pet }
+      out[#out + 1] = { name = x.fx.name, sp = e.sp or 0, pierce = e.pierce or 0, spellPen = e.spellPen or 0, mp5 = e.mp5 or 0, petMp5 = e.petMp5 or 0, pet = e.pet }
     end
   end
   return out

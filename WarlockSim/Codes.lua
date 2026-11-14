@@ -218,6 +218,7 @@ function WL.settingsSnapshot(c)
     succ = { apPerSp = c.pets.succubus.melee.apPerSp, baseDps = c.pets.succubus.melee.baseDps },
     bossArmor = c.combat.bossArmor,
     resist = c.combat.targetResist, levelResist = (c.combat.levelResist and c.combat.levelResist.on) and true or false,
+    resModel = c.combat.resistModel or 'classic',
   }
 end
 -- Gear codes ("WFG1:", the website's gear builder): the addon only makes them, from what you wear (ItemUI.lua, WL.gearCode).
@@ -282,6 +283,7 @@ function WL.applySettings(c, o)
     if isNum(o.resist.fire) then c.combat.targetResist.fire = o.resist.fire end
   end
   if type(o.levelResist) == 'boolean' and c.combat.levelResist then c.combat.levelResist.on = o.levelResist end
+  if o.resModel == 'fitted' or o.resModel == 'classic' then c.combat.resistModel = o.resModel end   -- a code without it keeps yours
   for k, b in pairs(c.buffs or {}) do                         -- counts: a code without them sets 1
     if b.count ~= nil then
       local n = type(o.counts) == 'table' and o.counts[k]
