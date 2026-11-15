@@ -5,6 +5,11 @@ What changed in each version, newest first. Download a version from the
 
 ## v0.15.2
 
+- New step in the priority lists: **Activate trinket**. It uses every on-use trinket you wear that is ready (not the mana
+  ones), without taking a global cooldown, then goes on down the list. With it in a build's priority, the Trinkets
+  setting on the Fight tab is not used, except "Never". The ready builds have it, as on the Warlock SIM: Shadow Demo,
+  Incinerate DS and Wrack DS right above their filler, Fire Demo first but only after the first 60 seconds of the fight.
+  Incinerate Pandemic has none.
 - Shadow Demo no longer casts Immolate: its priority is now Death Coil to finish, Curse of the Elements, Searing Pain
   for Demonic Brand, Corruption, Life Tap when needed, Shadow Bolt (as on the Warlock SIM). Immolate was worth
   nothing there, or a little less than nothing.

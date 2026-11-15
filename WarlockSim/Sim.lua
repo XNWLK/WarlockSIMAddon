@@ -482,6 +482,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   do local sf = WL.equippedSetFx(cfg); for i = 1, #sf do TRK[#TRK + 1] = sf[i] end end   -- set bonuses with an effect, shaped like trinkets
   local EPR = WL.equippedEnchantFx(cfg)
   local NTRK, TRX, TR = #TRK, #TRK > 0 or #EPR > 0, {}
+  TR.apl = false   -- "Activate trinket" in the priority: it uses the on-use trinkets, not options.trinketUse (set once ROT is built)
   -- Racial cooldown, Spellblasting potion and Power Infusion, right before a damaging cast.
   local function popActives(key)
     if NTRK > 0 then gateKey = key; TR.useTrinkets(key); gateKey = nil end   -- each trinket follows its own use setting
@@ -573,6 +574,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   ROT = WL.effectiveRotation(build, cfg)
   local ACTS = {}                                        -- the action of each entry: built-in, or one of the build's rules
   for i = 1, #ROT do ACTS[i] = WL.actionOf(ROT[i], build) end
+  TR.apl = WL.indexOf(ROT, 'activateTrinket') ~= nil
   -- Fight timeline: an optional list of spells at fixed start times on top of the priority.
   if build.timeline and #build.timeline > 0 then
     local list = {}
@@ -843,11 +845,24 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     return g == 1 or (g == 2 and (ACT_TL[x.slot] ~= nil or activesOk(key)))
   end
   TR.useTrinkets = function(key)
+    if TR.apl then return end
     for i = 1, NTRK do
       local x = TRK[i]
       local u = x.fx.use
       if u and u.kind ~= 'mana' and trWhen(x, key) and trUse(x) then slotUsed(x.slot) end
     end
+  end
+  -- "Activate trinket": every on-use trinket that is ready (off the global cooldown)
+  local function trAplOk(x)
+    local u = x.fx.use
+    return u ~= nil and u.kind ~= 'mana' and (TRU[x.slot] or 'cds') ~= 'never' and ready('tr:' .. x.slot) and S.t < dur - EPS
+  end
+  S.trinketReady = function()
+    for i = 1, NTRK do if trAplOk(TRK[i]) then return true end end
+    return false
+  end
+  TR.useApl = function()
+    for i = 1, NTRK do if trAplOk(TRK[i]) then trUse(TRK[i]) end end
   end
   TR.useMana = function()
     for i = 1, NTRK do
@@ -1610,7 +1625,8 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       S.nextTarget = 0
       S.actionIndex = i
       local k = a.pick(S)
-      if k then
+      if k == 'trinket:use' then TR.useApl()                 -- Activate trinket: off the GCD, the priority goes on
+      elseif k then
         if sub(k, 1, 5) == 'swap:' then return k, i, 0 end
         local skip = fitBy ~= nil and tbl[k] and SPELLS[k].kind ~= 'channel' and S.t + tlOccupies(k) > fitBy + EPS
         if not skip and k == 'lifeTap' and not canTap() then skip = true end

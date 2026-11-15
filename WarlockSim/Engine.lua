@@ -515,6 +515,9 @@ local MULTI_ORDER = { 'curseOfElements', 'corruption', 'siphonLife', 'baneOfAgon
 local SPREAD_DOTS = { 'corruption', 'siphonLife', 'baneOfAgony', 'immolate' }
 local PICK = {
   curseOfElements = function(S) return (S.cfg.options.useCurseOfElements and not S.buff('coe') and S.remaining > 10) and 'curseOfElements' or nil end,
+  -- every on-use trinket you wear (not the mana ones) that is ready, off the global cooldown: the priority goes on to the
+  -- next action at once. With it in the priority, the trinkets' own "Use" settings are not read (except "never").
+  activateTrinket = function(S) return (S.trinketReady and S.trinketReady()) and 'trinket:use' or nil end,
   shadowTrance = function(S) return S.buff('shadowTrance') and 'shadowBolt' or nil end,
   bane = function(S)
     if S.dotLeft('baneOfDoom') > 0 or S.dotLeft('baneOfAgony') > 0 then return nil end
