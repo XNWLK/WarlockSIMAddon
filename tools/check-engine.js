@@ -11,6 +11,9 @@ const { toLua } = require('./lua-ser.js');
 const { newLua } = require('./lua-host.js');
 
 const FIGHTS = parseInt(process.argv[2], 10) || 4, ONLY = process.argv[3] || '';
+// CHECK_SHARD=i/n (tools/check-all.js runs several at once): only every n-th scene from the i-th (0-based); shard 0 also
+// compares the stats and spell tables.
+const SHARD = (process.env.CHECK_SHARD || '0/1').split('/').map(Number);
 const WL = require(path.join(SIM, 'tools', 'load-wl.js')).load(SIM, fs.existsSync(path.join(SIM, 'tests', 'retired-builds.js')) ? ['tests/retired-builds.js'] : []);
 const host = newLua();
 host.loadAddon(['Data.lua', 'Engine.lua', 'Sim.lua', 'Codes.lua'].filter(f => fs.existsSync(path.join(ROOT, 'WarlockSim', f))));
@@ -170,7 +173,7 @@ function setPath(obj, p, v) {
 function near(a, b) { return a === b || Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b)); }
 
 let fights = 0, bad = 0, firstBad = null, t0 = Date.now(), luaMs = 0, jsMs = 0;
-scenes.filter(s => !ONLY || s.name.indexOf(ONLY) >= 0).forEach(sc => {
+scenes.filter((s, si) => (!ONLY || s.name.indexOf(ONLY) >= 0) && si % SHARD[1] === SHARD[0]).forEach(sc => {
   const cfg = JSON.parse(JSON.stringify(WL.DEFAULT_CONFIG));
   sc.patch.forEach(p => setPath(cfg, p[0], p[1]));
   host.run('CHK.setScene(' + toLua(sc.patch) + ')');
@@ -213,6 +216,7 @@ scenes.filter(s => !ONLY || s.name.indexOf(ONLY) >= 0).forEach(sc => {
 
 // stats and spell tables for every build and race at the defaults
 let tableBad = 0;
+if (SHARD[0] === 0) {
 host.run('CHK.setScene({})');
 // plus one character with both range talents (Destructive Reach: Destruction spells, Grim Reach: Affliction spells)
 const reach = Object.assign({}, builds[0], { key: 'both_reach_talents', talents: Object.assign({}, builds[0].talents, { destructiveReach: 2, grimReach: 2 }) });
@@ -229,7 +233,8 @@ builds.concat([reach]).forEach(b => {
     if (Object.keys(table).length !== Object.keys(o.table).length) { tableBad++; if (!firstBad) firstBad = 'spell table ' + b.key + ': different spells'; }
   });
 });
-console.log((tableBad ? 'FAIL ' : 'ok   ') + 'stats and spell tables: ' + (builds.length + 1) * RACES.length + ' characters' + (tableBad ? ', ' + tableBad + ' values differ' : ''));
+}
+if (SHARD[0] === 0) console.log((tableBad ? 'FAIL ' : 'ok   ') + 'stats and spell tables: ' + (builds.length + 1) * RACES.length + ' characters' + (tableBad ? ', ' + tableBad + ' values differ' : ''));
 
 console.log('');
 console.log(host.limits());

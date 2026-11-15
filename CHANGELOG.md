@@ -3,6 +3,11 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.15.1
+
+- Draconic Infused Emblem: an 8% chance on each damaging spell for its 35 spell power over 10 seconds, with no cooldown
+  between procs (it was a sure proc with a cooldown).
+
 ## v0.15.0
 
 - 25 more trinket effects from the Warlock SIM count in the fight when you wear them, among them Mark of the Champion,
