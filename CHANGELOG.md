@@ -3,6 +3,12 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.15.2
+
+- Shadow Demo no longer casts Immolate: its priority is now Death Coil to finish, Curse of the Elements, Searing Pain
+  for Demonic Brand, Corruption, Life Tap when needed, Shadow Bolt (as on the Warlock SIM). Immolate was worth
+  nothing there, or a little less than nothing.
+
 ## v0.15.1
 
 - Draconic Infused Emblem: an 8% chance on each damaging spell for its 35 spell power over 10 seconds, with no cooldown
