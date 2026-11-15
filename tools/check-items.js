@@ -9,7 +9,7 @@ host.loadAddon(['Data.lua', 'Engine.lua', 'Sim.lua', 'Codes.lua', 'Character.lua
 const ref = path.join(__dirname, '..', 'private', 'ref', 'GlobalStrings_enUS.lua');
 const strings = {};
 if (fs.existsSync(ref)) {
-  fs.readFileSync(ref, 'utf8').split('\n').forEach(l => { const m = l.match(/^(ITEM_MOD_[A-Z0-9_]+|ITEM_SPELL_TRIGGER_[A-Z]+) = "(.*)";\s*$/); if (m && !/_SHORT$/.test(m[1])) strings[m[1]] = m[2].replace(/\\"/g, '"'); });
+  fs.readFileSync(ref, 'utf8').split('\n').forEach(l => { const m = l.match(/^(ITEM_MOD_[A-Z0-9_]+|ITEM_SPELL_TRIGGER_[A-Z]+|ITEM_SET_BONUS|ITEM_SET_BONUS_GRAY) = "(.*)";\s*$/); if (m && !/_SHORT$/.test(m[1])) strings[m[1]] = m[2].replace(/\\"/g, '"'); });
 } else console.log('NOTE: private/ref/GlobalStrings_enUS.lua is missing - only the classic wording is checked');
 const haveRef = Object.keys(strings).length > 0;
 host.run('STRINGS = ' + toLua(strings));
@@ -57,6 +57,17 @@ do
   n = n + 1; if not (sc3 and sc3.fx and next(sc3.gain) == nil and next(sc3.lose) == nil) then bad[#bad + 1] = 'fifth set piece: only its effect in the fight' end
   n = n + 1; if WL.setChange(m2, { [1] = 16686, [5] = 16688, [7] = 12345 }) ~= nil then bad[#bad + 1] = 'an item of no set changed a set' end
   n = n + 1; if WL.setChange(m2, { [1] = 16686, [5] = 16688, [11] = 16688 }) ~= nil then bad[#bad + 1] = 'a second copy of a piece counted' end
+end
+-- the set bonus lines under an item (Ironweave Boots in Forever, none of the set worn): not the item's own stats, gray
+-- "(n) Set:" or active "Set:"; and Forever's "1.0%" hit is read (it was not understood)
+do
+  local iw, iwUnknown = WL.itemStats({ ITEM_MOD_STAMINA_SHORT = 17, ITEM_MOD_INTELLECT_SHORT = 11 }, { 'Ironweave Boots', 'Feet', '60 Armor', '+17 Stamina', '+11 Intellect',
+    'Equip: Improves your chance to hit by 1.0%.', 'Ironweave Battlesuit (0/8)', 'Ironweave Belt', '(2) Set: +200 Armor.',
+    '(3) Set: Decreases the magical resistances of your spell targets by 5.', '(5) Set: Increases damage and healing done by magical spells and effects by up to 23.',
+    'Set: Restores 8 mana per 5 sec.', '|cff00ff00Set: Increases damage and healing done by magical spells and effects by up to 12.|r' }, S, pct)
+  check('set bonus lines are not the item', iw, { sta = 17, int = 11, hit = 1 })
+  n = n + 1; if #iwUnknown ~= 0 then bad[#bad + 1] = 'Ironweave lines not understood: ' .. table.concat(iwUnknown, ' | ') end
+  check('set bonus lines without the game texts', (WL.itemStats(nil, { '(5) Set: Increases damage and healing done by magical spells and effects by up to 23.', 'Set: Restores 8 mana per 5 sec.' }, function() return nil end, pct)), {})
 end
 -- Forever's Spell Pierce wording ("Your spells pierce N Magical Resistance"): Spell Pierce, once with the stat list too
 local st3, unknown3 = WL.itemStats(nil, { 'Equip: Your spells pierce 3 Magical Resistance.' }, S, pct)

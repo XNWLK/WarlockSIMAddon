@@ -25,11 +25,11 @@ local CLASSIC_LINES = {
   { 'sp', 'Increases damage and healing done by magical spells and effects by up to (%d+)' },
   { 'shadowSp', 'Increases damage done by Shadow spells and effects by up to (%d+)' },
   { 'fireSp', 'Increases damage done by Fire spells and effects by up to (%d+)' },
-  { 'hit', 'Improves your chance to hit with spells by (%d+)%%', pct = true },
-  { 'crit', 'Improves your chance to get a critical strike with spells by (%d+)%%', pct = true },
+  { 'hit', 'Improves your chance to hit with spells by (%d+%.?%d*)%%', pct = true },
+  { 'crit', 'Improves your chance to get a critical strike with spells by (%d+%.?%d*)%%', pct = true },
   -- the plain wording (no "with spells"): Forever's crit and hit ratings count for spells too, as on the website
-  { 'hit', 'Improves your chance to hit by (%d+)%%', pct = true },
-  { 'crit', 'Improves your chance to get a critical strike by (%d+)%%', pct = true },
+  { 'hit', 'Improves your chance to hit by (%d+%.?%d*)%%', pct = true },   -- "1%" and Forever's "1.0%"
+  { 'crit', 'Improves your chance to get a critical strike by (%d+%.?%d*)%%', pct = true },
   { 'mp5', 'Restores (%d+) mana per 5 sec' },
   { 'pierce', 'Your spells pierce (%d+) Magical Resistance' },   -- Forever's Spell Pierce wording
   { 'spellPen', 'Decreases the magical resistances of your spell targets by (%d+)' },
@@ -60,6 +60,15 @@ local function toPattern(fmt)
   patternCache[fmt] = p
   return p
 end
+-- The start of a set bonus line, "(5) Set: " or "Set: ", as a pattern: such a line is the set's, never the item's own
+-- (the set bonuses are counted apart, WL.setChange; one that is not active must not count at all).
+local function setLinePattern(fmt)
+  local head = fmt:match('^(.-)%%s') or fmt
+  head = head:gsub('%%%d*%$?d', '\1')
+  head = head:gsub('[%(%)%.%%%+%-%*%?%[%]%^%$]', function(c) return '%' .. c end)
+  head = head:gsub('\1', '%%d+'):gsub('%s+$', '')
+  return '^' .. head
+end
 local function number(s)
   if not s then return nil end
   return tonumber((s:gsub(',', '')))
@@ -88,8 +97,10 @@ function WL.itemStats(api, lines, strings, toPct)
   end
   local equip, use, proc = strings('ITEM_SPELL_TRIGGER_ONEQUIP') or 'Equip:', strings('ITEM_SPELL_TRIGGER_ONUSE') or 'Use:', strings('ITEM_SPELL_TRIGGER_ONPROC') or 'Chance on hit:'
   local unknown = {}
+  local setOn, setOff = setLinePattern(strings('ITEM_SET_BONUS') or 'Set: %s'), setLinePattern(strings('ITEM_SET_BONUS_GRAY') or '(%d) Set: %s')
   for li = 1, #(lines or {}) do
     local raw = type(lines[li]) == 'string' and clean(lines[li]) or ''
+    if raw:find(setOn) or raw:find(setOff) then raw = '' end
     local isEquip = raw:sub(1, #equip) == equip
     local s = isEquip and clean(raw, equip) or raw
     local found = false

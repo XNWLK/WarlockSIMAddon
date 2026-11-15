@@ -8,6 +8,10 @@ What changed in each version, newest first. Download a version from the
 - Shadow Demo no longer casts Immolate: its priority is now Death Coil to finish, Curse of the Elements, Searing Pain
   for Demonic Brand, Corruption, Life Tap when needed, Shadow Bolt (as on the Warlock SIM). Immolate was worth
   nothing there, or a little less than nothing.
+- Item sims: the set bonus lines under an item ("(5) Set: ...") were counted as the item's own stats, even for a set
+  you do not wear (Ironweave Boots showed +23 spell power and 5 Spell Penetration they do not have). Set bonuses are
+  only counted for the pieces you really wear, as the "Set bonus" line shows.
+- "Improves your chance to hit by 1.0%" (with a decimal) is read now; before, it was listed as not counted.
 
 ## v0.15.1
 
