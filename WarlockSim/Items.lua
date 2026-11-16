@@ -154,7 +154,7 @@ end
 -- after "Enchanted:", e.g. "+8 Intellect", "+30 Spell Damage and Healing", "Spell Power +18",
 -- "+18 Spell Damage and Healing / +1% Spell Hit", "Mana Regen 4 per 5 sec.". Each part (split at "/" and ",") is read in
 -- the game's own item wording first, then by its words. Returns the stats and whether every part was understood.
--- Agility is understood and gives nothing (demons crit with your spell crit only).
+-- Agility and Armor are understood and give nothing (demons crit with your spell crit only).
 local function enchantWords(p, toPct)
   local n, pct = p:match('(%d+%.?%d*)(%%?)')
   n = tonumber(n)
@@ -176,19 +176,25 @@ local function enchantWords(p, toPct)
   elseif has('intellect') then s.int = n
   elseif has('spirit') then s.spi = n
   elseif has('stamina') then s.sta = n
-  elseif has('agility') then return s, true end
+  elseif has('agility') or has('armor') then return s, true end   -- read, and nothing the sim counts
   return s, next(s) ~= nil
 end
 function WL.enchantStats(text, strings, toPct)
   local stats, understood = {}, true
   for part in (tostring(text or '') .. '/'):gmatch('([^/,]*)[/,]') do
-    local p = part:gsub('|c%x%x%x%x%x%x%x%x', ''):gsub('|r', ''):gsub('^%s+', ''):gsub('%s+$', '')
-    if p ~= '' then
-      local s = WL.itemStats(nil, { p }, strings, toPct)
-      local known = next(s) ~= nil
-      if not known then s, known = enchantWords(p, toPct) end
-      if not known then understood = false end
-      for k, v in pairs(s) do stats[k] = (stats[k] or 0) + v end
+    local whole = part:gsub('|c%x%x%x%x%x%x%x%x', ''):gsub('|r', ''):gsub('^%s+', ''):gsub('%s+$', '')
+    -- two stats joined by "and", each with its number ("+6 Intellect and +5 Spirit"); not "Healing and Spell Damage +8"
+    local l, r = whole:match('^(.-%d.-)%s+and%s+(.-%d.*)$')
+    local pieces = l and { l, r } or { whole }
+    for pi = 1, #pieces do
+      local p = pieces[pi]
+      if p ~= '' then
+        local s = WL.itemStats(nil, { p }, strings, toPct)
+        local known = next(s) ~= nil
+        if not known then s, known = enchantWords(p, toPct) end
+        if not known then understood = false end
+        for k, v in pairs(s) do stats[k] = (stats[k] or 0) + v end
+      end
     end
   end
   return stats, understood

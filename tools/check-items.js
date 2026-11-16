@@ -121,6 +121,15 @@ ench('bracers +16', '+16 Spell Power', { sp = 16 }, true)
 ench('gloves haste', 'Haste +1%', { haste = 1 }, true)
 ench('head / legs', 'Healing and Spell Damage +8', { sp = 8 }, true)
 ench('colour codes', '|cff00ff00+15 Spirit|r', { spi = 15 }, true)
+-- the enchants the website moved to Phase 1 (sim v197), by their names
+ench('two-hand +65', '+65 Spell Power', { sp = 65 }, true)
+ench('off hand spirit', '+12 Spirit', { spi = 12 }, true)
+ench('off hand int and spirit', '+6 Intellect and +5 Spirit', { int = 6, spi = 5 }, true)
+ench('arcanum stamina', 'Stamina +8', { sta = 8 }, true)
+ench('arcanum intellect', 'Intellect +8', { int = 8 }, true)
+ench('arcanum spirit', 'Spirit +8', { spi = 8 }, true)
+ench('chest +4', 'All Stats +4', { int = 4, spi = 4, sta = 4 }, true)
+ench('bracers +9 Intellect', 'Intellect +9', { int = 9 }, true)
 -- every equip location maps to slots that exist
 for loc, slots in pairs(WL.ITEM_SLOTS) do n = n + 1; for _, s in ipairs(slots) do if s < 1 or s > 18 then bad[#bad + 1] = loc .. ' slot ' .. s end end end
 return n .. '|' .. table.concat(bad, '\\n')

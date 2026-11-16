@@ -3,6 +3,11 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.15.3
+
+- Item sims: an enchant with two stats joined by "and" is read whole: "+6 Intellect and +5 Spirit" on an off hand was
+  read as +6 Intellect only. Armor in an enchant's name ("Spell Power +6 and Armor +40") is read and counts as nothing.
+
 ## v0.15.2
 
 - New step in the priority lists: **Activate trinket**. It uses every on-use trinket you wear that is ready (not the mana
