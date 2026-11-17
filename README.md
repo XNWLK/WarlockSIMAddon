@@ -97,6 +97,8 @@ you can see what was counted.
 
 - **An item you are wearing** is simmed against an empty slot: the panel says what the item is worth to you.
 - **An item link in chat:** click it, and under the window that opens there is a **Sim this item** button.
+- **An item that drops for a roll:** beside the Need / Greed popup there is a small **Sim** button (the popup's item
+  icon only takes left clicks, so the right-click does not work there).
 
 Enchants and set bonuses are left out on both sides. A trinket the sim knows brings its "Use:" effect with it; other "Use:"
 and "Chance on hit:" effects are not simulated (the

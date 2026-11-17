@@ -3,6 +3,8 @@
 --   * Shift+right-click (the click can be chosen: options.itemClick) on an item in your bags, on your character sheet, at a vendor, in a loot or quest window: a small panel
 --     opens at the mouse and the sim starts at once. An item you are wearing is simmed against an empty slot: what it is
 --     worth to you.
+--   * A small "Sim" button beside each loot roll popup (Need / Greed) of an item you can wear: the popup's item icon
+--     takes left clicks only, so the chosen click never reaches the game's handler there.
 -- The panel is the addon's own frame, parented to the screen. Nothing of the game's is changed; the Alt+click comes in
 -- through a post-hook on the game's own handler for modified item clicks (hooksecurefunc: runs after it, cannot block it).
 local ADDON, WL = ...
@@ -542,11 +544,62 @@ local function clickMatches()
   return alt == (bind:find('alt', 1, true) ~= nil) and shift == (bind:find('shift', 1, true) ~= nil) and ctrl == (bind:find('ctrl', 1, true) ~= nil)
 end
 
+-- The loot roll popups (GroupLootFrame1, 2, ...): their item icon takes left clicks only, so a right-click there never
+-- reaches the game's handler for item clicks. Beside each popup of an item you can wear: a small button of ours, on the
+-- screen and only anchored to the popup (the popup itself is not touched; its roll id and the item link are only read).
+local rollButtons = {}
+local function rollLink(f)
+  if not f or not f.IsShown or not f:IsShown() then return nil end
+  local id = f.rollID
+  if id == nil or isSecret(id) or not GetLootRollItemLink then return nil end
+  local link = try(GetLootRollItemLink, id)
+  if type(link) ~= 'string' or isSecret(link) or not link:find('item:', 1, true) then return nil end
+  local _, _, _, equipLoc = try(C_Item.GetItemInfoInstant, link)
+  if not WL.ITEM_SLOTS[equipLoc or ''] then return nil end
+  return link
+end
+local function rollButton(i)
+  local b = CreateFrame('Button', nil, UIParent, 'UIPanelButtonTemplate')
+  b:SetSize(44, 22); b:SetText('Sim'); b:SetFrameStrata('DIALOG')
+  b:SetScript('OnClick', function(self)
+    if not self.link then return end
+    show(self.link, false, false)
+    start()
+  end)
+  b:SetScript('OnEnter', function(self)
+    GameTooltip:SetOwner(self, 'ANCHOR_LEFT')
+    GameTooltip:SetText("Xn's Warlock Sim")
+    GameTooltip:AddLine('Sims this item against the one you wear in its slot.', 1, 1, 1, true)
+    GameTooltip:Show()
+  end)
+  b:SetScript('OnLeave', function() GameTooltip:Hide() end)
+  b:Hide()
+  rollButtons[i] = b
+  return b
+end
+local function updateRollButtons()
+  local on = enabled()
+  for i = 1, 8 do
+    local f = _G['GroupLootFrame' .. i]
+    if not f and not rollButtons[i] then break end
+    local link = on and rollLink(f) or nil
+    local b = rollButtons[i] or (link and rollButton(i))
+    if b then
+      if link then
+        if b.owner ~= f then b:ClearAllPoints(); b:SetPoint('RIGHT', f, 'LEFT', -2, 0); b.owner = f end
+        b.link = link
+        if not b:IsShown() then b:Show() end
+      elseif b:IsShown() then b.link = nil; b:Hide() end
+    end
+  end
+end
+
 local watcher, since = CreateFrame('Frame'), 0
 watcher:SetScript('OnUpdate', function(_, elapsed)
   since = since + (elapsed or 0)
   if since < 0.2 then return end
   since = 0
+  updateRollButtons()
   if not enabled() then
     if panel and panel:IsShown() then panel:Hide() end
     shown = nil

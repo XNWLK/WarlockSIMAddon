@@ -114,6 +114,15 @@ step('other clicks are left alone', `WarlockSimItemPanel:Hide(); MOCK.button = "
   HandleModifiedItemClick(nil, nil); PaperDollItemSlotButton_OnModifiedClick(MOCK.slot(5), "RightButton"); assert(not WarlockSimItemPanel:IsShown(), "an empty slot")
   WLX.db.options.itemClick = "off"; HandleModifiedItemClick(MOCK.link(1001), bag); PaperDollItemSlotButton_OnModifiedClick(MOCK.slot(11), "RightButton"); assert(not WarlockSimItemPanel:IsShown(), "switched off")
   WLX.db.options.itemClick = "shift-right"; MOCK.keys = {}`);
+step('a loot roll popup: a Sim button beside it sims the item', `GroupLootFrame1 = CreateFrame('Frame', 'GroupLootFrame1'); GroupLootFrame1.rollID = 7
+  MOCK.rolls = { [7] = 1001 }; function GetLootRollItemLink(id) local it = MOCK.rolls[id]; return it and MOCK.link(it) or nil end
+  ${frames}; local b; for _, f in ipairs(MOCK.frames) do if f.__kind == 'Button' and f.text == 'Sim' then b = f end end
+  assert(b and b:IsShown() and b.anchor == GroupLootFrame1, 'no Sim button beside the roll popup')
+  b.scripts.OnClick(b, 'LeftButton'); assert(WarlockSimItemPanel:IsShown() and WLX.jobRunning(), 'no panel or no sim after the click'); assert(WarlockSimItemPanel.title.text == 'Ring of Tests', 'title')
+  ${pump}; ${frames}; assert(WarlockSimItemPanel.text.text:find('Instead of Old Band', 1, true), WarlockSimItemPanel.text.text); WarlockSimItemPanel:Hide()
+  MOCK.rolls[7] = 1007; ${frames}; assert(not b:IsShown(), 'bread (not wearable): no button')
+  MOCK.rolls[7] = 1001; ${frames}; assert(b:IsShown(), 'back'); WLX.db.options.itemClick = 'off'; ${frames}; assert(not b:IsShown(), 'off together with item sims')
+  WLX.db.options.itemClick = 'shift-right'; GroupLootFrame1:Hide(); ${frames}; assert(not b:IsShown(), 'gone with the popup')`);
 step('the click can be chosen; the tip names it', `local bag = MOCK.bagLocation()
   assert(MOCK.findLike("FontString", "Shift %+ right%-click any item"), "the tip line names Shift + right-click")
   WLX.db.options.itemClick = "alt-right"; WLX.refresh(); assert(MOCK.findLike("FontString", "Alt %+ right%-click any item"), "the tip follows the choice")

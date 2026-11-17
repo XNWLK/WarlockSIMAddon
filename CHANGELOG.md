@@ -3,6 +3,13 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.16.0
+
+- Items that drop for a roll can be simmed: beside each Need / Greed popup of an item you can wear there is a small
+  **Sim** button. It opens the item panel and sims the item against the one you wear in its slot, as Shift + right-click
+  does elsewhere (the popup's item icon only takes left clicks, so that click cannot work there). Off together with
+  item sims ("Sim an item with": off).
+
 ## v0.15.3
 
 - Item sims: an enchant with two stats joined by "and" is read whole: "+6 Intellect and +5 Spirit" on an off hand was
