@@ -9,6 +9,8 @@ What changed in each version, newest first. Download a version from the
   **Sim** button. It opens the item panel and sims the item against the one you wear in its slot, as Shift + right-click
   does elsewhere (the popup's item icon only takes left clicks, so that click cannot work there). Off together with
   item sims ("Sim an item with": off).
+- Bolt's Charged Eyeball: its lightning hits you 32% of the time and your target 68% (was half and half), as measured
+  from a combat log on the Warlock SIM.
 
 ## v0.15.3
 
