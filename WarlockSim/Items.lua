@@ -3,6 +3,7 @@
 --   WL.itemStats      from the game's stat list of an item and the lines of its tooltip -> { sp = 30, int = 12, hit = 1, ... }
 --   WL.gearWithSwap   your gear numbers + the new item - the item(s) it replaces
 local ADDON, WL = ...
+if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 local copy = WL.copy
 
 -- The sim's stat, and the game's name for it on items. The game's stat list (GetItemStats) uses the name + "_SHORT" as

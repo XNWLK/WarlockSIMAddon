@@ -4,6 +4,7 @@
 -- Left out on purpose (nothing here changes a fight): the event log, the aura intervals / uptimes for the timeline,
 -- the vulnerable-hit counters and the notes about skipped DoTs. tools/check-engine.js compares damage, mana and health.
 local ADDON, WL = ...
+if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 
 local floor, min, max, huge = math.floor, math.min, math.max, math.huge
 local sub = string.sub

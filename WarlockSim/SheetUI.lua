@@ -5,6 +5,7 @@
 -- The texts live on a frame of the addon's own that is a child of the character sheet (so it shows and hides with it)
 -- and are only anchored to the game's item slots. Nothing of the game's is changed or hooked.
 local ADDON, WL = ...
+if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 local copy = WL.copy
 
 local function isSecret(v) return issecretvalue ~= nil and issecretvalue(v) or false end

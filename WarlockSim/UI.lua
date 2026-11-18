@@ -1,6 +1,7 @@
 -- The window: five tabs on top (Character, Builds, Fight, Buffs, Codes), the result underneath.
 -- It is the addon's own frame: nothing is registered in Blizzard's settings and no Blizzard frame is touched.
 local ADDON, WL = ...
+if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 
 local W, H = 430, 658
 local PAD = 12

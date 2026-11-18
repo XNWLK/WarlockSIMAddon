@@ -3,6 +3,7 @@
 -- A code is its prefix + base64 of JSON text. JSON and base64 are written out here (no game API in this file).
 -- Not read here: the page's share links ("#share=..."), which are compressed.
 local ADDON, WL = ...
+if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 
 local floor, huge = math.floor, math.huge
 local byte, char, sub, format, concat = string.byte, string.char, string.sub, string.format, table.concat

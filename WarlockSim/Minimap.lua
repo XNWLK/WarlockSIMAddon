@@ -2,6 +2,7 @@
 -- (the game's Key Bindings menu, under "AddOns": open or close the window, sim my character; Bindings.xml names them).
 -- The button is the addon's own frame, a child of the minimap; nothing of the game's is changed.
 local ADDON, WL = ...
+if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 
 BINDING_HEADER_WARLOCKSIM = "Xn's Warlock Sim"
 BINDING_NAME_WARLOCKSIM_TOGGLE = 'Open or close the window'

@@ -3,6 +3,7 @@
 -- Same formulas, same order of additions, same random numbers: tools/check-engine.js compares both engines fight by fight.
 -- No game API in this file (it also runs outside the game in the check).
 local ADDON, WL = ...
+if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 
 local floor, ceil, min, max, abs, huge = math.floor, math.ceil, math.min, math.max, math.abs, math.huge
 local bxor, bor = bit.bxor, bit.bor

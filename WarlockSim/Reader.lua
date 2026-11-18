@@ -2,6 +2,7 @@
 -- on you. Everything is read with care: the Forever client hides numbers from addons in combat ("secret values"), so
 -- nothing is read then, and every call is wrapped so that a missing function or a hidden value becomes a note, not an error.
 local ADDON, WL = ...
+if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 
 local function isSecret(v) return issecretvalue ~= nil and issecretvalue(v) or false end
 -- f(...) -> its results, or nil when the function is missing, fails, or its first result is hidden

@@ -120,6 +120,7 @@ Shift + right-click is taken by another addon or gets in your way.
 
 ## Good to know
 
+- **Warlocks only.** On any other class the addon does not load; a line in chat at login says so.
 - **Not in combat.** The Forever client hides your numbers from addons while you fight, so your character can only be
   read out of combat. Sims can run at any time.
 - **Kept over a reload.** The character you read last and the numbers on your character sheet are kept per character,

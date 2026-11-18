@@ -3,6 +3,13 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.17.0
+
+- The addon only loads on a Warlock. On any other class nothing of it runs (no window, minimap button, numbers on the
+  character sheet or item clicks); a line in chat at login says that it cannot be used on other classes, and so do
+  `/wsim` and its key bindings. Your saved settings are not touched. After installing this version, restart the game
+  once (it has a new file).
+
 ## v0.16.0
 
 - Items that drop for a roll can be simmed: beside each Need / Greed popup of an item you can wear there is a small

@@ -8,6 +8,7 @@
 -- The panel is the addon's own frame, parented to the screen. Nothing of the game's is changed; the Alt+click comes in
 -- through a post-hook on the game's own handler for modified item clicks (hooksecurefunc: runs after it, cannot block it).
 local ADDON, WL = ...
+if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 local copy = WL.copy
 
 local function isSecret(v) return issecretvalue ~= nil and issecretvalue(v) or false end

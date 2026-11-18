@@ -5,6 +5,7 @@
 --   WL.bestTemplate     the ready build whose talents are closest to yours
 --   WL.characterBuild   your talents and pet + a build's priority list = a build the sim can play
 local ADDON, WL = ...
+if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 local copy, indexOf = WL.copy, WL.indexOf
 
 local function round4(x) return math.floor(x * 10000 + 0.5) / 10000 end

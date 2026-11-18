@@ -15,6 +15,21 @@ const toc = fs.readFileSync(path.join(ROOT, 'WarlockSim', 'WarlockSim.toc'), 'ut
 toc.forEach(f => assert(fs.existsSync(path.join(ROOT, 'WarlockSim', f)), 'the .toc lists a file that does not exist: ' + f));
 fs.readdirSync(path.join(ROOT, 'WarlockSim')).filter(f => f.endsWith('.lua')).forEach(f => assert(toc.includes(f), f + ' is not in the .toc'));
 host.loadAddon(toc);
+// a Mage logs in: nothing of the addon loads but Class.lua; a line in chat at login, /wsim and the key bindings say why
+{
+  const mage = newLua();
+  mage.run(fs.readFileSync(path.join(__dirname, 'wow-mock.lua'), 'utf8'), '@wow-mock.lua');
+  const before = mage.eval('MOCK.class = "MAGE"; return #MOCK.frames');
+  mage.loadAddon(toc);
+  const r = mage.eval('local ok, e = xpcall(function() MOCK.fire("ADDON_LOADED", "WarlockSim"); MOCK.fire("PLAYER_LOGIN"); for i = 1, 30 do MOCK.frame() end\n' +
+    'assert(#MOCK.chat == 1 and MOCK.chat[1]:find("cannot be used on other classes", 1, true), "no line at login: " .. table.concat(MOCK.chat, " | "))\n' +
+    'assert(#MOCK.frames == ' + before + ' + 1, "frames made on a Mage: " .. (#MOCK.frames - ' + before + '))\n' +
+    'assert(WLX.notWarlock and WLX.BUILDS == nil and WLX.simulate == nil and WarlockSimFrame == nil and WarlockSimDB == nil, "something loaded")\n' +
+    'SlashCmdList.WARLOCKSIM(""); WarlockSim_Toggle(); WarlockSim_SimCharacter(); assert(#MOCK.chat == 4, "/wsim and the key bindings")\n' +
+    'end, debug.traceback); return ok and "ok" or tostring(e)');
+  if (r !== 'ok') { console.log('FAIL a Mage logs in\n' + r); process.exit(1); }
+  console.log('ok   a Mage logs in: only the line in chat, nothing else loads');
+}
 
 const lua = code => host.eval(code);
 const step = (name, code) => { const r = lua('local ok, e = xpcall(function() ' + code + ' end, debug.traceback); if not ok then return "ERR " .. tostring(e) end; return e'); if (typeof r === 'string' && r.indexOf('ERR ') === 0) { console.log('FAIL at "' + name + '":\n' + r.slice(4)); process.exit(1); } console.log('ok   ' + name + (r !== null && r !== undefined && r !== true ? ': ' + r : '')); return r; };

@@ -15,6 +15,7 @@
 -- Only raid bosses: a boss encounter in a raid, or a target the game calls a boss (world bosses). Not in 5-player
 -- dungeons.
 local ADDON, WL = ...
+if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 
 local H = { view = { keys = {}, extras = {} } }
 WL.helper = H

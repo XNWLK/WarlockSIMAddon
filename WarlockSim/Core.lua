@@ -1,8 +1,9 @@
 -- What ties the parts together inside the game: saved settings, the jobs that run fights a little every frame so the
 -- game never freezes, the slash commands, the self-test and the diagnostic dump.
 local ADDON, WL = ...
+if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 
-WL.VERSION = '0.16.0'
+WL.VERSION = '0.17.0'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
