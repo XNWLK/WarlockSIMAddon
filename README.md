@@ -24,10 +24,10 @@ what each spell contributes and what each stat is worth to you.
   more) and main-hand enchants like Revelation count in the fight.
 - **The helper** (off by default): on a raid boss, a small bar shows the spell the sim would cast next, the two after it,
   cooldowns to use with it and the seconds the boss has left — and the rotation follows that time.
-- **Codes:** settings and build codes from the website go in and out; *My gear as a code* sends everything you wear to the
+- **Codes:** settings and build codes from the website go in and out; *My gear* sends everything you wear to the
   website's gear builder.
-- **Your settings:** raid buffs, debuffs on the boss, consumables, fight length, 1 to 3 targets, precast, movement, latency
-  and more, as on the website.
+- **Your settings:** the website's presets (Default, Self-buffed, Full buffs) or your own raid buffs, debuffs on the boss and
+  consumables; fight length, 1 to 3 targets, precast, movement, latency and more, as on the website.
 
 ## One of three
 
@@ -57,21 +57,25 @@ practise its priority list in Forever Warlocking — it reads the same build and
 
 ## What it does
 
-| Tab | |
-|---|---|
-| **Character** | Opening the window reads your character (out of combat); *Read my character* does it again by hand. It takes your talents, race, demon, sacrificed demon and your spell power, hit, crit, haste, Intellect, Spirit, Stamina, mana per 5 s and Spell Pierce from the game. *Sim!* plays the fights. The order of your spells (the priority list) is taken from the ready build closest to your talents, or from one you pick. |
-| **What if** | Your character with +10 spell power, +1% hit, +1% crit, +1% haste or +20 Intellect in one click, or any change you type in (a minus for less): the change in DPS, the spells it comes from and what one point is worth. Both sides play the same fights. |
-| **Builds** | *Sim builds with your gear* plays every build of the website with **your** gear numbers and puts them in order — which build is best for your gear. Your own character, with the talents you have now, is in the list in gold. |
-| **Buffs** | Raid buffs, debuffs on the boss and consumables, as on the website. |
-| **Fight** | Number of fights, fight length, 1–3 targets, when cooldowns are used, precast, movement, hits taken, latency, stat weights on or off, stopping early once the result is exact enough, how much of each frame the sim may take, the click that sims an item and how many fights it plays, the minimap button. |
-| **Codes** | Paste a settings code or a build code from the website, or make one from your character to open there. *My gear as a code* makes a gear code of everything you wear (items and enchants) for the website's gear builder. |
+The window has a menu down its left side, one page for each job; each page keeps its own result. Drag the title to move
+the window, and its bottom right corner to make it bigger or smaller. It opens on the page you used last.
 
-**The helper** (off by default; *Helper* on the Character tab, or `/wsim helper`): on a raid boss a small bar shows the
+| Page | |
+|---|---|
+| **My DPS** | *Sim* reads your character (out of combat) and plays the fights: your talents, race, demon, sacrificed demon and your spell power, hit, crit, haste, Intellect, Spirit, Stamina, mana per 5 s and Spell Pierce from the game. Opening the window reads it too. The order of your spells (*Rotation*, the priority list) is taken from the ready build closest to your talents, or from one you pick. Hover the line under your name for your numbers and what the addon noticed. |
+| **What if** | Your character with +10 spell power, +1% hit, +1% crit, +1% haste or +20 Intellect in one click, or any change you type in under *Your own change* (a minus for less): the change in DPS, the spells it comes from and what one point is worth. Both sides play the same fights. |
+| **Items** | The last 10 items you simmed, newest first, with their answer; click one to sim it again. Also: the numbers on your character sheet on or off, the click that sims an item and how many fights it plays. |
+| **Builds** | *Rank builds* plays every build of the website with **your** gear numbers and puts them in order — which build is best for your gear. Your own character, with the talents you have now, is in the list in gold. Click a build for its spells; *Use this rotation* makes its priority list yours. |
+| **Raid setup** | The website's three presets — *Default*, *Self-buffed*, *Full buffs* — or your own raid buffs, debuffs on the boss and consumables (each list opens with a click). The fight: length, 1–3 targets, when cooldowns and trinkets are used, boss type and zone; under *More fight settings* precast, movement, hits taken and latency. |
+| **Codes** | Paste a settings code or a build code from the website, or make one to open there (*My settings*, *My build*). *My gear* makes a gear code of everything you wear (items and enchants) for the website's gear builder. Loaded builds are listed, each with a *Remove* button. |
+| **Options** | Number of fights, stopping early once the result is exact enough, stat weights on or off, how much of each frame the sim may take, the helper bar (on, and where it sits), the minimap button. |
+
+**The helper** (off by default; Options, or `/wsim helper`): on a raid boss a small bar shows the
 spell the sim would cast next with your character, the two after it, cooldowns to use with it and the seconds the boss
 has left. The time comes from how fast the boss loses health, and the sim's priority list plays with it (DoTs that no
 longer pay off, Death Coil at the end, Life Tap by the time left, the execute phase at the boss's real health). It reads
 the boss's health, your mana, your buffs and the boss's debuffs from the game; should the game hide one of them from
-addons, it follows your own casts instead. `/wsim helper move` places the bar.
+addons, it follows your own casts instead. *Move the bar* (Options) or `/wsim helper move` places it.
 
 The result shows DPS with its margin, a bar per spell (hover for casts, crits and misses), the stat weights in spell
 power, Life Taps, lowest mana and threat.
@@ -85,7 +89,7 @@ character sims at**. One glance shows which pieces carry you and which slot is w
 The numbers are worked out in the background when you open the sheet, one item after the other (a few seconds each
 round), and again when your items, talents or the sim's settings change. A sim you start yourself always goes first.
 Green is a real contribution; grey means the item gives nothing the sim counts, or less than the run can tell apart.
-"Sheet numbers" on the Character tab switches them off.
+The Items page switches them off.
 
 ### Sim an item
 
@@ -104,7 +108,7 @@ Enchants and set bonuses are left out on both sides. A trinket the sim knows bri
 and "Chance on hit:" effects are not simulated (the
 panel names them).
 
-The click can be changed on the Fight tab ("Sim an item with": Alt + right-click, Alt + left-click and others, or off) if
+The click can be changed on the Items page ("Sim an item with": Alt + right-click, Alt + left-click and others, or off) if
 Shift + right-click is taken by another addon or gets in your way.
 
 | Command | |
@@ -124,15 +128,16 @@ Shift + right-click is taken by another addon or gets in your way.
 - **Not in combat.** The Forever client hides your numbers from addons while you fight, so your character can only be
   read out of combat. Sims can run at any time.
 - **Kept over a reload.** The character you read last and the numbers on your character sheet are kept per character,
-  over a `/reload` and the next login. Read again after you changed items or talents.
-- **Your numbers are read as they are.** Raid buffs the addon recognises on you are taken off again, so that the Buffs
-  tab alone decides which buffs the sim uses. Anything else that is on you while reading — a flask, food, a weapon stone
-  or oil — stays inside your numbers and counts as gear. The Character tab lists what it found.
+  over a `/reload` and the next login. *Sim* reads your character again (out of combat), so a change of items or talents is
+  always in it.
+- **Your numbers are read as they are.** Raid buffs the addon recognises on you are taken off again, so that Raid
+  setup alone decides which buffs the sim uses. Anything else that is on you while reading — a flask, food, a weapon stone
+  or oil — stays inside your numbers and counts as gear. My DPS lists what it found (hover the line under your name).
 - **Level 60.** The sim plays level-60 spells against a level-63 boss. Below level 60 the DPS shown is what a level 60
   Warlock with your numbers would do, not what you do now; item and stat comparisons still give a rough idea (hit counts
   for more there than against enemies of your own level).
 - **Speed.** The game gives addons one processor core, shared with the game itself, and no background threads — an addon
-  cannot use more cores. Fights are played a few milliseconds per frame. "While simming" on the Fight tab decides how
+  cannot use more cores. Fights are played a few milliseconds per frame. "While simming" (Options) decides how
   many: "Automatic" (quick while you are out of combat, gentle while you fight), "Stay smooth", "Sim faster" or
   "Fastest". The DPS is shown as soon as it is known, the stat weights follow; and a sim asked for again with nothing
   changed is answered at once. "Stop early" (on by default) ends a sim once its result is exact enough; comparisons,

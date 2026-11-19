@@ -664,11 +664,46 @@ local late = CreateFrame('Frame')                           -- once more at logi
 late:RegisterEvent('PLAYER_LOGIN')
 late:SetScript('OnEvent', hookClicks)
 
+-- The last 10 item sims of this character, newest first (WarlockSimDB.chars[...].items): the window's Items page lists
+-- them, a click sims the item again. { link, worn, text } - text is the short answer ("+14.2 DPS", one per ring / trinket).
+local HISTORY = 10
+function WL.itemHistory()
+  local e = WL.charStore(false)
+  return (e and type(e.items) == 'table') and e.items or {}
+end
+local function shortAnswer(res)
+  local parts = {}
+  for i = 1, #res.alts do
+    local a = res.alts[i]
+    local v = a.worth and -a.diff or a.diff
+    local col = math.abs(a.diff) <= a.err and 'cccccc' or ((v > 0 or a.worth) and '40ff40' or 'ff5050')
+    parts[#parts + 1] = string.format('|cff%s%s%.1f|r', col, (v >= 0 and not a.worth) and '+' or '', v)
+  end
+  return (res.alts[1] and res.alts[1].worth and 'worth ' or '') .. table.concat(parts, ' / ') .. ' DPS'
+end
+local function remember(res)
+  local e = WL.charStore(true)
+  if not e or not res.link or not res.alts or #res.alts == 0 then return end
+  local list = type(e.items) == 'table' and e.items or {}
+  for i = #list, 1, -1 do if list[i].link == res.link and (list[i].worn and true or false) == (res.worn and true or false) then table.remove(list, i) end end
+  table.insert(list, 1, { link = res.link, worn = res.worn and true or nil, text = shortAnswer(res) })
+  for i = #list, HISTORY + 1, -1 do list[i] = nil end
+  e.items = list
+end
+-- a click on the Items page: the panel opens at the mouse and the item is simmed again
+function WL.simItemAgain(i)
+  local h = WL.itemHistory()[i]
+  if not h then return end
+  show(h.link, h.worn, false)
+  start()
+end
+
 -- called by the window's code when a job ends
 function WL.onItemResult(res, err)
   local key = (res and keyOf(res.link, res.worn)) or running
   running = nil
   if not key then return end
   results[key] = res and resultText(res) or ('|cffffb060' .. tostring(err) .. '|r')
+  if res then remember(res) end
   if panel and shown and keyOf(shown.link, shown.worn) == key then layout(results[key]) end
 end

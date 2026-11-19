@@ -3,6 +3,26 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.18.0
+
+- A new window. A menu down the left side has a page for each job: **My DPS**, **What if**, **Items**, **Builds**,
+  **Raid setup**, **Codes** and **Options**. Each page keeps its own result, so the ranking stays on Builds while you try a
+  What if. The window opens on the page you used last.
+- The window can be made bigger or smaller: drag its bottom right corner. A bigger window shows more spell bars.
+- *Sim* reads your character itself (out of combat); the *Read my character* button is gone. `/wsim read` still works.
+- My DPS: your rotation and demon on top; the sacrificed demon and weapon stone under *More choices*. Your numbers and
+  what the addon noticed are a hover on the line under your name.
+- Items (new): the last 10 items you simmed, newest first, with their answer; click one to sim it again. The numbers on
+  the character sheet, the item click and the fights of an item sim are set here now.
+- Builds: *Rank builds*; click a build, then *Use this rotation* to play your character with its priority list.
+- Raid setup: buffs, boss debuffs, consumables and the fight on one page, with the website's three presets — *Default*,
+  *Self-buffed* and *Full buffs*. Each list opens and closes with a click and shows how many are ticked; the rarer fight
+  settings are under *More fight settings*.
+- Codes: shorter buttons (*My settings*, *My build*, *My gear*), and the loaded builds are listed, each with *Remove*.
+- Options: fights, stopping early, stat weights, sim speed, the helper bar (with a *Move the bar* button) and the minimap
+  button.
+- Long explanations moved into the tooltips. After installing this version, `/reload` is enough.
+
 ## v0.17.0
 
 - The addon only loads on a Warlock. On any other class nothing of it runs (no window, minimap button, numbers on the

@@ -3,7 +3,7 @@
 local ADDON, WL = ...
 if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 
-WL.VERSION = '0.17.0'
+WL.VERSION = '0.18.0'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -16,7 +16,7 @@ end
 -- ---------------------------------------------------------------------------------------------------------------------
 -- WL.db        saved between sessions (WarlockSimDB): settings snapshot, options, imported builds, the last character read
 -- WL.cfg       the settings the sim runs with (the sim's defaults + what you changed)
--- WL.char      the character read from the game (nil until "Read my character")
+-- WL.char      the character read from the game (nil until it is read: opening the window, Sim, /wsim read)
 local DEFAULT_OPTIONS = { fights = 300, weights = true, speed = 'auto', speedDefault = 2, template = nil, stone = 'sheet', race = nil, pet = 'auto', sacrifice = 'auto', minimapHint = true,
                           itemClick = 'shift-right', itemClickDefault = 2, itemFights = 150, sheetNumbers = true, minimapButton = true, minimapAngle = 200, stopEarly = true, gearBags = false, helper = false }
 -- The click that sims an item (options.itemClick). 'off' also hides the button under the item link window.
@@ -59,10 +59,13 @@ local function initDB()
   -- moved over once; a length set by hand afterwards stays.
   if WL.cfg.fight.duration == 120 and db.options.fightDefault ~= 180 then WL.cfg.fight.duration = WL.DEFAULT_CONFIG.fight.duration end
   db.options.fightDefault = 180
+  WL.loadImported()
+end
+function WL.loadImported()
   WL.imported = {}
-  for i = 1, #db.builds do
-    local b = type(db.builds[i]) == 'table' and WL.decodeBuild(db.builds[i].code)
-    if b then b.key = 'import' .. i; b.imported = true; WL.imported[#WL.imported + 1] = b end
+  for i = 1, #WL.db.builds do
+    local b = type(WL.db.builds[i]) == 'table' and WL.decodeBuild(WL.db.builds[i].code)
+    if b then b.key = 'import' .. i; b.imported = true; b.slot = i; WL.imported[#WL.imported + 1] = b end
   end
 end
 function WL.saveSettings() if WL.db then WL.db.settings = copy(WL.settingsSnapshot(WL.cfg)) end end
@@ -85,9 +88,51 @@ function WL.addImportedBuild(code)
   local clean = WL.encodeBuild(b)
   for i = 1, #WL.db.builds do if WL.db.builds[i].code == clean then return WL.imported[i], nil, true end end
   WL.db.builds[#WL.db.builds + 1] = { code = clean }
-  b.key = 'import' .. #WL.db.builds; b.imported = true
+  b.key = 'import' .. #WL.db.builds; b.imported = true; b.slot = #WL.db.builds
   WL.imported[#WL.imported + 1] = b
   return b
+end
+
+-- Removes one loaded build (its place in WarlockSimDB.builds). The builds after it move up one place, and so does the
+-- rotation picked from one of them; the removed one, if picked, goes back to the closest ready build.
+function WL.removeImportedBuild(slot)
+  if not WL.db.builds[slot] then return nil end
+  local picked = WL.db.options.template
+  table.remove(WL.db.builds, slot)
+  WL.loadImported()
+  local n = type(picked) == 'string' and tonumber(picked:match('^import(%d+)$'))
+  if n == slot then WL.db.options.template = nil elseif n and n > slot then WL.db.options.template = 'import' .. (n - 1) end
+  return true
+end
+
+-- The website's presets for buffs, boss debuffs and consumables (WL.BUFF_PRESETS, from its page code): tick exactly
+-- what the preset lists. Your gear, the fight and the counts of Innervate / Power Infusion stay.
+local PRESET_GROUPS = { 'buffs', 'debuffs', 'consumables' }
+function WL.applyPreset(key)
+  for _, p in ipairs(WL.BUFF_PRESETS or {}) do
+    if p.key == key then
+      for _, g in ipairs(PRESET_GROUPS) do
+        local on = {}
+        for _, k in ipairs(p[g]) do on[k] = true end
+        for k, x in pairs(WL.cfg[g]) do x.on = on[k] or false end
+      end
+      return p
+    end
+  end
+  return nil
+end
+-- The preset that is ticked right now, or nil (your own choice).
+function WL.presetNow()
+  for _, p in ipairs(WL.BUFF_PRESETS or {}) do
+    local same = true
+    for _, g in ipairs(PRESET_GROUPS) do
+      local on = {}
+      for _, k in ipairs(p[g]) do on[k] = true end
+      for k, x in pairs(WL.cfg[g]) do if (x.on and true or false) ~= (on[k] or false) then same = false end end
+    end
+    if same then return p end
+  end
+  return nil
 end
 
 -- ---------------------------------------------------------------------------------------------------------------------
@@ -109,7 +154,7 @@ end
 -- Your character as a build: talents and demon from the game, the priority list from the chosen ready build.
 function WL.characterBuildNow()
   local ch, o = WL.char, WL.db.options
-  if not ch then return nil, { 'Read your character first.' } end
+  if not ch then return nil, { 'Your character is read when you press Sim, out of combat.' } end
   local templates = WL.templates()
   local tpl = WL.findTemplate(o.template) or WL.findTemplate(WL.bestTemplate(ch.talents, templates, ch.pet)) or templates[1]
   local pet, sac = ch.pet, ch.sacrifice

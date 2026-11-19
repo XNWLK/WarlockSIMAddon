@@ -1,5 +1,5 @@
 // Runs the whole addon against a stand-in for the game (tools/wow-mock.lua): start-up, reading a character, a sim with
-// stat weights, the ranking, every tab, the codes, the self-test and the dump. It proves that no line of the addon's own
+// stat weights, the ranking, every page, the codes, the self-test and the dump. It proves that no line of the addon's own
 // code fails on the way - not that the window looks right; that is seen in the game only.
 //   node tools/check-ui.js
 const fs = require('fs'), path = require('path'), assert = require('assert');
@@ -38,10 +38,10 @@ const build = WL.BUILDS.filter(b => b.key === 'destro_incin_succ')[0];   // Inci
 
 step('start-up', 'MOCK.talents = ' + toLua(build.talents) + '; MOCK.fire("ADDON_LOADED", "SomethingElse"); MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db and WLX.cfg); MOCK.fire("PLAYER_LOGIN"); assert(#MOCK.chat == 1, "no hello line"); WLX.db.options.fights = 10');
 step('open the window (in combat: nothing is read)', 'MOCK.combat = true; SlashCmdList.WARLOCKSIM(""); MOCK.combat = false; assert(WarlockSimFrame and WarlockSimFrame:IsShown()); assert(WLX.char == nil, "read in combat"); return MOCK.find("FontString", "No result yet") and "empty result shown"');
-step('sim without a character says so', 'MOCK.click("Sim!"); assert(not WLX.jobRunning())');
-step('read in combat is refused', 'MOCK.combat = true; MOCK.click("Read my character"); MOCK.combat = false; assert(WLX.char == nil)');
-step('not a Warlock is refused', 'MOCK.class = "MAGE"; MOCK.click("Read my character"); MOCK.class = nil; assert(WLX.char == nil)');
-step('read the character', `MOCK.click("Read my character"); local c = WLX.char; assert(c, "no character")
+step('Sim in combat without a character says so', 'MOCK.combat = true; MOCK.click("Sim"); MOCK.combat = false; assert(not WLX.jobRunning() and WLX.char == nil); assert(MOCK.findLike("FontString", "^|cffff6060Your character is read when you press Sim, out of combat"), "no word why")');
+step('read in combat is refused', 'MOCK.combat = true; SlashCmdList.WARLOCKSIM("read"); MOCK.combat = false; assert(WLX.char == nil)');
+step('not a Warlock is refused', 'MOCK.class = "MAGE"; SlashCmdList.WARLOCKSIM("read"); MOCK.class = nil; assert(WLX.char == nil)');
+step('read the character', `SlashCmdList.WARLOCKSIM("read"); local c = WLX.char; assert(c, "no character")
   assert(c.raceKey == "orc" and c.pet == "imp" and c.sacrifice == "succubus", "race / pet / sacrifice: " .. tostring(c.raceKey) .. " " .. tostring(c.pet) .. " " .. tostring(c.sacrifice))
   local n = 0; for k, v in pairs(c.talents) do n = n + v end; assert(n == 51, "talent points " .. n)
   assert(c.buffsOnYou.arcaneIntellect and c.buffsOnYou.blessingOfKings, "buffs on you")
@@ -52,11 +52,16 @@ step('the sim\'s totals equal the sheet', `local b = WLX.characterBuildNow(); lo
   for k, x in pairs(cfg.buffs) do x.on = WLX.char.buffsOnYou[k] and true or false end; for _, x in pairs(cfg.consumables) do x.on = false end
   cfg.gear = WLX.copy(WLX.char.gear); local s = WLX.computeStats(b, "orc", cfg)
   assert(math.abs(s.int - 420) < 0.01 and math.abs(s.sta - 430) < 0.01 and math.abs(s.spi - 260) < 0.01 and math.abs(s.sp - 712) < 0.01 and math.abs(s.critPct - 18.4) < 0.01, "totals " .. s.int .. " " .. s.sta .. " " .. s.spi .. " " .. s.sp .. " " .. s.critPct)`);
-step('Sim! with stat weights', 'MOCK.click("Sim!"); assert(WLX.jobRunning(), "no job started"); ' + pump + '; local r = WLX.lastResult; assert(r and r.kind == "single" and r.res.dps > 200, "no result"); assert(r.weights and r.weights.sp ~= nil); return string.format("%.1f DPS, 1 SP = %.2f DPS, %d fights", r.res.dps, r.weights.sp, r.fights)');
-step('every tab, every tooltip', `for _, name in ipairs({ "Builds", "Fight", "Buffs", "Codes", "Character" }) do
-    for _, f in ipairs(MOCK.frames) do if f.__kind == "Button" and f.scripts.OnClick and not f.template then local kids = 0 end end
-  end
-  local tips = 0
+step('Sim with stat weights (it reads the character first)', 'local before = WLX.char; MOCK.click("Sim"); assert(WLX.char ~= before, "not read again"); assert(WLX.jobRunning(), "no job started"); ' + pump + '; local r = WLX.lastResult; assert(r and r.kind == "single" and r.res.dps > 200, "no result"); assert(r.weights and r.weights.sp ~= nil); return string.format("%.1f DPS, 1 SP = %.2f DPS, %d fights", r.res.dps, r.weights.sp, r.fights)');
+step('the window: seven pages, the last one opened comes back, made bigger and smaller', `local keys = { "dps", "whatif", "items", "builds", "raid", "codes", "options" }
+  for _, k in ipairs(keys) do WLX.selectPage(k); assert(WLX.db.options.page == k, "page " .. k) end
+  WLX.selectPage("nonsense"); assert(WLX.db.options.page == "dps", "an unknown page opens My DPS")
+  local f = WarlockSimFrame; f.scripts.OnSizeChanged(f, 1200, 1000); f.scripts.OnSizeChanged(f, 600, 470)
+  WLX.db.options.dpsMore = true; WLX.db.options.whatifOwn = true; f.scripts.OnSizeChanged(f, 600, 470); WLX.db.options.dpsMore = false; WLX.db.options.whatifOwn = false; f.scripts.OnSizeChanged(f, 660, 520)
+  local grip; for _, b in ipairs(MOCK.frames) do if b.__kind == "Button" and b.scripts.OnMouseDown and b.scripts.OnMouseUp and b.parent == f then grip = b end end
+  assert(grip, "no corner to drag"); grip.scripts.OnMouseDown(grip); grip.scripts.OnMouseUp(grip); assert(WLX.db.size and WLX.db.size[1] == 660 and WLX.db.size[2] == 520, "the size is not kept")
+  WLX.selectPage("dps")`);
+step('every tooltip', `local tips = 0
   for _, f in ipairs(MOCK.frames) do if f.scripts.OnEnter then f.scripts.OnEnter(f); tips = tips + 1; if f.scripts.OnLeave then f.scripts.OnLeave(f) end end end
   return tips .. " tooltips"`);
 step('how many Druids and Priests', `local boxes = {}
@@ -67,13 +72,19 @@ step('how many Druids and Priests', `local boxes = {}
   assert(b.innervate.count == 3 and b.powerInfusion.count == 5, "counts " .. tostring(b.innervate.count) .. " " .. tostring(b.powerInfusion.count))
   b.innervate.on = true; b.powerInfusion.on = true
   local snap = WLX.settingsSnapshot(WLX.cfg); assert(snap.counts and snap.counts.innervate == 3 and snap.counts.powerInfusion == 5, "not in the settings")
-  MOCK.click("The sim's defaults"); assert(b.innervate.count == 1 and b.powerInfusion.count == 1, "defaults keep the counts")
-  return "Innervate 3, Power Infusion 9 -> 5, the defaults set 1"`);
-step('sim builds with your gear', 'WLX.db.options.weights = false; MOCK.click("Sim builds with your gear"); ' + pump + '; local r = WLX.lastResult; WLX.lastRank = r; assert(r.kind == "rank" and #r.rows == #WLX.BUILDS + 1, "rows " .. tostring(r.rows and #r.rows)); return r.rows[1].build.short .. " first with " .. string.format("%.1f", r.rows[1].res.dps) .. ", my character at place " .. (function() for i = 1, #r.rows do if r.rows[i].build.key == "character" then return i end end end)()');
+  MOCK.click("Full buffs"); assert(b.innervate.count == 3, "a preset keeps the counts")
+  MOCK.click("Back to the sim's settings"); assert(WLX.cfg.buffs.innervate.count == 1 and WLX.cfg.buffs.powerInfusion.count == 1, "the sim's settings set 1")
+  return "Innervate 3, Power Infusion 9 -> 5, a preset keeps them, the sim's settings set 1"`);
+step('sim builds with your gear', 'WLX.db.options.weights = false; MOCK.click("Rank builds"); ' + pump + '; local r = WLX.lastResult; WLX.lastRank = r; assert(r.kind == "rank" and #r.rows == #WLX.BUILDS + 1, "rows " .. tostring(r.rows and #r.rows)); return r.rows[1].build.short .. " first with " .. string.format("%.1f", r.rows[1].res.dps) .. ", my character at place " .. (function() for i = 1, #r.rows do if r.rows[i].build.key == "character" then return i end end end)()');
 step('click a ranking row and go back', `local row; for _, f in ipairs(MOCK.frames) do if f.__kind == "Button" and f.onClick and f.shown then row = f; break end end
   assert(row, "no clickable row"); row.scripts.OnClick(row); assert(MOCK.findLike("FontString", "back to the ranking"), "no way back shown")
-  local sub; for _, f in ipairs(MOCK.frames) do if f.__kind == "Button" and f.scripts.OnClick and f.width == 406 and f.height == 14 then sub = f end end
-  assert(sub, "no back button"); sub.scripts.OnClick(sub); assert(MOCK.findLike("FontString", "^Best with your gear: "), "ranking not shown again")`);
+  local subs = 0; for _, f in ipairs(MOCK.frames) do if f.__kind == "Button" and f.scripts.OnClick and f.height == 14 then subs = subs + 1; f.scripts.OnClick(f) end end
+  assert(subs == 3, "a line under each page's result: " .. subs); assert(MOCK.findLike("FontString", "^Best with your gear: "), "ranking not shown again")
+  local use = MOCK.find("Button", "Use this rotation"); assert(not use:IsShown(), "the ranking itself has no rotation to use")
+  local pick; for _, f in ipairs(MOCK.frames) do if f.__kind == "Button" and f.onClick and f.shown and not f.label.text:find("(you)", 1, true) then pick = f; break end end
+  pick.scripts.OnClick(pick); assert(use:IsShown(), "a build from the ranking can be your rotation"); use.scripts.OnClick(use)
+  assert(WLX.findTemplate(WLX.db.options.template) and MOCK.findLike("FontString", "Your rotation is now "), "not your rotation"); WLX.db.options.template = nil
+  WLX.showResult(WLX.lastRank)`);
 const settingsCode = 'WFS1:' + Buffer.from(JSON.stringify(JSON.parse(JSON.stringify(WL.settingsSnapshot(Object.assign(JSON.parse(JSON.stringify(WL.DEFAULT_CONFIG)), {})))))).toString('base64');
 const b2 = JSON.parse(JSON.stringify(WL.BUILDS[WL.BUILDS.length - 1]));   // the last ready build
 const buildCode = 'WFB1:' + Buffer.from(JSON.stringify({ v: 1, short: 'My web build', talents: b2.talents, pet: b2.pet, sacrifice: b2.sacrifice || null, oil: b2.oil, rotation: b2.rotation, p: b2.params, aw: b2.actWhen })).toString('base64');
@@ -81,13 +92,25 @@ step('codes: load settings, load a build, make both codes', `local box; for _, f
   box:SetText(${JSON.stringify(settingsCode)}); MOCK.click("Load the code")
   box:SetText(${JSON.stringify(buildCode)}); MOCK.click("Load the code"); assert(#WLX.imported == 1 and WLX.db.options.template == "import1", "build not imported")
   box:SetText("nonsense"); MOCK.click("Load the code")
-  MOCK.click("My settings as a code"); assert(box:GetText():sub(1, 5) == "WFS1:"); local o = WLX.decodeSettings(box:GetText()); assert(o.gear.sp == WLX.char.gear.sp, "the code carries the character's gear")
-  MOCK.click("My character as a build code"); assert(box:GetText():sub(1, 5) == "WFB1:"); local b = WLX.decodeBuild(box:GetText()); assert(b.pet == "imp")
+  MOCK.click("My settings"); assert(box:GetText():sub(1, 5) == "WFS1:"); local o = WLX.decodeSettings(box:GetText()); assert(o.gear.sp == WLX.char.gear.sp, "the code carries the character's gear")
+  MOCK.click("My build"); assert(box:GetText():sub(1, 5) == "WFB1:"); local b = WLX.decodeBuild(box:GetText()); assert(b.pet == "imp")
   return "imported: " .. WLX.imported[1].short`);
-step('settings widgets write through', `MOCK.click("Nothing"); for k, b in pairs(WLX.cfg.buffs) do assert(not b.on, k) end
-  MOCK.click("The sim's defaults"); assert(WLX.cfg.buffs.arcaneIntellect.on)
-  MOCK.click("Back to the sim's settings"); MOCK.click("Forget loaded builds"); assert(#WLX.imported == 0)`);
-step('stop a running sim', 'WLX.db.options.fights = 5000; MOCK.click("Sim!"); MOCK.frame(); assert(WLX.jobRunning()); MOCK.click("Stop"); assert(not WLX.jobRunning()); WLX.db.options.fights = 10');
+step('the website\'s presets; settings widgets write through; a loaded build removed', `MOCK.click("Self-buffed"); for k, b in pairs(WLX.cfg.buffs) do assert(not b.on, k) end
+  assert(WLX.cfg.debuffs.sunderArmor.on and WLX.cfg.debuffs.faerieFire.on and not WLX.cfg.debuffs.judgementOfWisdom.on, "Self-buffed: Sunder Armor and Faerie Fire only")
+  WLX.refresh(); assert(MOCK.findLike("FontString", "^Now: Self%-buffed"), "the preset is named")
+  MOCK.click("Default"); assert(WLX.cfg.buffs.arcaneIntellect.on and WLX.cfg.consumables.flaskSupremePower.on and WLX.presetNow().key == "default", "Default")
+  MOCK.click("Full buffs"); assert(WLX.cfg.buffs.powerInfusion.on and WLX.cfg.consumables.brilliantWizardOil.on and not WLX.cfg.consumables.wizardOil.on and WLX.presetNow().key == "full", "Full buffs")
+  WLX.cfg.buffs.powerInfusion.on = false; WLX.refresh(); assert(WLX.presetNow() == nil and MOCK.findLike("FontString", "^Now: your own choice"), "a change of yours")
+  local folds = 0; for _, f in ipairs(MOCK.frames) do if f.__kind == "Button" and f.icon and type(f.text) == "table" and f.scripts.OnClick and f.parent and f.parent.parent then folds = folds + 1; f.scripts.OnClick(f); f.scripts.OnClick(f) end end
+  assert(folds >= 5, "the lists open and close: " .. folds)
+  MOCK.click("Back to the sim's settings")
+  local rm; for _, f in ipairs(MOCK.frames) do if f.__kind == "Button" and f.text == "Remove" and f.build then rm = f end end
+  assert(rm and #WLX.imported == 1, "the loaded build is listed"); WLX.db.options.template = rm.build.key; rm.scripts.OnClick(rm)
+  assert(#WLX.imported == 0 and #WLX.db.builds == 0 and WLX.db.options.template == nil, "removed, and no longer the rotation")
+  WLX.addImportedBuild(WLX.encodeBuild(WLX.BUILDS[1])); WLX.addImportedBuild(WLX.encodeBuild(WLX.BUILDS[2])); WLX.addImportedBuild(WLX.encodeBuild(WLX.BUILDS[3]))
+  WLX.db.options.template = "import3"; assert(WLX.removeImportedBuild(1) and WLX.db.options.template == "import2" and WLX.imported[2].key == "import2" and #WLX.db.builds == 2, "the builds after it move up")
+  WLX.removeImportedBuild(1); WLX.removeImportedBuild(1); assert(#WLX.imported == 0); WLX.db.options.template = nil`);
+step('stop a running sim', 'WLX.db.options.fights = 5000; MOCK.click("Sim"); MOCK.frame(); assert(WLX.jobRunning()); MOCK.click("Stop"); assert(not WLX.jobRunning()); WLX.db.options.fights = 10');
 const frames = 'for i = 1, 16 do MOCK.frame() end';
 step('item link window: a ring against both rings', `MOCK.refItem = 1001; ItemRefTooltip.shown = true; ${frames}
   assert(WarlockSimItemPanel and WarlockSimItemPanel:IsShown(), "no panel under the item window"); MOCK.click("Sim this item"); assert(WLX.jobRunning(), "no item sim started"); ${pump}; ${frames}
@@ -150,6 +173,17 @@ step('the click can be chosen; the tip names it', `local bag = MOCK.bagLocation(
 step('a saved Alt + right-click from the version before moves to the new default once', `local o = WarlockSimDB.options
   o.itemClick = "alt-right"; o.itemClickDefault = nil; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db.options.itemClick == "shift-right", "moved over")
   WLX.db.options.itemClick = "alt-right"; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db.options.itemClick == "alt-right", "a choice made afterwards stays"); WLX.db.options.itemClick = "shift-right"`);
+step('Items: the last 10 item sims, newest first; a click sims one again', `local list = WLX.itemHistory(); assert(#list >= 3 and #list <= 10, "item sims kept: " .. #list)
+  local seen = {}; for _, h in ipairs(list) do local k = h.link .. tostring(h.worn); assert(not seen[k], "twice: " .. h.link); seen[k] = true; assert(h.text:find("DPS", 1, true), h.text) end
+  local e = WarlockSimDB.chars["Tester-Mock"]; for i = 1, 10 do table.insert(e.items, 1, { link = "|cffffffff|Hitem:" .. (5000 + i) .. "::::::::60:::::|h[Filler " .. i .. "]|h|r", text = "+1.0 DPS" }) end
+  MOCK.keys = { shift = true }; MOCK.button = "RightButton"; HandleModifiedItemClick(MOCK.link(1002), MOCK.bagLocation()); MOCK.keys = {}; ${pump}; for i = 1, 16 do MOCK.frame() end
+  list = WLX.itemHistory(); assert(#list == 10 and list[1].link == MOCK.link(1002), "10 kept, the newest first: " .. #list)
+  WarlockSimItemPanel:Hide(); WLX.selectPage("items"); WLX.refresh()
+  local row; for _, f in ipairs(MOCK.frames) do if f.__kind == "Button" and f.index == 1 and f.link then row = f end end
+  assert(row and row.shown and row.name.text:find("Band", 1, true), "the newest is the first row"); row.scripts.OnEnter(row); row.scripts.OnLeave(row)
+  row.scripts.OnClick(row); assert(WarlockSimItemPanel:IsShown(), "a click opens the panel"); ${pump}; for i = 1, 16 do MOCK.frame() end; WarlockSimItemPanel:Hide()
+  for i = #e.items, 1, -1 do if e.items[i].link:find("Filler", 1, true) then table.remove(e.items, i) end end; WLX.selectPage("dps")
+  return "10 kept, the newest first; a click sims it again"`);
 step('my character stands out in the list of builds', `WLX.showResult(WLX.lastRank); local row = MOCK.findLike("FontString", "%(you%)"); assert(row and row.text:find("|cffffd100", 1, true), "no gold row for the character")`);
 const bg = 'local n = 0; repeat MOCK.frame(); n = n + 1 until (n > 40 and not WLX.backgroundRunning() and not WLX.jobRunning()) or n > 3000000; for i = 1, 25 do MOCK.frame() end';
 step('character sheet: a number over every worn item, the total over the character', `WLX.db.options.itemFights = 40; PaperDollFrame.shown = true; ${bg}
@@ -162,7 +196,7 @@ step('character sheet: a number over every worn item, the total over the charact
 step('character sheet: nothing is simmed again while nothing changes', `local before = WLX.sheetState().base; for i = 1, 60 do MOCK.frame() end; assert(not WLX.backgroundRunning() and WLX.sheetState().base == before)`);
 step('character sheet: a new item starts the work again; a sim of yours goes first', `MOCK.equipped[11] = 1001; for i = 1, 25 do MOCK.frame() end
   assert(WLX.backgroundRunning(), "the background work did not start for the new item"); assert(not WLX.jobRunning(), "background work does not count as a sim of yours")
-  MOCK.click("Sim!"); assert(WLX.jobRunning() and not WLX.backgroundRunning(), "your own sim takes over")
+  MOCK.click("Sim"); assert(WLX.jobRunning() and not WLX.backgroundRunning(), "your own sim takes over")
   ${pump}; ${bg}
   local ring = tonumber(MOCK.sheetText(11)); assert(ring and ring > 0, "the new ring has its number after the work was taken up again: " .. tostring(MOCK.sheetText(11)))
   assert(WLX.sheetState().worth[11].link == MOCK.link(1001)); MOCK.equipped[11] = 1002`);
@@ -177,11 +211,11 @@ step('character sheet: the numbers are kept over a reload, nothing is simmed aga
   MOCK.equipped[11] = 1001; ${bg}; assert(WLX.sheetState().base ~= 1234.4, "a changed item works it out again"); MOCK.equipped[11] = 1002; ${bg}; PaperDollFrame.shown = false`);
 step('the character is kept over a reload', `local e = WarlockSimDB.chars["Tester-Mock"]; assert(e and e.char and e.char.raw == nil, "the character is saved without the raw game data")
   local gear = WLX.char.gear.sp; WLX.char = nil; MOCK.fire("PLAYER_LOGIN"); assert(WLX.char and WLX.char.restored, "not put back"); assert(WLX.char.gear.sp == gear, "other gear numbers")
-  WLX.refresh(); assert(MOCK.findLike("FontString", "kept over the reload"), "the Character tab does not say so")
+  WLX.refresh(); assert(MOCK.findLike("FontString", "kept over the reload"), "My DPS does not say so")
   WarlockSimDB.chars["Tester-Mock"].char.talents = "broken"; WLX.char = nil; MOCK.fire("PLAYER_LOGIN"); assert(WLX.char == nil and WarlockSimDB.chars["Tester-Mock"].char == nil, "a broken saved character is dropped")
-  MOCK.click("Read my character"); assert(WLX.char and not WLX.char.restored and WarlockSimDB.chars["Tester-Mock"].char)
+  SlashCmdList.WARLOCKSIM("read"); assert(WLX.char and not WLX.char.restored and WarlockSimDB.chars["Tester-Mock"].char)
   WarlockSimDB.chars["Tester-Mock"].char.simCommit = "old"; WLX.char = nil; MOCK.fire("PLAYER_LOGIN"); assert(WLX.char == nil and WarlockSimDB.chars["Tester-Mock"].char == nil, "a character read under older game rules is kept")
-  MOCK.click("Read my character"); assert(WLX.char and WarlockSimDB.chars["Tester-Mock"].char.simCommit == WLX.SIM_COMMIT)`);
+  SlashCmdList.WARLOCKSIM("read"); assert(WLX.char and WarlockSimDB.chars["Tester-Mock"].char.simCommit == WLX.SIM_COMMIT)`);
 step('what if: +10 spell power gains, a typed change, nothing entered', `WLX.db.options.fights = 30; MOCK.click("+10 SP"); assert(WLX.jobRunning(), "no sim"); ${pump}
   local r = WLX.lastResult; assert(r.kind == "whatif" and r.diff > 0 and r.err >= 0, "kind / diff: " .. tostring(r.kind) .. " " .. tostring(r.diff))
   assert(MOCK.findLike("FontString", "What if %+10 spell power"), "what changed is shown"); assert(MOCK.findLike("FontString", "DPS for each 1 spell power"), "per point")
@@ -223,8 +257,8 @@ step('stop early: What if and an item stop long before the fights set; switched 
   local t = WarlockSimItemPanel.text.text; WarlockSimItemPanel:Hide()
   return "What if +10 SP: exact enough after " .. early .. " of 300 fights; item: " .. (t:match("Exact enough after %d+ of %d+ fights") or "all fights")`);
 const gearCode = step('gear code: what you wear, for the website\'s gear builder', `MOCK.equipped[1] = 1009; MOCK.equipped[5] = 1008
-  MOCK.combat = true; MOCK.click("My gear as a code"); MOCK.combat = false; assert(MOCK.findLike("FontString", "You are in combat"), "refused in combat")
-  MOCK.click("My gear as a code"); local box; for _, f in ipairs(MOCK.frames) do if f.__kind == "EditBox" and not f.template then box = f end end
+  MOCK.combat = true; MOCK.click("My gear"); MOCK.combat = false; assert(MOCK.findLike("FontString", "You are in combat"), "refused in combat")
+  MOCK.click("My gear"); local box; for _, f in ipairs(MOCK.frames) do if f.__kind == "EditBox" and not f.template then box = f end end
   assert(box:GetText():sub(1, 5) == "WFG1:", "no gear code in the box"); assert(MOCK.findLike("FontString", "Gear code made: 6 items, 3 enchants%."), "the count")
   local o = WLX.jsonDecode(WLX.base64Decode(box:GetText():sub(6)))
   local h = o.items.head
@@ -237,10 +271,10 @@ const gearCode = step('gear code: what you wear, for the website\'s gear builder
   assert(o.bag == nil, "no bags unless asked for")
   local cb; for _, f in ipairs(MOCK.frames) do if f.label and f.label.text == "Bags too" then cb = f end end; assert(cb, "the Bags too box")
   cb:SetChecked(true); cb:GetScript("OnClick")(cb); assert(WLX.db.options.gearBags == true, "the box sets the option")
-  MOCK.click("My gear as a code"); assert(MOCK.findLike("FontString", "Gear code made: 6 items, 3 enchants, 2 from your bags%."), "the count with bags")
+  MOCK.click("My gear"); assert(MOCK.findLike("FontString", "Gear code made: 6 items, 3 enchants, 2 from your bags%."), "the count with bags")
   local ob = WLX.jsonDecode(WLX.base64Decode(box:GetText():sub(6)))
   assert(#ob.bag == 2 and ob.bag[1].id == 1004 and ob.bag[1].slot == "twoHand" and ob.bag[1].stats.sp == 60 and ob.bag[2].id == 1002, "the bags: the staff and the band, not the bread")
-  cb:SetChecked(false); cb:GetScript("OnClick")(cb); MOCK.click("My gear as a code")
+  cb:SetChecked(false); cb:GetScript("OnClick")(cb); MOCK.click("My gear")
   assert(MOCK.findLike("FontString", "Enchant not understood, counted as 0: %+18 Spell Damage and Healing / %+1%% Spell Hit / Minor Glow"), "the enchant part it cannot read is named")
   local code = box:GetText(); box:SetText(code); MOCK.click("Load the code"); assert(MOCK.findLike("FontString", "That is a gear code"), "loading a gear code says what it is for")
   assert(WLX.db.lastGear.chest.understood == true and WLX.db.lastGear.head.understood == false, "kept for the dump")
@@ -280,18 +314,18 @@ step('the watcher notes actions of this addon the game blocks, and only those', 
   for i = 1, 30 do MOCK.fire("ADDON_ACTION_BLOCKED", "WarlockSim", "X" .. i .. "()") end; assert(#WLX.db.blocked == 20, "the last 20 only")
   SlashCmdList.WARLOCKSIM("blocked"); assert(MOCK.chat[#MOCK.chat]:find("blocked", 1, true)); SlashCmdList.WARLOCKSIM("dump"); assert(WLX.db.dump.blocked == WLX.db.blocked)
   WLX.db.blocked = nil; SlashCmdList.WARLOCKSIM("blocked"); assert(MOCK.chat[#MOCK.chat]:find("has not blocked anything", 1, true))`);
-step('Sim!: the DPS is on screen before the stat weights are done', `WLX.db.options.weights = true; WLX.db.options.fights = 12; MOCK.click("Sim!"); assert(WLX.jobRunning(), "no sim started")
+step('Sim: the DPS is on screen before the stat weights are done', `WLX.db.options.weights = true; WLX.db.options.fights = 12; MOCK.click("Sim"); assert(WLX.jobRunning(), "no sim started")
   local seen = false; local n = 0
   while WLX.jobRunning() do MOCK.frame(); n = n + 1; if not seen and MOCK.findLike("FontString", "Stat weights: still simming") then seen = true; assert(MOCK.findLike("FontString", "^%d+%.%d DPS"), "DPS shown with the note") end; if n > 3000000 then error("never ends") end end
   assert(seen, "the DPS was not shown before the stat weights"); assert(not MOCK.findLike("FontString", "Stat weights: still simming"), "the note is gone at the end")
   assert(MOCK.findLike("FontString", "Worth in spell power"), "stat weights shown at the end")`);
-step('Sim! again with nothing changed: the result is there at once', `local before = WLX.lastResult.res.dps; MOCK.click("Sim!"); assert(not WLX.jobRunning(), "it simmed again")
+step('Sim again with nothing changed: the result is there at once', `local before = WLX.lastResult.res.dps; MOCK.click("Sim"); assert(not WLX.jobRunning(), "it simmed again")
   assert(WLX.lastResult.remembered and WLX.lastResult.res.dps == before, "not the remembered result"); assert(MOCK.findLike("FontString", "Nothing has changed since this was simmed"), "no word about it")
-  WLX.db.options.fights = 13; MOCK.click("Sim!"); assert(WLX.jobRunning(), "another number of fights is another sim"); WLX.cancelJob(); WLX.db.options.fights = 10; WLX.db.options.weights = false`);
-step('the builds appear one by one; asked again, they are there at once', `WLX.db.options.fights = 11; MOCK.click("Sim builds with your gear"); assert(WLX.jobRunning(), "another number of fights: a new sim"); local seen = false; local n = 0
+  WLX.db.options.fights = 13; MOCK.click("Sim"); assert(WLX.jobRunning(), "another number of fights is another sim"); WLX.cancelJob(); WLX.db.options.fights = 10; WLX.db.options.weights = false`);
+step('the builds appear one by one; asked again, they are there at once', `WLX.db.options.fights = 11; MOCK.click("Rank builds"); assert(WLX.jobRunning(), "another number of fights: a new sim"); local seen = false; local n = 0
   while WLX.jobRunning() do MOCK.frame(); n = n + 1; if not seen and MOCK.findLike("FontString", "more to come") then seen = true end; if n > 3000000 then error("never ends") end end
   assert(seen, "no list before the last build was done"); assert(not MOCK.findLike("FontString", "more to come"), "the note is gone at the end")
-  MOCK.click("Sim builds with your gear"); assert(not WLX.jobRunning() and WLX.lastResult.remembered and WLX.lastResult.kind == "rank", "the list was not remembered"); WLX.db.options.fights = 10`);
+  MOCK.click("Rank builds"); assert(not WLX.jobRunning() and WLX.lastResult.remembered and WLX.lastResult.kind == "rank", "the list was not remembered"); WLX.db.options.fights = 10`);
 step('the speed: automatic by default, a saved "stay smooth" of the version before moves over once', `assert(WLX.db.options.speed == "auto", "default speed: " .. tostring(WLX.db.options.speed))
   local o = WarlockSimDB.options; o.speed = "smooth"; o.speedDefault = nil; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db.options.speed == "auto", "moved over")
   WLX.db.options.speed = "smooth"; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db.options.speed == "smooth", "a choice made afterwards stays"); WLX.db.options.speed = "auto"`);
@@ -306,7 +340,9 @@ step('a worn trinket and main-hand enchant with an effect count in the fight, an
   MOCK.equipped[13] = 18820; MOCK.items[1005].ench = 8217; WLX.doReadCharacter()
   local w = WLX.char.worn; assert(w.trinket1 == 18820 and w.mainHand == 1005 and w.mainEnchant == 8217, 'worn: ' .. tostring(w.trinket1) .. ' ' .. tostring(w.mainEnchant))
   local cfg = WLX.characterConfig(); assert(cfg.gearBuilder and #WLX.equippedTrinkets(cfg) == 1 and #WLX.equippedEnchantFx(cfg) == 1, 'not in the fight')
-  WLX.refresh(); assert(MOCK.findLike('FontString', 'What these do counts in the fight: Talisman of Ephemeral Power, Revelation'), 'not named on the Character tab')
+  WLX.refresh(); local named = false
+  for _, f in ipairs(MOCK.frames) do if f.__kind == 'Button' and f.height == 14 and f.scripts.OnEnter and not f.scripts.OnClick then f.scripts.OnEnter(f); if GameTooltip.text:find('What these do counts in the fight: Talisman of Ephemeral Power, Revelation', 1, true) then named = true end end end
+  assert(named, 'not named on My DPS (hover)')
   MOCK.refItem = 18820; ItemRefTooltip.shown = true; ${frames}; MOCK.click('Sim this item'); ${pump}; ${frames}
   local t = WarlockSimItemPanel.text.text
   local dps = tonumber(t:match('|cff40ff40%+?([%-%d%.]+) DPS'))

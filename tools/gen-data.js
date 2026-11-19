@@ -120,6 +120,40 @@ out.push('WL.BUFF_ORDER = ' + order(WL.DEFAULT_CONFIG.buffs));
 out.push('WL.DEBUFF_ORDER = ' + order(WL.DEFAULT_CONFIG.debuffs));
 out.push('WL.CONSUMABLE_ORDER = ' + order(WL.DEFAULT_CONFIG.consumables));
 out.push('WL.PROFESSION_ORDER = ' + order(WL.DEFAULT_CONFIG.professions));
+// The website's three built-in presets for buffs, boss debuffs and consumables (app/app.js builtinPresets and
+// applySidePreset), as lists of what is ticked: Default = the page's defaults, Self-buffed = no raid buffs and only
+// Sunder Armor + Faerie Fire, Full buffs = every raid buff, the boss debuffs that stack and the best consumable of each
+// kind. Only their buffs / debuffs / consumables are used here: the addon keeps your gear and the fight as they are.
+// The "best consumable" list (MAX_CONS) is read from the website's page code, so it follows the website.
+{
+  const app = fs.readFileSync(path.join(SIM, 'app', 'app.js'), 'utf8');
+  const m = app.match(/var MAX_CONS = (\[[^\]]*\]);/);
+  if (!m) throw new Error('MAX_CONS not found in the website\'s app/app.js: the presets changed there, look again');
+  const MAX_CONS = JSON.parse(m[1].replace(/'/g, '"'));
+  const onKeys = o => Object.keys(o).filter(k => o[k].on);
+  const page = WL.pageDefaultConfig();
+  const full = WL.pageDefaultConfig();
+  const seenB = {}, seenX = {};
+  Object.keys(full.buffs).forEach(k => {
+    const b = full.buffs[k], x = WL.buffExcl(b);
+    b.on = !(b.group && seenB[b.group]) && !x.some(t => seenX[t]);
+    if (b.on && b.group) seenB[b.group] = 1;
+    if (b.on) x.forEach(t => { seenX[t] = 1; });
+  });
+  const seenD = {};
+  Object.keys(full.debuffs).forEach(k => { const d = full.debuffs[k]; d.on = !d.coe && !(d.group && seenD[d.group]); if (d.on && d.group) seenD[d.group] = 1; });
+  Object.keys(full.consumables).forEach(k => { full.consumables[k].on = MAX_CONS.indexOf(k) >= 0; });
+  const presets = [
+    { key: 'default', name: 'Default', tip: 'The website\'s start: the raid buffs of a full raid, Sunder Armor, Faerie Fire, Judgement of Wisdom and the usual consumables.',
+      buffs: onKeys(page.buffs), debuffs: onKeys(page.debuffs), consumables: onKeys(page.consumables) },
+    { key: 'self', name: 'Self-buffed', tip: 'No raid buffs; only Sunder Armor and Faerie Fire on the boss. Your consumables as the website starts with them.',
+      buffs: [], debuffs: ['sunderArmor', 'faerieFire'].filter(k => page.debuffs[k]), consumables: onKeys(page.consumables) },
+    { key: 'full', name: 'Full buffs', tip: 'Every raid buff, every boss debuff that stacks and the best consumable of each kind.',
+      buffs: onKeys(full.buffs), debuffs: onKeys(full.debuffs), consumables: onKeys(full.consumables) },
+  ];
+  presets.forEach(p => ['buffs', 'debuffs', 'consumables'].forEach(g => p[g].forEach(k => { if (!WL.DEFAULT_CONFIG[g][k]) throw new Error('preset ' + p.key + ': unknown ' + g + ' ' + k); })));
+  out.push('WL.BUFF_PRESETS = ' + lua(presets));
+}
 out.push('');
 fs.mkdirSync(path.join(ROOT, 'WarlockSim'), { recursive: true });
 fs.writeFileSync(path.join(ROOT, 'WarlockSim', 'Data.lua'), out.join('\n'));
