@@ -22,7 +22,8 @@ local PET_BY_NPC = { ['416'] = 'imp', ['1863'] = 'succubus', ['417'] = 'felhunte
 -- Demonic Sacrifice's buff per demon, checked by spell id and name. Forever swapped what the sacrifices do (Imp +15%
 -- Shadow, Succubus +15% Fire, Voidwalker mana, Felhunter health), and the classic buffs moved with them: with the
 -- Felhunter sacrificed the game reports Fel Stamina 18790 (Xn's dump, 2026-11-19; it was read as the Voidwalker before).
--- The other three follow the same swap (not yet seen: Imp = Touch of Shadow, Succubus = Burning Wish, Voidwalker = Fel Energy).
+-- Imp sacrificed = Touch of Shadow (Xn hovered the buff, 2026-11-19). Succubus = Burning Wish and Voidwalker = Fel Energy
+-- follow the same swap (not yet seen).
 local SACRIFICE_AURAS = {
   { 'imp', 18791, 'Touch of Shadow' }, { 'voidwalker', 18792, 'Fel Energy' }, { 'succubus', 18789, 'Burning Wish' }, { 'felhunter', 18790, 'Fel Stamina' },
 }
