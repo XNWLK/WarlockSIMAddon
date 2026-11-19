@@ -7,6 +7,9 @@ What changed in each version, newest first. Download a version from the
 
 - My DPS: the table of your numbers also shows the spell power of your Shadow and Fire spells, on the sheet and as the sim
   counts it. The window is a little wider at its smallest (620 instead of 600).
+- A warning when you have Demonic Sacrifice but no sacrificed demon was found on you (you would be simmed without its
+  bonus), or when you sacrificed another demon than your rotation's build is made for. It shows under your name on My DPS
+  and under the result.
 
 ## v0.18.0
 

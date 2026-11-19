@@ -163,7 +163,24 @@ function WL.characterBuildNow()
   local stone = o.stone == 'sheet' and 'none' or o.stone
   local b, notes = WL.characterBuild({ talents = ch.talents, pet = pet, sacrifice = sac, oil = stone }, tpl)
   b.template = tpl.key
+  local w = WL.sacrificeWarning(b, tpl)
+  if w then notes[#notes + 1] = w end
   return b, notes, tpl
+end
+-- Demonic Sacrifice talented but nothing sacrificed (the buff was not on you when you were read), or another demon
+-- sacrificed than your rotation's build is made for: the words for it, or nil (Xn, 2026-11-19: a Wrack DS character read
+-- without its Imp sacrificed ranked below Wrack DS).
+function WL.sacrificeWarning(b, tpl)
+  local function name(k) local p = WL.DEFAULT_CONFIG.pets[k]; return p and p.name or k end
+  if (b.talents.demonicSacrifice or 0) > 0 and not b.sacrifice then
+    return 'You have Demonic Sacrifice, but no sacrificed demon was found on you, so you are simmed without its bonus' ..
+      (tpl and tpl.sacrifice and (' (' .. (tpl.short or tpl.key) .. ' sacrifices the ' .. name(tpl.sacrifice) .. ')') or '') ..
+      '. Sacrifice a demon and press Sim, or pick one under More choices.'
+  end
+  if b.sacrifice and tpl and tpl.sacrifice and b.sacrifice ~= tpl.sacrifice then
+    return 'You sacrificed the ' .. name(b.sacrifice) .. '; ' .. (tpl.short or tpl.key) .. ' is made for the ' .. name(tpl.sacrifice) .. ' sacrificed, so the ready build can rank above you.'
+  end
+  return nil
 end
 -- What is kept per character between sessions (WarlockSimDB.chars["Name-Realm"]): the character as last read and the
 -- numbers on the character sheet, so both are there at once after a /reload or a login.

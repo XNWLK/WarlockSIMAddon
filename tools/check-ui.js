@@ -48,6 +48,14 @@ step('read the character', `SlashCmdList.WARLOCKSIM("read"); local c = WLX.char;
   assert(#c.otherAuras == 1 and c.otherAuras[1] == "Demon Armor", "other auras")
   assert(c.sheet.sp == 712 and c.sheet.spShadow == 733 and c.sheet.crit == 18.4 and c.sheet.hit == 9 and c.sheet.mp5 == 40)
   return string.format("gear: SP %s, Int %s, Sta %s, crit %s, hit %s, shadow +%s; template %s", c.gear.sp, c.gear.int, c.gear.sta, c.gear.critPct, c.gear.hitPct, c.gear.shadowSp, WLX.bestTemplate(c.talents, WLX.templates(), c.pet))`);
+step('Demonic Sacrifice talented: a warning when nothing (or another demon) is sacrificed', `local c = WLX.char; local keep, keepT, keepP, keepTpl = c.sacrifice, c.talents.demonicSacrifice, c.pet, WLX.db.options.template
+  local tk; for _, b in ipairs(WLX.BUILDS) do if b.sacrifice == "succubus" and not tk then tk = b.key end end; assert(tk, "a build that sacrifices the Succubus")
+  c.talents.demonicSacrifice = 1; c.pet = nil; c.sacrifice = "succubus"; WLX.db.options.template = tk
+  local _, n0 = WLX.characterBuildNow(); for _, x in ipairs(n0) do assert(not x:find('Demonic Sacrifice', 1, true) and not x:find('You sacrificed', 1, true), 'warned with the right demon: ' .. x) end
+  c.sacrifice = nil; local _, n1 = WLX.characterBuildNow(); assert(n1[#n1] and n1[#n1]:find('no sacrificed demon was found', 1, true) and n1[#n1]:find('sacrifices the Succubus', 1, true), 'nothing sacrificed: ' .. tostring(n1[#n1]))
+  WLX.refresh(); assert(MOCK.findLike('FontString', 'No sacrificed demon found: hover here'), 'not on My DPS')
+  c.sacrifice = 'felhunter'; local _, n2 = WLX.characterBuildNow(); assert(n2[#n2] and n2[#n2]:find('You sacrificed the Felhunter', 1, true), 'another demon: ' .. tostring(n2[#n2]))
+  c.sacrifice, c.talents.demonicSacrifice, c.pet, WLX.db.options.template = keep, keepT, keepP, keepTpl; WLX.refresh(); return n1[#n1]`);
 step('the sim\'s totals equal the sheet', `local b = WLX.characterBuildNow(); local cfg = WLX.copy(WLX.DEFAULT_CONFIG)
   for k, x in pairs(cfg.buffs) do x.on = WLX.char.buffsOnYou[k] and true or false end; for _, x in pairs(cfg.consumables) do x.on = false end
   cfg.gear = WLX.copy(WLX.char.gear); local s = WLX.computeStats(b, "orc", cfg)

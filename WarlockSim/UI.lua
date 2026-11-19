@@ -497,6 +497,9 @@ local function buildDpsPage(p)
   tip(p.infoBtn, function()
     local t = characterTip()
     local w = WL.char and characterWarnings(WL.char) or {}
+    local bn = WL.char and WL.characterBuildNow()
+    local sw = bn and WL.sacrificeWarning(bn, WL.findTemplate(bn.template))
+    if sw then w[#w + 1] = sw end
     if #w > 0 then t = t .. '\n\n|cffffb060' .. table.concat(w, '\n') .. '|r' end
     return t
   end)
@@ -568,7 +571,9 @@ local function buildDpsPage(p)
     p.who:SetText(string.format('%s - %s - level %s - %s', tostring(ch.name), race, tostring(ch.level or '?'), split))
     local when = (ch.readAt or 0) > 0 and ('Read ' .. date('%d %b, %H:%M', ch.readAt)) or 'Read before'
     local w = #characterWarnings(ch)
-    p.info:SetText(when .. (ch.restored and ' (kept over the reload: Sim reads it again)' or '') .. '   |cff9482c9what the addon noticed: hover here|r' .. (w > 0 and string.format('   |cffffb060%d note%s|r', w, w > 1 and 's' or '') or ''))
+    local bn = WL.characterBuildNow()
+    local sacWarn = bn and WL.sacrificeWarning(bn, WL.findTemplate(bn.template))
+    p.info:SetText(when .. (ch.restored and ' (kept over the reload: Sim reads it again)' or '') .. (sacWarn and ('   |cffffb060' .. (bn.sacrifice and 'Not the demon your rotation sacrifices' or 'No sacrificed demon found') .. ': hover here|r') or '   |cff9482c9what the addon noticed: hover here|r') .. (w > 0 and string.format('   |cffffb060%d note%s|r', w, w > 1 and 's' or '') or ''))
     local s, g = ch.sheet, ch.gear
     p.stats.set(2, { 'Sheet', fmt(s.sp), fmt(s.spShadow or s.sp), fmt(s.spFire or s.sp), pct1(s.hit), pct1(s.crit), pct1(s.haste), fmt(s.int), fmt(s.spi), fmt(s.sta), fmt(s.mp5), fmt(s.pierce) })
     p.stats.set(3, { 'As gear', fmt(g.sp), fmt(g.sp + (g.shadowSp or 0)), fmt(g.sp + (g.fireSp or 0)), pct1(g.hitPct), pct1(g.critPct), pct1(g.hastePct), fmt(g.int), fmt(g.spi), fmt(g.sta), fmt(g.mp5 or 0), fmt(g.pierce or 0) })
