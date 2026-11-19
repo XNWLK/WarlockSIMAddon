@@ -137,7 +137,7 @@ function UnitExists(u) return u == 'pet' and MOCK.pet ~= nil end
 function UnitGUID(u) return u == 'pet' and ('Pet-0-4615-1-959-' .. MOCK.pet .. '-0200320073') or 'Player-1-0001' end
 function GetInventoryItemID() return 18873 end
 MOCK.pet = '416'
-MOCK.auras = { { name = 'Arcane Intellect', spellId = 10157 }, { name = 'Demon Armor', spellId = 11735 }, { name = 'Touch of Shadow', spellId = 18791 }, { name = 'Greater Blessing of Kings', spellId = 25898 } }
+MOCK.auras = { { name = 'Arcane Intellect', spellId = 10157 }, { name = 'Demon Armor', spellId = 11735 }, { name = 'Burning Wish', spellId = 18789 }, { name = 'Greater Blessing of Kings', spellId = 25898 } }
 C_UnitAuras = { GetAuraDataByIndex = function(_, i) return MOCK.auras[i] end }
 C_Spell = { GetSpellName = function(id) return 'Spell ' .. id end, GetSpellTexture = function(id) return 136197 end }
 C_Item = { GetItemInfoInstant = function(id) return id, 'Weapon', 'Staves', 'INVTYPE_2HWEAPON', 1, 2, 10 end, GetWeaponEnchantInfo = function() return true, 100000, 0, 2628 end }

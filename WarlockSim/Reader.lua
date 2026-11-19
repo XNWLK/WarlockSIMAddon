@@ -19,9 +19,12 @@ local function num(v) return (type(v) == 'number' and not isSecret(v)) and v or 
 
 local RACE_BY_FILE = { Human = 'human', Gnome = 'gnome', Orc = 'orc', Scourge = 'undead', Undead = 'undead', Troll = 'troll' }
 local PET_BY_NPC = { ['416'] = 'imp', ['1863'] = 'succubus', ['417'] = 'felhunter', ['1860'] = 'voidwalker' }
--- Demonic Sacrifice's buff per demon (names and spell ids of the classic game; checked by both).
+-- Demonic Sacrifice's buff per demon, checked by spell id and name. Forever swapped what the sacrifices do (Imp +15%
+-- Shadow, Succubus +15% Fire, Voidwalker mana, Felhunter health), and the classic buffs moved with them: with the
+-- Felhunter sacrificed the game reports Fel Stamina 18790 (Xn's dump, 2026-11-19; it was read as the Voidwalker before).
+-- The other three follow the same swap (not yet seen: Imp = Touch of Shadow, Succubus = Burning Wish, Voidwalker = Fel Energy).
 local SACRIFICE_AURAS = {
-  { 'imp', 18789, 'Burning Wish' }, { 'voidwalker', 18790, 'Fel Stamina' }, { 'succubus', 18791, 'Touch of Shadow' }, { 'felhunter', 18792, 'Fel Energy' },
+  { 'imp', 18791, 'Touch of Shadow' }, { 'voidwalker', 18792, 'Fel Energy' }, { 'succubus', 18789, 'Burning Wish' }, { 'felhunter', 18790, 'Fel Stamina' },
 }
 -- Raid buffs of the sim that can sit on you as a buff, with the names they go by.
 local BUFF_NAMES = {

@@ -3,6 +3,13 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.18.2
+
+- The sacrificed demon is recognised the Forever way. Forever swapped what the sacrifices do (Imp: +15% Shadow, Succubus:
+  +15% Fire, Voidwalker: mana, Felhunter: health), and their buffs moved with them, so a sacrificed Felhunter was read as the
+  Voidwalker - and a sacrificed Imp as the Succubus, simmed with +15% Fire instead of Shadow. Fixed.
+- `/wsim dump` reads your character fresh, so the list of buffs on you is always in it.
+
 ## v0.18.1
 
 - My DPS: the table of your numbers also shows the spell power of your Shadow and Fire spells, on the sheet and as the sim
