@@ -165,6 +165,34 @@ local function Fold(parent, label, isOpen, onToggle, tooltip)
   return b
 end
 
+-- a small table: `widths` per column, `rows` rows (the first one the heading, the first column the row names)
+local ROW_H = 15
+local function Grid(parent, widths, rows)
+  local g = { cells = {} }
+  local total = 0
+  for i = 1, #widths do total = total + widths[i] end
+  g.frame = CreateFrame('Frame', nil, parent)
+  g.frame:SetSize(total, rows * ROW_H + 2)
+  local bg = g.frame:CreateTexture(nil, 'BACKGROUND'); bg:SetColorTexture(0, 0, 0, 0.35)
+  bg:SetPoint('TOPLEFT', 0, -ROW_H); bg:SetSize(total, (rows - 1) * ROW_H + 2)
+  local ln = g.frame:CreateTexture(nil, 'ARTWORK'); ln:SetColorTexture(0.58, 0.51, 0.79, 0.6)
+  ln:SetPoint('TOPLEFT', 0, -ROW_H + 1); ln:SetSize(total, 1)
+  for r = 1, rows do
+    g.cells[r] = {}
+    local x = 0
+    for c = 1, #widths do
+      local fs = Text(g.frame, (r == 1 or c == 1) and 'GameFontNormalSmall' or 'GameFontHighlightSmall')
+      fs:SetPoint('TOPLEFT', x + (c == 1 and 4 or 0), -(r - 1) * ROW_H - 2); fs:SetWidth(widths[c] - (c == 1 and 4 or 0))
+      fs:SetJustifyH(c == 1 and 'LEFT' or 'CENTER')
+      if fs.SetWordWrap then fs:SetWordWrap(false) end
+      g.cells[r][c] = fs
+      x = x + widths[c]
+    end
+  end
+  g.set = function(r, list) for c = 1, #widths do g.cells[r][c]:SetText(list[c] or '') end end
+  return g
+end
+
 local syncers = {}
 local function keep(w) syncers[#syncers + 1] = w; return w end
 local function say(msg, bad) if foot.status then foot.status:SetText((bad and '|cffff6060' or '|cff80ff80') .. msg .. '|r') end end
@@ -208,7 +236,8 @@ local function spellIcon(id)
   return ok and tex or nil
 end
 
-local function newView(parent, empty)
+local WEIGHT_COLS = { { 'hitPct', 1, '1% hit' }, { 'critPct', 1, '1% crit' }, { 'hastePct', 1, '1% haste' }, { 'int', 10, '10 Intellect' }, { 'pierce', 10, '10 Pierce' } }
+local function newView(parent, empty, withWeights)
   local v = { rows = {}, fit = ROWS, empty = empty }
   local f = CreateFrame('Frame', nil, parent)
   v.frame = f
@@ -236,6 +265,15 @@ local function newView(parent, empty)
   end
   v.info = Text(f, 'GameFontHighlightSmall')
   if v.info.SetSpacing then v.info:SetSpacing(2) end
+  v.placeInfo = function() end
+  if withWeights then                                     -- My DPS: what each stat is worth, as a table
+    v.wt = Grid(f, { 82, 44, 46, 54, 66, 56, 76 }, 2)
+    local head = { '|cffffd100Worth|r' }
+    for i = 1, #WEIGHT_COLS do head[#head + 1] = WEIGHT_COLS[i][3] end
+    head[#head + 1] = '1 SP ='
+    v.wt.set(1, head)
+    v.wt.frame:Hide()
+  end
   return v
 end
 
@@ -279,7 +317,18 @@ local function showSingle(v, res, build, raceKey, weights, notes, fromRank)
   if other > 0 then rows[#rows + 1] = { label = 'Everything else', share = other / top, right = string.format('%s%%', fmt(100 * other / total, 1)) } end
   setRows(v, rows)
   local lines = {}
-  if weights and weights.sp and weights.sp > 0 then
+  local table1 = v.wt and weights and weights.sp and weights.sp > 0
+  if v.wt then
+    v.wt.frame:SetShown(table1 and true or false)
+    if table1 then
+      local row = { 'in spell power' }
+      for i = 1, #WEIGHT_COLS do local c = WEIGHT_COLS[i]; row[#row + 1] = fmt(weights[c[1]] * c[2] / weights.sp, 1) end
+      row[#row + 1] = fmt(weights.sp, 2) .. ' DPS'
+      v.wt.set(2, row)
+    end
+  end
+  if table1 then
+  elseif weights and weights.sp and weights.sp > 0 then
     local function eq(k, per) return fmt(weights[k] * per / weights.sp, 1) end
     lines[#lines + 1] = string.format('|cffffd100Worth in spell power:|r 1%% hit = %s   1%% crit = %s   1%% haste = %s', eq('hitPct', 1), eq('critPct', 1), eq('hastePct', 1))
     lines[#lines + 1] = string.format('10 Intellect = %s   10 Spell Pierce = %s   |cffaaaaaa(1 spell power = %s DPS)|r', eq('int', 10), eq('pierce', 10), fmt(weights.sp, 2))
@@ -293,6 +342,7 @@ local function showSingle(v, res, build, raceKey, weights, notes, fromRank)
   for i = 1, #(notes or {}) do lines[#lines + 1] = '|cffffb060' .. notes[i] .. '|r' end
   if WL.char and (WL.char.level or 60) < 60 then lines[#lines + 1] = string.format('|cffffb060A level 60 number: you are level %d.|r', WL.char.level) end
   v.info:SetText(table.concat(lines, '\n'))
+  v.placeInfo(table1 and 2 * ROW_H + 8 or 0)
 end
 
 local function showRank(v, r)
@@ -347,6 +397,8 @@ end
 
 local function render(v)
   local r = v.current
+  if v.wt then v.wt.frame:Hide() end
+  v.placeInfo(0)
   if not r then
     v.head:SetText(v.empty[1]); v.sub:SetText(v.empty[2])
     setRows(v, {}); v.info:SetText('')
@@ -360,9 +412,13 @@ local function placeView(v, top, height)
   v.frame:ClearAllPoints()
   v.frame:SetPoint('TOPLEFT', 0, -top); v.frame:SetPoint('TOPRIGHT', 0, -top)
   v.frame:SetHeight(math.max(60, height))
-  v.fit = math.max(3, math.min(ROWS, floor((height - 38 - 70) / 17)))
-  v.info:ClearAllPoints()
-  v.info:SetPoint('TOPLEFT', 0, -38 - v.fit * 17 - 4); v.info:SetPoint('TOPRIGHT', 0, -38 - v.fit * 17 - 4)
+  v.fit = math.max(3, math.min(ROWS, floor((height - 38 - 70 - (v.wt and 2 * ROW_H + 8 or 0)) / 17)))
+  local below = 38 + v.fit * 17 + 4
+  if v.wt then v.wt.frame:ClearAllPoints(); v.wt.frame:SetPoint('TOPLEFT', 0, -below) end
+  v.placeInfo = function(extra)
+    v.info:ClearAllPoints()
+    v.info:SetPoint('TOPLEFT', 0, -below - extra); v.info:SetPoint('TOPRIGHT', 0, -below - extra)
+  end
   render(v)
 end
 
@@ -409,13 +465,8 @@ local function characterTip()
   local school = ''
   if (g.shadowSp or 0) > 0 then school = school .. ' +' .. fmt(g.shadowSp) .. ' Shadow' end
   if (g.fireSp or 0) > 0 then school = school .. ' +' .. fmt(g.fireSp) .. ' Fire' end
-  local lines = {
-    '|cffffd100On your character sheet|r',
-    string.format('Spell power %s%s   Hit %s   Crit %s   Haste %s', fmt(s.sp), school, pct1(s.hit), pct1(s.crit), pct1(s.haste)),
-    string.format('Intellect %s   Spirit %s   Stamina %s   Mana per 5 s %s   Spell Pierce %s', fmt(s.int), fmt(s.spi), fmt(s.sta), fmt(s.mp5), fmt(s.pierce)),
-    '|cffffd100What the sim counts as your gear|r (the sheet without your base stats and the buffs it takes off)',
-    string.format('Spell power %s   hit %s   crit %s   Intellect %s   Spirit %s   Stamina %s', fmt(g.sp), pct1(g.hitPct), pct1(g.critPct), fmt(g.int), fmt(g.spi), fmt(g.sta)),
-  }
+  local lines = { '|cffffd100What the addon noticed|r' }
+  if school ~= '' then lines[#lines + 1] = 'School power on top of your spell power:' .. school .. '.' end
   local on = {}
   for k in pairs(ch.buffsOnYou or {}) do on[#on + 1] = WL.DEFAULT_CONFIG.buffs[k].name end
   table.sort(on)
@@ -424,6 +475,7 @@ local function characterTip()
   if ch.weaponEffect then lines[#lines + 1] = 'Your weapon has a temporary effect (stone or oil): its bonus is in your numbers.' end
   local fx = WL.wornEffectNames(ch.worn)
   if #fx > 0 then lines[#lines + 1] = 'What these do counts in the fight: ' .. table.concat(fx, ', ') .. ' (when trinkets are used: Raid setup).' end
+  if #lines == 1 then lines[#lines + 1] = 'Nothing besides your numbers.' end
   return table.concat(lines, '\n')
 end
 local function characterWarnings(ch)
@@ -448,7 +500,15 @@ local function buildDpsPage(p)
     if #w > 0 then t = t .. '\n\n|cffffb060' .. table.concat(w, '\n') .. '|r' end
     return t
   end)
-  local l1 = Text(p, 'GameFontNormalSmall', 'Rotation'); l1:SetPoint('TOPLEFT', 0, -44)
+  -- your numbers as a table: the character sheet and what the sim counts as your gear
+  p.stats = Grid(p, { 52, 44, 40, 40, 42, 40, 42, 46, 34, 42 }, 3)
+  p.stats.frame:SetPoint('TOPLEFT', 0, -36)
+  p.stats.set(1, { '', 'Spell p.', 'Hit', 'Crit', 'Haste', 'Int', 'Spirit', 'Stamina', 'Mp5', 'Pierce' })
+  p.stats.set(2, { 'Sheet' }); p.stats.set(3, { 'As gear' })
+  local statTip = CreateFrame('Frame', nil, p.stats.frame); statTip:SetAllPoints()
+  tip(statTip, 'Sheet: the numbers on your character sheet (spell power, hit, crit and haste as the game shows them).\n\nAs gear: what the sim counts as your gear - the sheet without your base stats and without the raid buffs it takes off (Raid setup decides those).')
+  local y0 = -36 - 3 * ROW_H - 10
+  local l1 = Text(p, 'GameFontNormalSmall', 'Rotation'); l1:SetPoint('TOPLEFT', 0, y0 - 4)
   p.rotation = keep(Dropdown(p, 200, function()
     local items, list = {}, WL.templates()
     for i = 1, #list do items[i] = { value = list[i].key, label = (list[i].short or list[i].key) .. (list[i].imported and ' (loaded)' or '') } end
@@ -458,7 +518,7 @@ local function buildDpsPage(p)
     return WL.char and WL.bestTemplate(WL.char.talents, WL.templates(), WL.char.pet) or WL.BUILDS[1].key
   end, function(v) opts().template = v end,
     'Your talents and demon come from your character. The order in which spells are cast (the priority list) is taken from this build. The closest ready build is picked for you; a build code from the website (Codes) adds its own.'))
-  p.rotation:SetPoint('TOPLEFT', 56, -40)
+  p.rotation:SetPoint('TOPLEFT', 56, y0)
   local function demonItems(auto, extra)
     local items = { { value = 'auto', label = auto } }
     local keys = { 'imp', 'succubus', 'felhunter', 'voidwalker' }
@@ -466,16 +526,16 @@ local function buildDpsPage(p)
     items[#items + 1] = { value = 'none', label = extra }
     return items
   end
-  local l2 = Text(p, 'GameFontNormalSmall', 'Demon'); l2:SetPoint('TOPLEFT', 266, -44)
+  local l2 = Text(p, 'GameFontNormalSmall', 'Demon'); l2:SetPoint('TOPLEFT', 266, y0 - 4)
   local demon = keep(Dropdown(p, 130, function()
     return demonItems('As read: ' .. ((WL.char and WL.char.pet and PET_NAMES[WL.char.pet]) or 'none'), 'None')
   end, function() return opts().pet end, function(v) opts().pet = v end, 'The demon that fights with you in the sim.'))
-  demon:SetPoint('TOPLEFT', 310, -40)
+  demon:SetPoint('TOPLEFT', 310, y0)
   p.more = keep(Fold(p, 'More choices', function() return opts().dpsMore end, function() opts().dpsMore = not opts().dpsMore; p.layout() end,
     'The demon given up with Demonic Sacrifice, and a weapon stone.'))
-  p.more:SetPoint('TOPLEFT', 0, -66); p.more:SetWidth(140)
+  p.more:SetPoint('TOPLEFT', 0, y0 - 26); p.more:SetWidth(140)
   p.moreRow = CreateFrame('Frame', nil, p)
-  p.moreRow:SetPoint('TOPLEFT', 0, -88); p.moreRow:SetPoint('TOPRIGHT', 0, -88); p.moreRow:SetHeight(22)
+  p.moreRow:SetPoint('TOPLEFT', 0, y0 - 48); p.moreRow:SetPoint('TOPRIGHT', 0, y0 - 48); p.moreRow:SetHeight(22)
   local l3 = Text(p.moreRow, 'GameFontNormalSmall', 'Sacrificed'); l3:SetPoint('TOPLEFT', 0, -4)
   keep(Dropdown(p.moreRow, 130, function()
     return demonItems('As read: ' .. ((WL.char and WL.char.sacrifice and PET_NAMES[WL.char.sacrifice]) or 'none'), 'None')
@@ -486,12 +546,12 @@ local function buildDpsPage(p)
     return { { value = 'sheet', label = 'Already in my numbers (or none)' }, { value = 'spellstone', label = 'Add a Major Spellstone' }, { value = 'firestone', label = 'Add a Major Firestone' } }
   end, function() return opts().stone end, function(v) opts().stone = v end,
     'If a Spellstone or Firestone was active while your character was read, its bonus is inside your numbers already: leave this on the first choice. Pick a stone here only if you read your character without one.')):SetPoint('TOPLEFT', 286, 0)
-  p.view = newView(p, { 'No result yet', 'Press Sim: your character is read and played.' })
+  p.view = newView(p, { 'No result yet', 'Press Sim: your character is read and played.' }, true)
   views.dps = p.view
   p.layout = function()
     local open = opts().dpsMore and true or false
     p.moreRow:SetShown(open)
-    local top = open and 116 or 92
+    local top = -y0 + (open and 76 or 52)
     placeView(p.view, top, (p.ph or 380) - top)
   end
   p.sync = function()
@@ -500,6 +560,7 @@ local function buildDpsPage(p)
     if not ch then
       p.who:SetText('No character read yet')
       p.info:SetText('Your character is read when you press Sim (not in combat).')
+      p.stats.set(2, { 'Sheet' }); p.stats.set(3, { 'As gear' })
       return
     end
     local split = WL.talentSplit(ch.talents)
@@ -507,7 +568,10 @@ local function buildDpsPage(p)
     p.who:SetText(string.format('%s - %s - level %s - %s', tostring(ch.name), race, tostring(ch.level or '?'), split))
     local when = (ch.readAt or 0) > 0 and ('Read ' .. date('%d %b, %H:%M', ch.readAt)) or 'Read before'
     local w = #characterWarnings(ch)
-    p.info:SetText(when .. (ch.restored and ' (kept over the reload: Sim reads it again)' or '') .. '   |cff9482c9your numbers and notes: hover here|r' .. (w > 0 and string.format('   |cffffb060%d note%s|r', w, w > 1 and 's' or '') or ''))
+    p.info:SetText(when .. (ch.restored and ' (kept over the reload: Sim reads it again)' or '') .. '   |cff9482c9what the addon noticed: hover here|r' .. (w > 0 and string.format('   |cffffb060%d note%s|r', w, w > 1 and 's' or '') or ''))
+    local s, g = ch.sheet, ch.gear
+    p.stats.set(2, { 'Sheet', fmt(s.sp), pct1(s.hit), pct1(s.crit), pct1(s.haste), fmt(s.int), fmt(s.spi), fmt(s.sta), fmt(s.mp5), fmt(s.pierce) })
+    p.stats.set(3, { 'As gear', fmt(g.sp), pct1(g.hitPct), pct1(g.critPct), pct1(g.hastePct), fmt(g.int), fmt(g.spi), fmt(g.sta), fmt(g.mp5 or 0), fmt(g.pierce or 0) })
   end
 end
 
@@ -557,7 +621,7 @@ local function buildWhatIfPage(p)
     for j = 1, #boxes do boxes[j]:ClearFocus(); boxes[j].sync() end
   end, 'Sets every box back to 0.')
   clear:SetPoint('TOPLEFT', 136, -98)
-  p.view = newView(p, { 'No change simmed yet', 'Press one of the buttons above, or open "Your own change".' })
+  p.view = newView(p, { 'No change simmed yet', 'Press one of the buttons above, or type your own change.' })
   views.whatif = p.view
   p.layout = function()
     local open = opts().whatifOwn and true or false

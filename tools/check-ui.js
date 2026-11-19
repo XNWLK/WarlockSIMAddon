@@ -52,12 +52,14 @@ step('the sim\'s totals equal the sheet', `local b = WLX.characterBuildNow(); lo
   for k, x in pairs(cfg.buffs) do x.on = WLX.char.buffsOnYou[k] and true or false end; for _, x in pairs(cfg.consumables) do x.on = false end
   cfg.gear = WLX.copy(WLX.char.gear); local s = WLX.computeStats(b, "orc", cfg)
   assert(math.abs(s.int - 420) < 0.01 and math.abs(s.sta - 430) < 0.01 and math.abs(s.spi - 260) < 0.01 and math.abs(s.sp - 712) < 0.01 and math.abs(s.critPct - 18.4) < 0.01, "totals " .. s.int .. " " .. s.sta .. " " .. s.spi .. " " .. s.sp .. " " .. s.critPct)`);
-step('Sim with stat weights (it reads the character first)', 'local before = WLX.char; MOCK.click("Sim"); assert(WLX.char ~= before, "not read again"); assert(WLX.jobRunning(), "no job started"); ' + pump + '; local r = WLX.lastResult; assert(r and r.kind == "single" and r.res.dps > 200, "no result"); assert(r.weights and r.weights.sp ~= nil); return string.format("%.1f DPS, 1 SP = %.2f DPS, %d fights", r.res.dps, r.weights.sp, r.fights)');
-step('the window: seven pages, the last one opened comes back, made bigger and smaller', `local keys = { "dps", "whatif", "items", "builds", "raid", "codes", "options" }
+step('Sim with stat weights (it reads the character first)', 'local before = WLX.char; MOCK.click("Sim"); assert(WLX.char ~= before, "not read again"); assert(WLX.jobRunning(), "no job started"); ' +
+  'assert(MOCK.find("FontString", "Sheet") and MOCK.find("FontString", "712") and MOCK.find("FontString", "As gear"), "the numbers table"); ' + pump + '; assert(MOCK.find("FontString", "in spell power"), "the stat weights table")' + '; local r = WLX.lastResult; assert(r and r.kind == "single" and r.res.dps > 200, "no result"); assert(r.weights and r.weights.sp ~= nil); return string.format("%.1f DPS, 1 SP = %.2f DPS, %d fights", r.res.dps, r.weights.sp, r.fights)');
+step('the window: seven pages, the last one opened comes back, made bigger and smaller', `assert(WLX.db.options.whatifOwn == true, "What if: your own change is open by default")
+  local keys = { "dps", "whatif", "items", "builds", "raid", "codes", "options" }
   for _, k in ipairs(keys) do WLX.selectPage(k); assert(WLX.db.options.page == k, "page " .. k) end
   WLX.selectPage("nonsense"); assert(WLX.db.options.page == "dps", "an unknown page opens My DPS")
   local f = WarlockSimFrame; f.scripts.OnSizeChanged(f, 1200, 1000); f.scripts.OnSizeChanged(f, 600, 470)
-  WLX.db.options.dpsMore = true; WLX.db.options.whatifOwn = true; f.scripts.OnSizeChanged(f, 600, 470); WLX.db.options.dpsMore = false; WLX.db.options.whatifOwn = false; f.scripts.OnSizeChanged(f, 660, 520)
+  WLX.db.options.dpsMore = true; WLX.db.options.whatifOwn = true; f.scripts.OnSizeChanged(f, 600, 470); WLX.db.options.dpsMore = false; WLX.db.options.whatifOwn = false; f.scripts.OnSizeChanged(f, 600, 470); WLX.db.options.whatifOwn = true; f.scripts.OnSizeChanged(f, 660, 520)
   local grip; for _, b in ipairs(MOCK.frames) do if b.__kind == "Button" and b.scripts.OnMouseDown and b.scripts.OnMouseUp and b.parent == f then grip = b end end
   assert(grip, "no corner to drag"); grip.scripts.OnMouseDown(grip); grip.scripts.OnMouseUp(grip); assert(WLX.db.size and WLX.db.size[1] == 660 and WLX.db.size[2] == 520, "the size is not kept")
   WLX.selectPage("dps")`);
@@ -318,7 +320,7 @@ step('Sim: the DPS is on screen before the stat weights are done', `WLX.db.optio
   local seen = false; local n = 0
   while WLX.jobRunning() do MOCK.frame(); n = n + 1; if not seen and MOCK.findLike("FontString", "Stat weights: still simming") then seen = true; assert(MOCK.findLike("FontString", "^%d+%.%d DPS"), "DPS shown with the note") end; if n > 3000000 then error("never ends") end end
   assert(seen, "the DPS was not shown before the stat weights"); assert(not MOCK.findLike("FontString", "Stat weights: still simming"), "the note is gone at the end")
-  assert(MOCK.findLike("FontString", "Worth in spell power"), "stat weights shown at the end")`);
+  assert(MOCK.find("FontString", "in spell power"), "stat weights shown at the end")`);
 step('Sim again with nothing changed: the result is there at once', `local before = WLX.lastResult.res.dps; MOCK.click("Sim"); assert(not WLX.jobRunning(), "it simmed again")
   assert(WLX.lastResult.remembered and WLX.lastResult.res.dps == before, "not the remembered result"); assert(MOCK.findLike("FontString", "Nothing has changed since this was simmed"), "no word about it")
   WLX.db.options.fights = 13; MOCK.click("Sim"); assert(WLX.jobRunning(), "another number of fights is another sim"); WLX.cancelJob(); WLX.db.options.fights = 10; WLX.db.options.weights = false`);

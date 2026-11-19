@@ -10,8 +10,9 @@ What changed in each version, newest first. Download a version from the
   What if. The window opens on the page you used last.
 - The window can be made bigger or smaller: drag its bottom right corner. A bigger window shows more spell bars.
 - *Sim* reads your character itself (out of combat); the *Read my character* button is gone. `/wsim read` still works.
-- My DPS: your rotation and demon on top; the sacrificed demon and weapon stone under *More choices*. Your numbers and
-  what the addon noticed are a hover on the line under your name.
+- My DPS: your numbers in a table (your character sheet, and what the sim counts as your gear), your rotation and demon
+  under it; the sacrificed demon and weapon stone under *More choices*. What each stat is worth in spell power is a table
+  under the spell bars. What the addon noticed (buffs it took off, effects it counts) is a hover on the line under your name.
 - Items (new): the last 10 items you simmed, newest first, with their answer; click one to sim it again. The numbers on
   the character sheet, the item click and the fights of an item sim are set here now.
 - Builds: *Rank builds*; click a build, then *Use this rotation* to play your character with its priority list.
@@ -21,6 +22,7 @@ What changed in each version, newest first. Download a version from the
 - Codes: shorter buttons (*My settings*, *My build*, *My gear*), and the loaded builds are listed, each with *Remove*.
 - Options: fights, stopping early, stat weights, sim speed, the helper bar (with a *Move the bar* button) and the minimap
   button.
+- What if: *Your own change* is open from the start.
 - Long explanations moved into the tooltips.
 - From the website (its v201 and v202): spells get their per-level bonus from the game's data, so at level 60 Searing Pain,
   Shadowburn, Soul Fire, Death Coil, Hellfire, Rain of Fire and the Imp's Firebolt hit a little harder, and Life Tap gives
