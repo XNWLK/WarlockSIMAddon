@@ -544,9 +544,10 @@ end
 function WL.dump()
   local d = { at = date and date('%Y-%m-%d %H:%M:%S') or '', version = WL.VERSION, simCommit = WL.SIM_COMMIT }
   if GetBuildInfo then d.build = { GetBuildInfo() } end
+  if not (InCombatLockdown and InCombatLockdown()) then WL.doReadCharacter() end   -- fresh, so what the game returned (raw) is in it
   local ch = WL.char
   if ch then
-    d.character = { name = ch.name, realm = ch.realm, level = ch.level, raceKey = ch.raceKey, pet = ch.pet, sacrifice = ch.sacrifice, sheet = ch.sheet, gear = ch.gear,
+    d.character = { name = ch.name, realm = ch.realm, level = ch.level, raceKey = ch.raceKey, pet = ch.pet, sacrifice = ch.sacrifice, sacrificeAura = ch.sacrificeAura, sheet = ch.sheet, gear = ch.gear,
                     talents = ch.talents, buffsOnYou = ch.buffsOnYou, otherAuras = ch.otherAuras, notes = ch.notes, weaponEffect = ch.weaponEffect, raw = ch.raw }
   end
   d.lastTiming, d.selfTest, d.lastError = WL.db.lastTiming, WL.db.selfTest, WL.lastError

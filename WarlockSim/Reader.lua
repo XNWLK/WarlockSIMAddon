@@ -210,7 +210,10 @@ function WL.readCharacter()
     local sa = SACRIFICE_AURAS[s]
     local own = spellName(sa[2])
     for i = 1, #auras do
-      if auras[i].id == sa[2] or auras[i].name == sa[3] or (own and auras[i].name == own) then c.sacrifice = sa[1]; used[i] = true end
+      if auras[i].id == sa[2] or auras[i].name == sa[3] or (own and auras[i].name == own) then
+        c.sacrifice = sa[1]; used[i] = true
+        c.sacrificeAura = { id = auras[i].id, name = auras[i].name }   -- what the game called it (kept with the character, for checking)
+      end
     end
   end
   c.buffsOnYou = buffs
