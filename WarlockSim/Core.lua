@@ -3,7 +3,7 @@
 local ADDON, WL = ...
 if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 
-WL.VERSION = '0.18.0'
+WL.VERSION = '0.18.1'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)

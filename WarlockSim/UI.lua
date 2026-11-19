@@ -6,7 +6,7 @@ local ADDON, WL = ...
 if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 
 local W0, H0 = 660, 520                                   -- the size it opens with the first time
-local MIN_W, MIN_H, MAX_W, MAX_H = 600, 470, 1200, 1000
+local MIN_W, MIN_H, MAX_W, MAX_H = 620, 470, 1200, 1000
 local PAD, NAV, TOP, FOOT = 12, 118, 34, 50               -- outer gap, side menu width, title bar, bottom bar
 local main
 local pages, navButtons, views, foot = {}, {}, {}, {}
@@ -501,12 +501,12 @@ local function buildDpsPage(p)
     return t
   end)
   -- your numbers as a table: the character sheet and what the sim counts as your gear
-  p.stats = Grid(p, { 52, 44, 40, 40, 42, 40, 42, 46, 34, 42 }, 3)
+  p.stats = Grid(p, { 44, 38, 44, 34, 36, 36, 38, 34, 38, 46, 30, 38 }, 3)
   p.stats.frame:SetPoint('TOPLEFT', 0, -36)
-  p.stats.set(1, { '', 'Spell p.', 'Hit', 'Crit', 'Haste', 'Int', 'Spirit', 'Stamina', 'Mp5', 'Pierce' })
+  p.stats.set(1, { '', 'SP', 'Shadow', 'Fire', 'Hit', 'Crit', 'Haste', 'Int', 'Spirit', 'Stamina', 'Mp5', 'Pierce' })
   p.stats.set(2, { 'Sheet' }); p.stats.set(3, { 'As gear' })
   local statTip = CreateFrame('Frame', nil, p.stats.frame); statTip:SetAllPoints()
-  tip(statTip, 'Sheet: the numbers on your character sheet (spell power, hit, crit and haste as the game shows them).\n\nAs gear: what the sim counts as your gear - the sheet without your base stats and without the raid buffs it takes off (Raid setup decides those).')
+  tip(statTip, 'SP: spell power. Shadow / Fire: the spell power of your Shadow and Fire spells (your spell power plus what adds to that school only).\n\nSheet: the numbers on your character sheet (spell power, hit, crit and haste as the game shows them).\n\nAs gear: what the sim counts as your gear - the sheet without your base stats and without the raid buffs it takes off (Raid setup decides those).')
   local y0 = -36 - 3 * ROW_H - 10
   local l1 = Text(p, 'GameFontNormalSmall', 'Rotation'); l1:SetPoint('TOPLEFT', 0, y0 - 4)
   p.rotation = keep(Dropdown(p, 200, function()
@@ -570,8 +570,8 @@ local function buildDpsPage(p)
     local w = #characterWarnings(ch)
     p.info:SetText(when .. (ch.restored and ' (kept over the reload: Sim reads it again)' or '') .. '   |cff9482c9what the addon noticed: hover here|r' .. (w > 0 and string.format('   |cffffb060%d note%s|r', w, w > 1 and 's' or '') or ''))
     local s, g = ch.sheet, ch.gear
-    p.stats.set(2, { 'Sheet', fmt(s.sp), pct1(s.hit), pct1(s.crit), pct1(s.haste), fmt(s.int), fmt(s.spi), fmt(s.sta), fmt(s.mp5), fmt(s.pierce) })
-    p.stats.set(3, { 'As gear', fmt(g.sp), pct1(g.hitPct), pct1(g.critPct), pct1(g.hastePct), fmt(g.int), fmt(g.spi), fmt(g.sta), fmt(g.mp5 or 0), fmt(g.pierce or 0) })
+    p.stats.set(2, { 'Sheet', fmt(s.sp), fmt(s.spShadow or s.sp), fmt(s.spFire or s.sp), pct1(s.hit), pct1(s.crit), pct1(s.haste), fmt(s.int), fmt(s.spi), fmt(s.sta), fmt(s.mp5), fmt(s.pierce) })
+    p.stats.set(3, { 'As gear', fmt(g.sp), fmt(g.sp + (g.shadowSp or 0)), fmt(g.sp + (g.fireSp or 0)), pct1(g.hitPct), pct1(g.critPct), pct1(g.hastePct), fmt(g.int), fmt(g.spi), fmt(g.sta), fmt(g.mp5 or 0), fmt(g.pierce or 0) })
   end
 end
 

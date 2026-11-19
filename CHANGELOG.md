@@ -3,6 +3,11 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.18.1
+
+- My DPS: the table of your numbers also shows the spell power of your Shadow and Fire spells, on the sheet and as the sim
+  counts it. The window is a little wider at its smallest (620 instead of 600).
+
 ## v0.18.0
 
 - A new window. A menu down the left side has a page for each job: **My DPS**, **What if**, **Items**, **Builds**,
