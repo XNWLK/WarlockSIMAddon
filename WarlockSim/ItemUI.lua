@@ -75,6 +75,8 @@ local function readItem(link)
       for k, v in pairs(fx.stats) do s[(k == 'critPct' and 'crit') or (k == 'hitPct' and 'hit') or (k == 'hastePct' and 'haste') or k] = v end
       item.stats = s
     end
+  elseif id and WL.ITEM_FX and WL.ITEM_FX[id] then               -- other gear whose effect the fight plays (Blade of Eternal Darkness)
+    item.unknown, item.fx = {}, WL.ITEM_FX[id]
   end
   item.raw = { api = type(api) == 'table' and api or nil, lines = lines }
   return item

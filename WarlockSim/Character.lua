@@ -134,7 +134,7 @@ function WL.wornGearBuilder(worn)
   if worn.mainEnchant then gb.enchants.mainHand = { id = worn.mainEnchant } end
   if type(worn.items) == 'table' then for inv, id in pairs(worn.items) do if not WL.FX_SLOTS[inv] then gb.slots['inv' .. inv] = { id = id } end end end
   local c = { gearBuilder = gb }
-  if #WL.equippedTrinkets(c) == 0 and #WL.equippedEnchantFx(c) == 0 and #WL.equippedSetFx(c) == 0 then return nil end
+  if #WL.equippedTrinkets(c) == 0 and #WL.equippedEnchantFx(c) == 0 and #WL.equippedSetFx(c) == 0 and #WL.equippedItemFx(c) == 0 then return nil end
   return gb
 end
 -- What you wear with the item in inventory slot `inv` changed to `id` (nil = the slot empty). The enchant stays on the
@@ -154,6 +154,8 @@ function WL.wornEffectNames(worn)
   local t, e = WL.equippedTrinkets(c), WL.equippedEnchantFx(c)
   for i = 1, #t do out[#out + 1] = t[i].fx.name end
   for i = 1, #e do out[#out + 1] = e[i].fx.name end
+  local it = WL.equippedItemFx(c)
+  for i = 1, #it do out[#out + 1] = it[i].fx.name end
   local s = WL.equippedSetFx(c)
   for i = 1, #s do out[#out + 1] = s[i].fx.name .. ' (set bonus)' end
   return out

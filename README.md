@@ -21,7 +21,7 @@ what each spell contributes and what each stat is worth to you.
 - **Numbers on your character sheet:** over every item, the DPS it is worth to you; above the weapons, the DPS your
   character sims at.
 - **Trinkets and weapon enchants:** known trinkets (Talisman of Ephemeral Power, Zandalarian Hero Charm, The Black Book and
-  more) and main-hand enchants like Revelation count in the fight.
+  more), main-hand enchants like Revelation and the Blade of Eternal Darkness's proc count in the fight.
 - **The helper** (off by default): on a raid boss, a small bar shows the spell the sim would cast next, the two after it,
   cooldowns to use with it and the seconds the boss has left — and the rotation follows that time.
 - **Codes:** settings and build codes from the website go in and out; *My gear* sends everything you wear to the

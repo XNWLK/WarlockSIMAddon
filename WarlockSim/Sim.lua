@@ -482,6 +482,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local TRK = WL.equippedTrinkets(cfg)
   do local sf = WL.equippedSetFx(cfg); for i = 1, #sf do TRK[#TRK + 1] = sf[i] end end   -- set bonuses with an effect, shaped like trinkets
   local EPR = WL.equippedEnchantFx(cfg)
+  local IFX = WL.equippedItemFx(cfg)                     -- other gear with an effect (sim v202: Blade of Eternal Darkness)
   local NTRK, TRX, TR = #TRK, #TRK > 0 or #EPR > 0, {}
   TR.apl = false   -- "Activate trinket" in the priority: it uses the on-use trinkets, not options.trinketUse (set once ROT is built)
   -- Racial cooldown, Spellblasting potion and Power Infusion, right before a damaging cast.
@@ -736,6 +737,37 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local crit = Rcrit() * 100 < stats.critPct
     if crit then amt = amt * cb.critMultiplier end
     deal(key, amt, crit, false)
+  end
+  -- Other gear with an effect (sim v202, Blade of Eternal Darkness): 'ppmCast' rolls on each landed spell you cast at an
+  -- enemy (curses, DoT / channel casts included, once per target; never ticks), at procsPerMin x max(minCast, the cast
+  -- time of the cast that launched it) / 60. TR.landCT: that cast time, set right before each landing (the sim's landCT).
+  local ifs = {}
+  for i = 1, #IFX do ifs[IFX[i].id] = { icdUntil = -1 } end
+  TR.landCT = 0
+  TR.itemOnLand = function(ti, castT)
+    for i = 1, #IFX do
+      local x = IFX[i]
+      local p, st = x.fx.proc, ifs[x.id]
+      if p.kind == 'ppmCast' and not (S.t < st.icdUntil - EPS) and not (Rproc() >= p.procsPerMin * max(p.minCast, castT or 0) / 60) then
+        st.icdUntil = S.t + p.icd
+        local g = min(p.mana, stats.maxMana - S.mana)          -- also when its hit is resisted
+        S.mana = S.mana + g; res.manaFromItems = (res.manaFromItems or 0) + g
+        local key = 'trinket:' .. x.id
+        local r = row(key)                                   -- one row for every target (it hits target ti)
+        r.casts = r.casts + 1
+        if Rhit() * 100 >= hitNow() then r.misses = r.misses + 1
+        else
+          r.landed = r.landed + 1
+          local amt = p.min + (p.max - p.min) * Rproc()
+          local coe
+          if ti > 1 then coe = xDebLeft(ti, 'coe') > 0 else coe = buff('coe') end
+          if coe and COE_SCHOOLS[p.school] then amt = amt * (1 + coePct / 100) end
+          local crit = Rcrit() * 100 < stats.critPct
+          if crit then amt = amt * cb.critMultiplier end
+          deal(key, amt, crit, false, ti > 1 and ti or nil)
+        end
+      end
+    end
   end
   TR.onCast = function()                                        -- each landed damaging cast (the Touch of the Grave hook)
     for i = 1, NTRK do
@@ -1024,6 +1056,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local r = row(rk)
     if Rhit() * 100 >= (TRX and TR.hitNow() or stats.hitPct) and not CHH[key] then r.misses = r.misses + 1; return false end
     r.landed = r.landed + 1
+    if #IFX > 0 then TR.itemOnLand(ti, TR.landCT) end    -- Blade of Eternal Darkness (sim v202)
     if key == 'baneOfAgony' then S.ampUp = false end    -- Amplify Curse spent on a landed Bane
     if s.kind == 'utility' then
       if key == 'curseOfElements' then xdeb[ti].coe = S.t + s.duration end
@@ -1104,6 +1137,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local s, e, r = SPELLS[key], tbl[key], bySpell[key] or row(key)
     if Rhit() * 100 >= (TRX and TR.hitNow() or stats.hitPct) and not CHH[key] then r.misses = r.misses + 1; return false end
     r.landed = r.landed + 1
+    if #IFX > 0 then TR.itemOnLand(0, TR.landCT) end     -- Blade of Eternal Darkness (sim v202)
     if key == 'baneOfAgony' then S.ampUp = false end    -- Amplify Curse spent on a landed Bane
     if s.kind == 'utility' then
       if key == 'curseOfElements' then buffs.coe = S.t + s.duration end
@@ -1261,6 +1295,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
         return
       end
       r.landed = r.landed + 1
+      if #IFX > 0 then TR.itemOnLand(0, 0) end            -- on cast (a channel prices as an instant), not on its ticks
       touchOfTheGrave()
       jowProc(false)
       inst = inst + 1
@@ -1274,7 +1309,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     elseif castT > EPS then
       S.busyUntil = S.t + castT; S.gcdReady = S.t + gcdT
       rr.castTime = rr.castTime + castT
-      local ce = { t = S.busyUntil + (s.projectile and TRAVEL or 0), o = 1, type = 'castEnd', key = key, castMult = castMult, target = target, tl = fromTL }
+      local ce = { t = S.busyUntil + (s.projectile and TRAVEL or 0), o = 1, type = 'castEnd', key = key, castMult = castMult, target = target, tl = fromTL, castT = castT }
       push(ce)
       S.cast = { key = key, rk = rk, full = castT, finish = S.busyUntil, ev = ce, n = 0 }
       scheduleDecide(max(S.busyUntil, S.gcdReady))
@@ -1282,8 +1317,9 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       S.busyUntil = S.t; S.gcdReady = S.t + gcdT
       rr.castTime = rr.castTime + gcdT
       if s.projectile and TRAVEL > EPS then
-        push({ t = S.t + TRAVEL, o = 1, type = 'castEnd', key = key, castMult = castMult, target = target, tl = fromTL })
+        push({ t = S.t + TRAVEL, o = 1, type = 'castEnd', key = key, castMult = castMult, target = target, tl = fromTL, castT = castT })
       else
+        TR.landCT = castT
         if not land(key, eurekaAt(key, S.t), castMult, target) and fromTL then TL.turn = true end
       end
       scheduleDecide(S.gcdReady)
@@ -1681,6 +1717,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       S.mana = S.mana - tbl.baneOfHavoc.cost; buffs.havoc = S.t + SPELLS.baneOfHavoc.duration
       if tbl.baneOfHavoc.cost > 0 then S.lastSpend = S.t end
       local r = row('baneOfHavoc'); r.casts = r.casts + 1; r.castTime = r.castTime + hg
+      if #IFX > 0 then TR.itemOnLand(HAV_T, 0) end         -- a curse on target 2 (sim v202)
       S.busyUntil = S.t; S.gcdReady = S.t + hg; scheduleDecide(S.gcdReady); return
     end
     manaBuffCheck()
@@ -1754,7 +1791,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     S.gcdReady = preGcd
     local r = row(PRE); r.casts = r.casts + 1; r.castTime = r.castTime + preGcd
     minManaCheck()
-    push({ t = SPELLS[PRE].projectile and TRAVEL or 0, o = -1, type = 'castEnd', key = PRE, castMult = 1, target = 0 })
+    push({ t = SPELLS[PRE].projectile and TRAVEL or 0, o = -1, type = 'castEnd', key = PRE, castMult = 1, target = 0, castT = preCast })
     decideToken = decideToken + 1
     push({ t = preGcd + LAT, o = 2, type = 'decide', token = decideToken })
   else scheduleDecide(0) end
@@ -1800,6 +1837,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     elseif ty == 'castEnd' then
       if not ev.dead then                                  -- pushed back: a later copy of this event lands it
         local fin = ev.t - ((SPELLS[ev.key].projectile and TRAVEL > EPS) and TRAVEL or 0)   -- when the cast finished (a projectile flies on)
+        TR.landCT = ev.castT or 0                         -- the cast time of this cast (Blade of Eternal Darkness, sim v202)
         if not land(ev.key, eurekaAt(ev.key, fin), ev.castMult, ev.target) and ev.tl and TL then TL.turn = true end
       end
     elseif ty == 'chanTick' then

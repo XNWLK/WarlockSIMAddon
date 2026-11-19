@@ -133,6 +133,8 @@ const scenes = [
   S('trinkets: equip vs satyr (a demon)', [['gearBuilder', { on: true, slots: { trinket1: { id: 23207 }, trinket2: { id: 18467 } } }], ['fight.bossType', 'satyr']]),
   S('trinkets: equip vs undead, imp mana', [['gearBuilder', { on: true, slots: { trinket1: { id: 19812 }, trinket2: { id: 18354 } } }], ['fight.bossType', 'undead']]),
   S('trinkets: zone equip in a marsh', [['gearBuilder', { on: true, slots: { trinket1: { id: 12930 }, trinket2: { id: 21565 } } }], ['fight.zone', 'marsh'], ['combat.targetResist.shadow', 40], ['combat.targetResist.fire', 40]]),
+  S('Blade of Eternal Darkness', [['gearBuilder', { on: true, slots: { mainHand: { id: 17780 } } }], ['fight.duration', 300]]),
+  S('Blade of Eternal Darkness: 3 targets multi-DoT, Curse of the Elements, a trinket', [['gearBuilder', { on: true, slots: { mainHand: { id: 17780 }, trinket1: { id: 18820 } } }], ['fight.targets', 3], ['fight.multiDot', true], ['options.useCurseOfElements', true], ['fight.travelMs', 300]]),
   S('trinkets: zone equip in a forest', [['gearBuilder', { on: true, slots: { trinket1: { id: 271903 }, trinket2: { id: 270225 } } }], ['fight.zone', 'forest'], ['combat.targetResist.shadow', 40], ['combat.targetResist.fire', 40]]),
   S('trinkets: fire hits vs plant, Second Wind not in its zone', [['gearBuilder', { on: true, slots: { trinket1: { id: 13171 }, trinket2: { id: 11819 } } }], ['fight.bossType', 'plant'], ['fight.zone', 'desert'], ['options.trinketUse', { trinket1: 'ready' }]]),
   // sim v179 (round 210): set bonuses in the fight, the fitted resist model (DoT ticks a tenth), Spell Pierce on a trinket

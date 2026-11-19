@@ -193,7 +193,8 @@ local function rowInfo(key, build)
     local sf = WL.SET_FX and WL.SET_FX[tonumber(bk:sub(12))]
     name = sf and (sf.name .. ' (set bonus)')
   elseif bk:sub(1, 8) == 'trinket:' then
-    local tf = WL.TRINKET_FX and WL.TRINKET_FX[tonumber(bk:sub(9))]
+    local id = tonumber(bk:sub(9))
+    local tf = (WL.TRINKET_FX and WL.TRINKET_FX[id]) or (WL.ITEM_FX and WL.ITEM_FX[id])
     name = tf and tf.name
   elseif bk == 'touchOfTheGrave' then name, icon = 'Touch of the Grave', 1260201
   elseif WL.SPELLS[bk] then name, icon = WL.SPELLS[bk].name, WL.SPELLS[bk].id end

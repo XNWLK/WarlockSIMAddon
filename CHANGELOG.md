@@ -21,7 +21,12 @@ What changed in each version, newest first. Download a version from the
 - Codes: shorter buttons (*My settings*, *My build*, *My gear*), and the loaded builds are listed, each with *Remove*.
 - Options: fights, stopping early, stat weights, sim speed, the helper bar (with a *Move the bar* button) and the minimap
   button.
-- Long explanations moved into the tooltips. After installing this version, `/reload` is enough.
+- Long explanations moved into the tooltips.
+- From the website (its v201 and v202): spells get their per-level bonus from the game's data, so at level 60 Searing Pain,
+  Shadowburn, Soul Fire, Death Coil, Hellfire, Rain of Fire and the Imp's Firebolt hit a little harder, and Life Tap gives
+  424 mana for 424 health. Blade of Eternal Darkness in your main hand counts its proc in the fight: 112 Shadow damage and
+  104 mana, about 4.5% on an instant and 7.5% on a 2.5 s Shadow Bolt, on any spell you land on an enemy (not on DoT ticks).
+- After installing this version, `/reload` is enough.
 
 ## v0.17.0
 

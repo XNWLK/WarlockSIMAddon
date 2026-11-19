@@ -95,6 +95,7 @@ const byId = o => '{\n' + Object.keys(o || {}).map(k => '  [' + num(+k) + '] = '
 out.push('WL.TRINKET_FX = ' + byId(WL.TRINKET_FX));
 out.push('WL.ENCHANT_FX = ' + byId(WL.ENCHANT_FX));
 out.push('WL.SET_FX = ' + byId(WL.SET_FX));
+out.push('WL.ITEM_FX = ' + byId(WL.ITEM_FX || {}));   // other gear with an effect (sim v202: Blade of Eternal Darkness)
 // item sets: the pieces and the plain stat bonuses (a set with a bonus of the fight too), for item sims that complete or
 // break a set; stat names as the addon's items have them (hit, crit, haste)
 const SET_STAT = { hitPct: 'hit', critPct: 'crit', hastePct: 'haste' }, itemSets = {};

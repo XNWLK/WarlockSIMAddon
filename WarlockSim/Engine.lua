@@ -695,6 +695,21 @@ function WL.equippedTrinkets(cfg)
   end
   return out
 end
+-- Other gear with an effect in the fight (WL.ITEM_FX, sim v202: Blade of Eternal Darkness), worn in its slot: { { slot, id, fx } }.
+function WL.equippedItemFx(cfg)
+  local gb = cfg and cfg.gearBuilder
+  if type(gb) ~= 'table' or not gb.on or type(gb.slots) ~= 'table' then return {} end
+  local out, ids = {}, {}
+  for id in pairs(WL.ITEM_FX or {}) do ids[#ids + 1] = tonumber(id) end
+  table.sort(ids)                                               -- the order of the website's Object.keys (numbers: ascending)
+  for _, id in ipairs(ids) do
+    local fx = fxOf(WL.ITEM_FX, id)
+    local e = gb.slots[fx.slot]
+    local wid = type(e) == 'table' and (e.id ~= nil and e.id or (type(e.custom) == 'table' and e.custom.id)) or nil
+    if wid ~= nil and tonumber(wid) == id then out[#out + 1] = { slot = fx.slot, id = id, fx = fx } end
+  end
+  return out
+end
 -- Set bonuses with an effect in the fight (WL.SET_FX): the pieces worn anywhere in cfg.gearBuilder.slots ->
 -- { { slot, id, fx = { name, proc } } }, shaped like trinkets (sets in id order, bonuses by pieces needed).
 local SET_IDS
