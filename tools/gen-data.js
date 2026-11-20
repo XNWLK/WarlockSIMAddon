@@ -115,6 +115,7 @@ out.push('WL.PET_KEYS = ' + lua(WL.PET_KEYS));
 out.push('WL.SACRIFICE_KEYS = ' + lua(WL.SACRIFICE_KEYS));
 out.push('WL.STAT_WEIGHT_KEYS = ' + lua(WL.STAT_WEIGHT_KEYS));
 out.push('WL.RETIRED_SETTINGS = ' + lua(WL.RETIRED_SETTINGS));
+out.push('WL.RENAMED_SETTINGS = ' + lua(WL.RENAMED_SETTINGS || {}));   // sim v203: an old key turns on the new one
 out.push('WL.RETIRED_TALENTS = ' + lua(WL.RETIRED_TALENTS));
 out.push('WL.DEFAULT_CONFIG = ' + lua(WL.DEFAULT_CONFIG, '', NO_TEXT));
 out.push('WL.BUFF_ORDER = ' + order(WL.DEFAULT_CONFIG.buffs));

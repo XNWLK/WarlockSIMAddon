@@ -845,7 +845,7 @@ local function buildRaidPage(p)
   r = row(24, 'fight')
   label(r, 'Boss type', 8)
   place(r, keep(Dropdown(r, 120, typeList(WL.BOSS_TYPES), function() return f().bossType or '' end, function(v) f().bossType = v end,
-    'What the boss is. Only some trinkets care: Mark of the Champion (Demons and Undead), Rune of the Dawn, Royal Seal of Eldre\'Thalas, Draconic Infused Emblem (Dragonkin), Cannonball Runner and more. A kind of enemy counts as its creature type too: a Satyr is a Demon, a Murloc or a Troll a Humanoid, a Dinosaur a Beast.\n\n"Not set": none of those bonuses count.')), 100)
+    'What the boss is. Two consumables care: Blessed Wizard Oil (Undead) and the Potion of Elemental Purging (Elemental). And some trinkets: Mark of the Champion (Demons and Undead), Rune of the Dawn, Royal Seal of Eldre\'Thalas, Draconic Infused Emblem (Dragonkin), Cannonball Runner and more. A kind of enemy counts as its creature type too: a Satyr is a Demon, a Murloc or a Troll a Humanoid, a Dinosaur a Beast.\n\n"Not set": none of those bonuses count.')), 100)
   label(r, 'Zone', 232)
   place(r, keep(Dropdown(r, 130, typeList(WL.ZONE_TYPES), function() return f().zone or '' end, function(v) f().zone = v end,
     'Where the fight is. Only some trinkets and set bonuses care ("This effect is doubled in ... areas"): Briarwood Reed (Marsh / Swamp), Golden Banana, Rune of Perfection, Enriched Seal (Forest / Grassland), Second Wind (Mountainous), Rotmender\'s Raiment (Haunted / Wasteland), Violet Sorcerer\'s Vestments (Stronghold / City) and more.\n\n"Not set": none of those bonuses count.')), 268)

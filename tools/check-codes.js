@@ -122,6 +122,14 @@ builds.forEach(b => {
   n += 2;
 }
 // damaged codes give a message, not an error
+// an old settings code with the food the website renamed (sim v203): it turns on the new one, on both sides, and nothing is unknown
+{
+  const old = JSON.parse(JSON.stringify(WL.settingsSnapshot(JSON.parse(JSON.stringify(WL.DEFAULT_CONFIG))))); old.cons = (old.cons || []).concat(['nightfinSoup', 'runnTumTuber']);
+  const code = WL.SETTINGS_CODE_PREFIX + b64(JSON.stringify(old));
+  const r = host.eval('local o = WLX.decodeSettings(' + q(code) + '); local c = WLX.copy(WLX.DEFAULT_CONFIG); local u = WLX.applySettings(c, o); return tostring(c.consumables.bakedSalmon.on) .. tostring(c.consumables.soaringPamplona.on) .. #u');
+  const c2 = JSON.parse(JSON.stringify(WL.DEFAULT_CONFIG)); WL.applySettings(c2, WL.decodeSettings(code));
+  assert.strictEqual(r, 'truetrue0', 'old food keys: ' + r); assert(c2.consumables.bakedSalmon.on && c2.consumables.soaringPamplona.on, 'the website does the same'); n++;
+}
 ['', 'hello', 'WFS1:!!!!', 'WFS1:' + b64('{"v":2}'), 'WFB1:' + b64('[1,2'), 'WFB1:' + b64('{"v":1}')].forEach(c => {
   const r = host.eval('local a, e1 = WLX.decodeSettings(' + q(c) + '); local b, e2 = WLX.decodeBuild(' + q(c) + '); return tostring(a == nil and b == nil) .. " " .. tostring(e1) .. " / " .. tostring(e2)');
   assert(r.indexOf('true ') === 0, c + ' -> ' + r); n++;

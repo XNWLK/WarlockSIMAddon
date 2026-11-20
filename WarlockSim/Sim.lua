@@ -375,7 +375,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local manaItems, explosives = {}, {}
   for i = 1, #conList do
     local c = conList[i]
-    if not spPot and c.spPotion then spPot = c end
+    if not spPot and c.spPotion and WL.consumableHolds(cfg, c) then spPot = c end   -- Elemental Purging only vs Elementals (sim v203)
     if c.manaRestore then manaItems[#manaItems + 1] = c end
     if c.explosive then explosives[#explosives + 1] = c end
   end

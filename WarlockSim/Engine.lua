@@ -134,6 +134,10 @@ function WL.activeConsumables(cfg)
   return out
 end
 
+-- A consumable that works only against a boss type (vs: Blessed Wizard Oil, Potion of Elemental Purging; sim v203) -
+-- does it hold in this fight (fight.bossType)? Without the boss-type check (WL.fxHolds) it does not.
+function WL.consumableHolds(cfg, c) return not c.vs or (WL.fxHolds and WL.fxHolds(cfg, c) or false) end
+
 function WL.weaponEffects(build, cfg)
   local act, out = WL.activeConsumables(cfg), {}
   local stone, w
@@ -143,7 +147,7 @@ function WL.weaponEffects(build, cfg)
   end
   if not cfg.consumables or next(cfg.consumables) == nil then stone = { buildOil = true } end
   if stone and stone.buildOil and WL.OILS[build.oil] and build.oil ~= 'none' then out[#out + 1] = WL.OILS[build.oil] end
-  if w and w.oil then out[#out + 1] = { name = w.name, sp = w.oil.sp or 0, critPct = w.oil.critPct or 0, mp5 = w.oil.mp5 or 0, hastePct = 0 } end
+  if w and w.oil and WL.consumableHolds(cfg, w) then out[#out + 1] = { name = w.name, sp = w.oil.sp or 0, critPct = w.oil.critPct or 0, mp5 = w.oil.mp5 or 0, hastePct = 0 } end
   return out
 end
 

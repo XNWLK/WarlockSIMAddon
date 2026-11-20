@@ -3,6 +3,14 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.18.3
+
+- From the website (its v203): new consumables. Baked Salmon / Lobster Stew (+28 spell damage) replaces Nightfin Soup, and
+  Soaring Pamplona / Bat Hachee / Prehistoric Pulled Raptor (+20 Intellect) replace Runn Tum Tuber Surprise; old settings
+  codes turn on the new ones. Blessed Wizard Oil (+60 spell damage against Undead) and the Potion of Elemental Purging
+  (+105 spell damage against Elementals) count only when Boss type (Raid setup) is Undead or Elemental. The Default and
+  Full buffs presets now include the new food.
+
 ## v0.18.2
 
 - The sacrificed demon is recognised the Forever way. Forever swapped what the sacrifices do (Imp: +15% Shadow, Succubus:

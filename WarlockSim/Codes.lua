@@ -267,7 +267,9 @@ function WL.applySettings(c, o)
   end
   local pairsOf = { { 'buffs', 'buffs' }, { 'debuffs', 'debuffs' }, { 'cons', 'consumables' } }
   for i = 1, 3 do
-    local list, tgt = type(o[pairsOf[i][1]]) == 'table' and o[pairsOf[i][1]] or {}, c[pairsOf[i][2]] or {}
+    local raw, tgt = type(o[pairsOf[i][1]]) == 'table' and o[pairsOf[i][1]] or {}, c[pairsOf[i][2]] or {}
+    local list = {}                                         -- settings that moved to a new key (WL.RENAMED_SETTINGS, sim v203)
+    for j = 1, #raw do list[j] = (WL.RENAMED_SETTINGS or {})[pairsOf[i][1] .. '.' .. tostring(raw[j])] or raw[j] end
     for k, e in pairs(tgt) do e.on = indexOf(list, k) ~= nil end
     for j = 1, #list do
       local name = pairsOf[i][1] .. '.' .. tostring(list[j])
