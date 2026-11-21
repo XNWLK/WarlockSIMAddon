@@ -26,6 +26,9 @@ local state = { key = nil, base = nil, worth = {} }       -- worth[slot] = { lin
 local failedKey                                           -- a set of items that could not be simmed (no retry until something changes)
 
 local function enabled() return WL.db ~= nil and WL.db.options.sheetNumbers ~= false end
+-- the numbers over each item (Xn, 2026-11-21: a setting to turn them off): off = only the total over your character,
+-- and no fights are played for the items
+local function itemsOn() return WL.db ~= nil and WL.db.options.sheetItems ~= false end
 local function inCombat() return InCombatLockdown and InCombatLockdown() and true or false end
 
 local function create()
@@ -87,7 +90,7 @@ local function show(key)
     local id = slots[i].id
     local fs, w = labels[id], state.worth[id]
     local link = try(GetInventoryItemLink, 'player', id)
-    if type(link) ~= 'string' then fs:SetText('')
+    if type(link) ~= 'string' or not itemsOn() then fs:SetText('')
     elseif fresh and w and w.link == link then
       -- green: worth something; grey: nothing the sim counts, or less than the margin of the run
       if math.abs(w.dps) <= math.max(w.err or 0, 0.05) then fs:SetText('|cff999999' .. short(math.max(0, w.dps)) .. '|r')
@@ -113,7 +116,7 @@ local function start(key)
   local cfg, race, n = WL.characterConfig(), WL.raceKey(), WL.itemFights()
   if state.key ~= key then state = { key = key, base = nil, baseRes = nil, worth = {}, n = n } end
   local todo = {}
-  for i = 1, #slots do
+  for i = 1, itemsOn() and #slots or 0 do
     local id = slots[i].id
     local link = try(GetInventoryItemLink, 'player', id)
     if type(link) == 'string' and not (state.worth[id] and state.worth[id].link == link) then todo[#todo + 1] = { id = id, link = link } end
@@ -180,7 +183,7 @@ watcher:SetScript('OnUpdate', function(_, elapsed)
   -- Something to work out (items, talents or settings changed; or the work gave way to a sim of yours and is not done)?
   -- Then start, unless you are fighting, a sim of yours is running, or this set of items could not be simmed.
   local pending = key ~= state.key or not state.base
-  if not pending then
+  if not pending and itemsOn() then
     for i = 1, #slots do
       local link = try(GetInventoryItemLink, 'player', slots[i].id)
       local w = state.worth[slots[i].id]

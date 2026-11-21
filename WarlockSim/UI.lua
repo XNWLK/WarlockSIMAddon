@@ -663,9 +663,11 @@ local function buildItemsPage(p)
   end
   local y = -18 - ITEM_ROWS * 18 - 12
   local h1 = Text(p, 'GameFontNormal', 'On your character sheet'); h1:SetPoint('TOPLEFT', 0, y)
-  keep(Check(p, 'A number over each item you wear: the DPS it is worth to you', function() return opts().sheetNumbers ~= false end, function(v) opts().sheetNumbers = v end,
-    'Over every item you wear, the DPS that item is worth to you (your character as it is against the same character with that slot empty), and over your character the DPS it sims at.\n\nThey are worked out in the background when you open the character sheet, one item after the other, and again when your items, talents or the sim\'s settings change. A sim you start yourself always goes first.')):SetPoint('TOPLEFT', -2, y - 18)
-  y = y - 48
+  keep(Check(p, 'Numbers on your character sheet: the DPS your character sims at', function() return opts().sheetNumbers ~= false end, function(v) opts().sheetNumbers = v end,
+    'Over your character (above the weapons), the DPS it sims at.\n\nWorked out in the background when you open the character sheet, and again when your items, talents or the sim\'s settings change. A sim you start yourself always goes first.')):SetPoint('TOPLEFT', -2, y - 18)
+  keep(Check(p, 'Also over each item you wear: the DPS it is worth to you', function() return opts().sheetItems ~= false end, function(v) opts().sheetItems = v end,
+    'Over every item you wear, the DPS that item is worth to you: your character as it is against the same character with that slot empty.\n\nOff: only the total over your character, and no fights are played for the items. Needs the box above.')):SetPoint('TOPLEFT', 18, y - 40)
+  y = y - 72
   local h2 = Text(p, 'GameFontNormal', 'Simming an item'); h2:SetPoint('TOPLEFT', 0, y)
   local l1 = Text(p, 'GameFontNormalSmall', 'Sim an item with'); l1:SetPoint('TOPLEFT', 0, y - 24)
   keep(Dropdown(p, 160, function() return WL.ITEM_CLICKS end, function() return opts().itemClick end, function(v) opts().itemClick = v end,

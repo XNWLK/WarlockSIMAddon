@@ -3,6 +3,11 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.18.4
+
+- Items page: a new box, *Also over each item you wear*. Untick it to hide the numbers over your items on the character
+  sheet and keep only the DPS over your character; no fights are played for the items then.
+
 ## v0.18.3
 
 - From the website (its v203): new consumables. Baked Salmon / Lobster Stew (+28 spell damage) replaces Nightfin Soup, and

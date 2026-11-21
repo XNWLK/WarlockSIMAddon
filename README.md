@@ -89,7 +89,7 @@ character sims at**. One glance shows which pieces carry you and which slot is w
 The numbers are worked out in the background when you open the sheet, one item after the other (a few seconds each
 round), and again when your items, talents or the sim's settings change. A sim you start yourself always goes first.
 Green is a real contribution; grey means the item gives nothing the sim counts, or less than the run can tell apart.
-The Items page switches them off.
+The Items page switches them off, or only the numbers over the items (the total stays).
 
 ### Sim an item
 

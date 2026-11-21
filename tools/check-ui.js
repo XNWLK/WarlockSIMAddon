@@ -214,6 +214,10 @@ step('character sheet: switched off and on; not while fighting', `WLX.db.options
   WLX.db.options.sheetNumbers = true; MOCK.combat = true; for i = 1, 25 do MOCK.frame() end; assert(not WLX.backgroundRunning(), "no work is started in combat")
   MOCK.combat = false; ${bg}; assert(tonumber(MOCK.sheetText(11)), "numbers are back after the fight")
   PaperDollFrame.shown = false; WLX.db.options.itemFights = 150`);
+step('character sheet: the numbers over the items switched off, the total stays', `WLX.db.options.sheetItems = false; PaperDollFrame.shown = true; MOCK.equipped[11] = 1001; ${bg}
+  assert(MOCK.sheetText(11) == '' and MOCK.sheetText(16) == '', 'no number over an item: ' .. tostring(MOCK.sheetText(11)))
+  assert(MOCK.findLike('FontString', '%d DPS|r$'), 'the total stays'); assert(WLX.sheetState().worth[11] == nil or WLX.sheetState().worth[11].link ~= MOCK.link(1001), 'an item was simmed although switched off')
+  WLX.db.options.sheetItems = true; ${bg}; assert(tonumber(MOCK.sheetText(11)), 'back on: the number is worked out'); MOCK.equipped[11] = 1002; ${bg}; PaperDollFrame.shown = false`);
 step('character sheet: the numbers are kept over a reload, nothing is simmed again', `PaperDollFrame.shown = true; ${bg}; local before = WLX.sheetState().base
   MOCK.fire("PLAYER_LOGOUT"); local e = WarlockSimDB.chars["Tester-Mock"]; assert(e and e.sheet and e.sheet.base == before, "not saved at logout")
   e.sheet.base = 1234.4; MOCK.fire("PLAYER_LOGIN"); assert(WLX.sheetState().base == 1234.4, "not put back at login")
