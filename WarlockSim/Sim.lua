@@ -362,7 +362,10 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
           for j = 0, mb.b.tide.ticks - 1 do push({ t = S.t + j * mb.b.tide.every, o = 0, type = 'mana', amount = mb.b.tide.amount }) end
         end
         if mb.b.innervate then
-          local perTick = (cb.spiritRegenBase + cb.spiritRegenPerSpi * stats.spi) * mb.b.innervate.mult
+          -- per 2 s: mult x Spirit regeneration, and mult x your MP5 less the MP5 that runs anyway as periodic energize
+          -- ticks (stats.mp5Tick: Blessing of Wisdom, Mana Spring; sim v209)
+          local mp5Scaled = max(0, (stats.mp5 or 0) - (stats.mp5Tick or 0))
+          local perTick = (cb.spiritRegenBase + cb.spiritRegenPerSpi * stats.spi) * mb.b.innervate.mult + mp5Scaled * 2 / 5 * (mb.b.innervate.mult - 1)
           for j = 1, floor(mb.b.innervate.duration / 2) do push({ t = S.t + j * 2, o = 0, type = 'mana', amount = perTick }) end
           S.innervateUntil = S.t + mb.b.innervate.duration
         end
@@ -743,18 +746,24 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     for i = 1, #EPR do local x = EPR[i]; local p = x.fx.proc; if p.kind == 'spiPct' and epUp(x) then v = v + stats.spi * p.pct / 100 end end   -- Insight
     return v
   end
-  local function trHit(x, u)                                    -- a trinket's own hit
+  local function trHit(x, u, ti)                                -- a trinket's own hit (ti > 1: on that extra target, sim v209)
     local key = 'trinket:' .. x.id
     local r = row(key)
     if Rhit() * 100 >= hitNow() then r.misses = r.misses + 1; return end
     r.landed = r.landed + 1
     local amt = (u.min + (u.max - u.min) * Rproc()) * trMult(u)  -- x boss type / zone
-    if buff('coe') and COE_SCHOOLS[u.school or 'fire'] then amt = amt * (1 + coePct / 100) end   -- not on Holy / Nature
+    local xt = (ti or 0) > 1
+    local coe
+    if xt then coe = xDebLeft(ti, 'coe') > 0 else coe = buff('coe') end
+    if coe and COE_SCHOOLS[u.school or 'fire'] then amt = amt * (1 + coePct / 100) end   -- not on Holy / Nature
     if u.school == 'physical' then amt = amt * (1 - armorRed) end   -- Everlook Pathcarver: the boss's armor after debuffs
     local crit = Rcrit() * 100 < stats.critPct
     if crit then amt = amt * cb.critMultiplier end
-    deal(key, amt, crit, false)
+    deal(key, amt, crit, false, xt and ti or nil)
   end
+  -- A proc's chance in % on a landing of spell key (sim v209, WL.procChancePct): chancePct, or ppm on the cast time of the
+  -- cast that launched it (TR.landCT); nil: no chance
+  local function procChancePct(p, key) return WL.procChancePct(p, key and SPELLS[key] or nil, TR.landCT) end
   -- Other gear with an effect (sim v202, Blade of Eternal Darkness): 'ppmCast' rolls on each landed spell you cast at an
   -- enemy (curses, DoT / channel casts included, once per target; never ticks), at procsPerMin x max(minCast, the cast
   -- time of the cast that launched it) / 60. TR.landCT: that cast time, set right before each landing (the sim's landCT).
@@ -786,7 +795,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       end
     end
   end
-  TR.onCast = function()                                        -- each landed damaging cast (the Touch of the Grave hook)
+  TR.onCast = function(key)                                     -- each landed damaging cast of key (the Touch of the Grave hook)
     for i = 1, NTRK do
       local x = TRK[i]
       local u, p, st = x.fx.use, x.fx.proc, trs[x.slot]
@@ -795,7 +804,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
         if u.kind == 'spStack' and st.n >= u.casts then st.upTo = -1 end
       end
       if u and u.kind == 'dmgAfter' and st.pending > 0 then st.pending = st.pending - 1; if st.pending == 0 then trHit(x, u) end end
-      if p and not p.onDamage and not (p.icd and S.t < st.icdUntil - EPS) and WL.fxOn(cfg, p) and Rproc() * 100 < (p.chancePct or -1) then   -- onlyVs: Scented Runewood Brooch, Furbolg only
+      if p and not p.onDamage and not (p.icd and S.t < st.icdUntil - EPS) and WL.fxOn(cfg, p) and Rproc() * 100 < (procChancePct(p, key) or -1) then   -- onlyVs: Scented Runewood Brooch, Furbolg only
         if p.icd then st.icdUntil = S.t + p.icd end             -- Draconic Infused Emblem: 60 s internal cooldown
         if p.kind == 'dmg' then trHit(x, p)                     -- Cursed Murloc Eye, Necropile Raiment: a hit
         elseif p.kind == 'mana' then                            -- Magister's / Devout 5
@@ -812,6 +821,18 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       elseif (p.kind == 'sp' or p.kind == 'spiPct') and Rproc() * 100 < p.chancePct then
         eps[x.id].upTo = S.t + p.duration
         if p.mana then local g = min(p.mana, stats.maxMana - S.mana); S.mana = S.mana + g; res.manaFromConsumables = (res.manaFromConsumables or 0) + g end
+      end
+    end
+  end
+  -- A landing on an extra target (ti > 1) rolls only the set procs that roll once per target (perTarget: Necropile
+  -- Raiment 3, Violet Sorcerer's Vestments 4; sim v209); trinkets and enchants count your casts on the boss only.
+  TR.onLandX = function(ti, key)
+    for i = 1, NTRK do
+      local x = TRK[i]
+      local p = x.fx.proc
+      if p and p.perTarget and WL.fxOn(cfg, p) and Rproc() * 100 < (procChancePct(p, key) or -1) then
+        if p.kind == 'dmg' then trHit(x, p, ti)
+        elseif p.kind == 'castRegen' then trs[x.slot].procUntil = S.t + p.duration end
       end
     end
   end
@@ -853,11 +874,39 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   TR.shot = function(slot)                                      -- one shot of a summoned helper (Cannonball Runner)
     for i = 1, NTRK do local x = TRK[i]; if x.slot == slot then trHit(x, x.fx.use); return end end
   end
-  -- Revelation: the next non-periodic spell + pct % crit; a non-periodic spell that does not crit may trigger it.
-  TR.revBonus = function() return (REV and eps[REV.id].upTo > S.t + EPS) and REV.fx.proc.pct or 0 end
-  TR.revAfter = function(crit, had)
-    if had then eps[REV.id].upTo = -1; return end              -- used up by this spell
-    if not crit and Rproc() * 100 < (cb.revelationChancePct or 0) * max(0, 1 - stats.critPct / 100) then eps[REV.id].upTo = S.t + REV.fx.proc.duration end
+  -- Revelation (sim v209): + pct % crit for 15 s (a new trigger while it is up resets the 15 s).
+  --  * Trigger: a landed direct hit that does not crit (any target), and each landed Hellfire / Rain of Fire tick that does
+  --    not crit, on each target (WL.revelationChancePct at your sheet crit). Never: DoT ticks, drain / Wrack ticks, your
+  --    demon, trinket and item procs.
+  --  * Spent at the cast: a direct spell (or Immolate's direct part) takes it when its cast completes (instants: when
+  --    cast) and crits when it lands, even after travel time - or not at all if it misses.
+  --  * Channels: while it is up every tick of a channel crits; the channel holds it (rv.ch) and it is spent when that
+  --    channel ends (completes or is cut).
+  if REV then
+    local rv, revPct, revCh = eps[REV.id], REV.fx.proc.pct, WL.revelationChancePct(cb, stats.critPct)
+    rv.ch = nil
+    local function revUp()                                      -- is it up now (a holding channel that ended spent it)
+      if rv.ch ~= nil and not (S.channel and S.channel.inst == rv.ch) then rv.upTo = -1; rv.ch = nil end
+      return rv.upTo > S.t + EPS
+    end
+    TR.revRoll = function(crit, tick)                           -- a landed direct hit / area tick (tick: of the running channel)
+      if crit or Rproc() * 100 >= revCh then return end
+      revUp()                                                   -- a channel that held the old one and has ended: spent first
+      rv.upTo = S.t + REV.fx.proc.duration
+      if tick and S.channel then rv.ch = S.channel.inst end     -- that channel keeps it (spent when it ends)
+    end
+    TR.revTake = function(key)                                  -- the cast of key completes now: does it use (and spend) it?
+      local k = SPELLS[key].kind
+      if (k ~= 'direct' and k ~= 'hybrid') or not revUp() then return false end
+      rv.upTo = -1
+      return true
+    end
+    TR.revChan = function()                                     -- a channel tick now: + pct while it is up (the channel holds it)
+      if not S.channel or not revUp() then return 0 end
+      rv.ch = S.channel.inst
+      return revPct
+    end
+    TR.revPct = revPct
   end
   TR.critDone = function()                                      -- Weakness Analyzer ends on a direct crit
     for i = 1, NTRK do local x = TRK[i]; local u = x.fx.use; if u and u.endsOnCrit and trUp(x) then trs[x.slot].upTo = -1 end end
@@ -1070,7 +1119,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   end
   local makeSnap, touchOfTheGrave, jowProc               -- defined below
   local P = nil                                          -- the pet
-  local function landExtra(key, eureka, castMult, ti)
+  local function landExtra(key, eureka, castMult, ti, rev)     -- rev: as for land (sim v209)
     local s, e, rk = SPELLS[key], tbl[key], xkey(ti, key)
     local r = row(rk)
     if Rhit() * 100 >= (TRX and TR.hitNow() or stats.hitPct) and not CHH[key] then r.misses = r.misses + 1; return false end
@@ -1090,26 +1139,28 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       end
       amt = amt * vulnMult(s.school, ti, false, key)
       local cx = Rcrit() * 100
-      local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key, ti) or 0)
+      local crit = CHC[key] or cx < e.critPct + (rev and TR.revPct or 0) + (TRX and TR.crit(key, ti) or 0)   -- Revelation on an extra target too
+      if TR.revRoll and not rev then TR.revRoll(crit) end
       if crit then amt = amt * e.critMult end
       deal(rk, amt, crit, false, ti)
       if key == 'shadowBolt' and crit and tv('improvedShadowBolt') ~= 0 then xdeb[ti].isb = S.t + 12 end
     end
     if s.kind ~= 'direct' then applyDotX(ti, key, makeSnap(castMult)) end
-    touchOfTheGrave(ti)
+    touchOfTheGrave(ti, key)
     return true
   end
 
   -- castMult multiplies every tick of this cast as a whole (Amplify Curse).
   makeSnap = function(castMult) return { castMult = castMult or 1 } end
 
-  local function periodicTick(key, snap, i)
+  local function periodicTick(key, snap, i, isChannel)
     local s, e = SPELLS[key], tbl[key]
     local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * liveMult(key, true) * (snap.castMult or 1)
     if s.ramp then amt = amt * s.ramp[i + 1] end
     amt = amt * vulnMult(s.school, nil, true, key)
+    local rvc = (isChannel and TR.revChan) and TR.revChan() or 0   -- a channel tick crits while Revelation is up (sim v209)
     local cx = Rcrit() * 100
-    local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
+    local crit = CHC[key] or cx < e.critPct + rvc + (TRX and TR.crit(key) or 0)
     if crit then amt = amt * e.critMult end
     deal(key, amt, crit, true)
     nightfallRoll(key)
@@ -1142,8 +1193,10 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       else
         local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * (ti > 1 and liveMultX(key, ti, true) or liveMult(key, true))
         amt = amt * vulnMult(s.school, ti, false, key)
+        local rvc = TR.revChan and TR.revChan() or 0             -- crits while Revelation is up (sim v209)
         local cx = Rcrit() * 100
-        local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key, ti) or 0)
+        local crit = CHC[key] or cx < e.critPct + rvc + (TRX and TR.crit(key, ti) or 0)
+        if TR.revRoll and rvc == 0 then TR.revRoll(crit, true) end   -- a tick that does not crit may trigger it (each target)
         if crit then amt = amt * e.critMult end
         deal(rk, amt, crit, true, ti)
       end
@@ -1152,8 +1205,9 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   end
 
   -- Direct-damage landing (cast finished or instant). Returns true if it hit.
-  local function land(key, eureka, castMult, target)
-    if (target or 0) > 1 then return landExtra(key, eureka, castMult, target) end
+  -- rev (sim v209): this cast took Revelation when it was cast (TR.revTake).
+  local function land(key, eureka, castMult, target, rev)
+    if (target or 0) > 1 then return landExtra(key, eureka, castMult, target, rev) end
     local s, e, r = SPELLS[key], tbl[key], bySpell[key] or row(key)
     if Rhit() * 100 >= (TRX and TR.hitNow() or stats.hitPct) and not CHH[key] then r.misses = r.misses + 1; return false end
     if binResisted(key, nil) then r.misses = r.misses + 1; r.resisted = (r.resisted or 0) + 1; return false end   -- a binary spell fully resisted
@@ -1165,7 +1219,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       jowProc(false)
       return true
     end
-    if s.kind == 'dot' then applyDot(key, makeSnap(castMult)); touchOfTheGrave(); jowProc(false); return true end
+    if s.kind == 'dot' then applyDot(key, makeSnap(castMult)); touchOfTheGrave(0, key); jowProc(false); return true end
     -- direct or hybrid
     local sp = spNow(e)
     local amt = (s.base + s.coef * sp) * e.directMult * liveMult(key, false) * (eureka and eurekaMult(key, false) or 1)
@@ -1176,10 +1230,9 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       buffs.decimation = S.t + 10
     end
     amt = amt * vulnMult(s.school, nil, false, key)
-    local revHad = TR.REV and TR.revBonus() or 0                -- Revelation
     local cx = Rcrit() * 100
-    local crit = CHC[key] or cx < e.critPct + revHad + (TRX and TR.crit(key) or 0)
-    if TR.REV then TR.revAfter(crit, revHad > 0) end
+    local crit = CHC[key] or cx < e.critPct + (rev and TR.revPct or 0) + (TRX and TR.crit(key) or 0)   -- Revelation: taken at the cast
+    if TR.revRoll and not rev then TR.revRoll(crit) end
     if crit then amt = amt * e.critMult end
     deal(key, amt, crit, false)
     if crit and NTRK > 0 then TR.critDone() end                 -- Weakness Analyzer ends on a direct crit
@@ -1196,7 +1249,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       if Rproc() * 100 < tv('shadowAndFlame', 'procPct') then S.shards = S.shards + 1 end
     end
     if s.kind == 'hybrid' then applyDot(key, makeSnap(castMult)) end
-    touchOfTheGrave()
+    touchOfTheGrave(0, key)
     jowProc(false)
     return true
   end
@@ -1219,8 +1272,13 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   end
   -- Touch of the Grave (Undead): rolls once per landed cast of a spell with a damage component. 5% of your maximum
   -- health; nothing multiplies it. 30% chance, then an internal cooldown (race data: 15 s since 2026-10-27; no roll while it runs).
-  touchOfTheGrave = function(ti)
-    if TRX and not ((ti or 0) > 1) then TR.onCast() end         -- trinkets count your landed damaging casts
+  -- key (sim v209): the landing spell - Rain of Fire's cast never procs it (castNoTog); the per-target set procs
+  -- (Necropile, Violet Sorcerer's) also roll on an extra target.
+  touchOfTheGrave = function(ti, key)
+    if TRX then                                                 -- trinkets count your landed damaging casts
+      if (ti or 0) > 1 then TR.onLandX(ti, key) else TR.onCast(key) end
+    end
+    if key and SPELLS[key].castNoTog then return end
     local tog = racialProc
     if tog and not (S.togReady and S.togReady > S.t + EPS) and Rproc() * 100 < tog.chancePct then
       S.togReady = S.t + (tog.icd or 0)
@@ -1319,13 +1377,19 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
         return
       end
       r.landed = r.landed + 1
-      if #IFX > 0 then TR.itemOnLand(0, 0) end            -- on cast (a channel prices as an instant), not on its ticks
-      touchOfTheGrave()
-      jowProc(false)
+      TR.landCT = 0                                       -- a channel prices as an instant (sim v209: never a stale cast time)
+      -- Hellfire's cast targets you and rolls nothing (castOnSelf, sim v209): no item, set, trinket or enchant procs, no
+      -- Touch of the Grave, no Judgement of Wisdom. Its ticks never did.
+      if not s.castOnSelf then
+        if #IFX > 0 then TR.itemOnLand(0, 0) end          -- on cast (a channel prices as an instant), not on its ticks
+        touchOfTheGrave(0, key)
+        jowProc(false)
+      end
       inst = inst + 1
       local id = inst
       local nCh, chDur = e.ticks, s.duration
       S.channel = { key = key, inst = id, snap = makeSnap(), start = S.t, finish = S.t + chDur, ticks = nCh, tl = fromTL and true or false, idx = actIdx }
+      if TR.revChan then TR.revChan() end                 -- a channel started while Revelation is up holds it until it ends
       for i = 1, nCh do push({ t = S.t + i * s.tickEvery, o = 0, type = 'chanTick', key = key, inst = id, i = i - 1 }) end
       S.busyUntil = S.t + chDur; S.gcdReady = S.t + gcdT
       r.castTime = r.castTime + chDur
@@ -1336,15 +1400,18 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       local ce = { t = S.busyUntil + (s.projectile and TRAVEL or 0), o = 1, type = 'castEnd', key = key, castMult = castMult, target = target, tl = fromTL, castT = castT }
       push(ce)
       S.cast = { key = key, rk = rk, full = castT, finish = S.busyUntil, ev = ce, n = 0 }
+      -- a projectile in flight took Revelation when its cast completed - checked then (revCast, sim v209)
+      if TR.revTake and s.projectile and TRAVEL > EPS then push({ t = S.busyUntil, o = 0, type = 'revCast', cs = S.cast }) end
       scheduleDecide(max(S.busyUntil, S.gcdReady))
     else
       S.busyUntil = S.t; S.gcdReady = S.t + gcdT
       rr.castTime = rr.castTime + gcdT
+      local rvt = TR.revTake and TR.revTake(key) or false   -- an instant takes Revelation when cast (sim v209)
       if s.projectile and TRAVEL > EPS then
-        push({ t = S.t + TRAVEL, o = 1, type = 'castEnd', key = key, castMult = castMult, target = target, tl = fromTL, castT = castT })
+        push({ t = S.t + TRAVEL, o = 1, type = 'castEnd', key = key, castMult = castMult, target = target, tl = fromTL, castT = castT, rev = rvt })
       else
         TR.landCT = castT
-        if not land(key, eurekaAt(key, S.t), castMult, target) and fromTL then TL.turn = true end
+        if not land(key, eurekaAt(key, S.t), castMult, target, rvt) and fromTL then TL.turn = true end
       end
       scheduleDecide(S.gcdReady)
     end
@@ -1378,11 +1445,14 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local ra, te = 0, WL.trinketEquipFx(cfg)                    -- Pimgib's Collar: mana per 5 s for the imp
     for i = 1, #te do local q = te[i]; ra = ra + ((q.petMp5 ~= 0 and (not q.pet or q.pet == key)) and q.petMp5 / 5 or 0) end
     p.regenAdd = ra
+    -- mana a second (sim v209): mp5PerOwnerInt x your Intellect as MP5, all the time; the Felhunter keeps manaRegen
+    p.regen = (pc.mp5PerOwnerInt ~= nil and pc.mp5PerOwnerInt * stats.int / 5 or (pc.manaRegen or 0)) + p.regenAdd
+    res.petRegen = p.regen                                      -- of the last demon summoned (checks)
     p.mana = p.maxMana
     return p
   end
   P = makePet(build.pet)
-  petRegen = function() P.mana = min(P.maxMana, P.mana + (P.c.manaRegen + (P.regenAdd or 0)) * (S.t - P.lastRegen)); P.lastRegen = S.t end
+  petRegen = function() P.mana = min(P.maxMana, P.mana + P.regen * (S.t - P.lastRegen)); P.lastRegen = S.t end
   S.petManaPct = function() if not P then return 100 end; petRegen(); return 100 * P.mana / P.maxMana end
   S.petSpellCost = function() return (P and P.c.spell) and P.c.spell.cost or huge end
   S.petMana = function() if not P then return huge end; petRegen(); return P.mana end
@@ -1414,7 +1484,26 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if FURY and buff('bloodFury') then return sp * (1 + FURY / 100) end
     return sp
   end
-  local function petSp() return warlockSpNow() * (cfg.petSpPct ~= nil and cfg.petSpPct or 100) / 100 + (stats.dkSp or 0) end
+  -- What a demon takes its tenth (and its attack power) from (sim v209): your school total - generic + the better of your
+  -- Shadow / Fire spell power (cfg.petSchoolSp; false: generic only), live.
+  local SC_SHADOW, SC_FIRE = { school = 'shadow' }, { school = 'fire' }
+  local function petOwnerSp()
+    if cfg.petSchoolSp == false then return warlockSpNow() end
+    local trs0 = TRX and TR.sp(nil) or 0
+    local best = max(0, (stats.schoolSp.shadow or 0) + (TRX and TR.sp(SC_SHADOW) - trs0 or 0))
+    best = max(best, (stats.schoolSp.fire or 0) + (TRX and TR.sp(SC_FIRE) - trs0 or 0))
+    local v = stats.sp + best + potSp() + trs0
+    if FURY and buff('bloodFury') then return v * (1 + FURY / 100) end
+    return v
+  end
+  local function petSp() return petOwnerSp() * (cfg.petSpPct ~= nil and cfg.petSpPct or 100) / 100 + (stats.dkSp or 0) end
+  -- The demon's crit (sim v209, cfg.petCrit): fromOwner false (live) = its own + your gear's crit (stats.gearCritPct);
+  -- true = your spell crit. melee: its own melee crit.
+  local PCRIT = cfg.petCrit or { fromOwner = true, ownMeleePct = 0, ownSpellPct = 0 }
+  local function petCritPct(melee)
+    if PCRIT.fromOwner then return stats.critPct end
+    return (melee and PCRIT.ownMeleePct or PCRIT.ownSpellPct) + (stats.gearCritPct or 0)
+  end
   -- A demon's spell against the boss's resistance after Curse of the Elements (no Spell Pierce / Penetration of yours;
   -- sim v205). Rpet rolls only while resistance is left, so the dice stay as they were when it is 0.
   local petResCache = { [true] = {}, [false] = {} }              -- [curse up?][spell] (a spell's school is the same all fight)
@@ -1458,7 +1547,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if sp.key == 'firebolt' then amt = amt * (1 + tv('improvedImp', 'firebolt') / 100) end
     amt = amt * petResRoll(ppr)                                 -- Lash of Pain: partial resists
     local cx = Rpet() * 100
-    local crit = CHC[key] or cx < stats.critPct
+    local crit = CHC[key] or cx < petCritPct(false)             -- the demon's spell crit (sim v209, cfg.petCrit)
     if crit then amt = amt * cb.critMultiplier end
     deal(key, amt, crit, false)
     brandProc()
@@ -1470,7 +1559,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local hasCd = sp.cd and sp.cd ~= 0
     if hasCd and P.lashReady > S.t + EPS then push({ t = P.lashReady, o = 2, type = 'petAct', gen = P.gen }); return end
     if P.mana < sp.cost then
-      local wait = max(0.1, (sp.cost - P.mana) / P.c.manaRegen)
+      local wait = P.regen > 0 and max(0.1, (sp.cost - P.mana) / P.regen) or dur   -- its own regen (with Pimgib's Collar)
       res.petOomTime = res.petOomTime + min(wait, dur - S.t)
       push({ t = S.t + wait, o = 2, type = 'petAct', gen = P.gen }); return
     end
@@ -1489,14 +1578,14 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     r.casts = r.casts + 1
     local hitBonus = WL.petMeleeHit(stats, cb)       -- her melee hit: 8/17 of your spell hit, all of it counts
     local miss, dodge = max(0, tb.missPct - hitBonus), tb.dodgePct
-    local critCh = max(0, (m.critPct or 0) + (m.inheritSpellCrit and stats.critPct or 0) - tb.critSuppressionPct)
+    local critCh = max(0, (m.critPct or 0) + (m.inheritSpellCrit and petCritPct(true) or 0) - tb.critSuppressionPct)   -- the demon's crit (cfg.petCrit)
     if CHH[rk] then miss = 0; dodge = 0 end                   -- cheat mode: every swing lands (glancing blows stay)
     if CHC[rk] then critCh = 100 end                            -- ... and every one that is not a glancing blow crits
     if roll >= miss + dodge then
       r.landed = r.landed + 1
       jowProc(true)
-      local dps = m.baseDps + m.apPerSp * warlockSpNow() / m.apPerDps
-      local amt = dps * m.swing * (1 - armorRed) * petMult('physical')
+      local dps = m.baseDps + m.apPerSp * petOwnerSp() / m.apPerDps   -- your school total (sim v209)
+      local amt = dps * m.swing * (1 - armorRed) * petMult('physical') * (m.dmgPct ~= nil and m.dmgPct / 100 or 1)   -- the Voidwalker's melee halved
       local glance = roll < miss + dodge + tb.glancePct
       local crit = not glance and (CHC[rk] or roll < miss + dodge + tb.glancePct + critCh)
       if glance then amt = amt * (tb.glanceDmgPct / 100); r.glances = r.glances + 1 end
@@ -1792,7 +1881,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local c = S.channel
     if not c or c.inst ~= ev.inst then return end          -- clipped
     if ev.t > c.finish + EPS then return end               -- cut off by pushback; chanEnd closes the channel
-    if SPELLS[ev.key].aoe then aoeTick(ev.key, ev.i) else periodicTick(ev.key, c.snap, ev.i) end
+    if SPELLS[ev.key].aoe then aoeTick(ev.key, ev.i) else periodicTick(ev.key, c.snap, ev.i, true) end
     local last = ev.i == (c.ticks or tbl[ev.key].ticks) - 1
     if last then
       S.channel = nil; return
@@ -1883,7 +1972,16 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       if not ev.dead then                                  -- pushed back: a later copy of this event lands it
         local fin = ev.t - ((SPELLS[ev.key].projectile and TRAVEL > EPS) and TRAVEL or 0)   -- when the cast finished (a projectile flies on)
         TR.landCT = ev.castT or 0                         -- the cast time of this cast (Blade of Eternal Darkness, sim v202)
-        if not land(ev.key, eurekaAt(ev.key, fin), ev.castMult, ev.target) and ev.tl and TL then TL.turn = true end
+        -- Revelation is taken when the cast completes - now, unless it flew (then at revCast / the instant's cast; sim v209)
+        local rvl = ev.rev
+        if rvl == nil then rvl = TR.revTake and not (SPELLS[ev.key].projectile and TRAVEL > EPS) and TR.revTake(ev.key) or false end
+        if not land(ev.key, eurekaAt(ev.key, fin), ev.castMult, ev.target, rvl) and ev.tl and TL then TL.turn = true end
+      end
+    elseif ty == 'revCast' then                            -- a projectile's cast completes: it may take Revelation (sim v209)
+      local rcs = ev.cs
+      if S.cast == rcs then
+        if rcs.finish > S.t + EPS then push({ t = rcs.finish, o = 0, type = 'revCast', cs = rcs })   -- pushed back: check at the new end
+        else rcs.ev.rev = TR.revTake(rcs.key) end
       end
     elseif ty == 'chanTick' then
       chanTick(ev)

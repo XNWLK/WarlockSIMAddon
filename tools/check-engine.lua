@@ -36,14 +36,14 @@ function CHK.fight(race, i)
   end
   return '{"seed":' .. num(seed) .. ',"duration":' .. num(dur) .. ',"total":' .. num(r.total) .. ',"endMana":' .. num(r.endMana) .. ',"minMana":' .. num(r.minMana)
     .. ',"healthMin":' .. num(r.health.min) .. ',"healthEnd":' .. num(r.health.finish) .. ',"lifeTaps":' .. num(r.lifeTaps) .. ',"threat":' .. num(r.threat)
-    .. ',"idle":' .. num(r.idle) .. ',"clipped":' .. num(r.clipped) .. ',"exDmg":' .. num(r.exDmg) .. ',"pushbacks":' .. num(r.pushbacks)
+    .. ',"idle":' .. num(r.idle) .. ',"clipped":' .. num(r.clipped) .. ',"exDmg":' .. num(r.exDmg) .. ',"pushbacks":' .. num(r.pushbacks) .. ',"petRegen":' .. num(r.petRegen)
     .. ',"rows":{' .. table.concat(rows, ',') .. '}}'
 end
 function CHK.table(race)
   local stats = WL.computeStats(build, race, cfg)
   local tbl = WL.buildSpellTable(build, stats, cfg)
   local s, t = {}, {}
-  for _, k in ipairs({ 'int', 'spi', 'sta', 'maxMana', 'maxHealth', 'sp', 'hitPct', 'critPct', 'hastePct', 'mp5', 'pierce', 'spellPen' }) do
+  for _, k in ipairs({ 'int', 'spi', 'sta', 'maxMana', 'maxHealth', 'sp', 'hitPct', 'critPct', 'hastePct', 'mp5', 'pierce', 'spellPen', 'mp5Tick', 'gearCritPct' }) do
     s[#s + 1] = string.format('%q:%s', k, num(stats[k]))
   end
   for k, e in pairs(tbl) do

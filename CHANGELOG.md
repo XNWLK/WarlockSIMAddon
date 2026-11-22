@@ -3,6 +3,20 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.18.7
+
+- From the website (its v209), measured from public combat logs of the live realms:
+  - Revelation (weapon enchant): triggers less often the more crit you have, and on any non-crit direct hit or Hellfire /
+    Rain of Fire tick (never on DoT ticks or drains). While it is up, every tick of Drain Life, Drain Soul, Wrack,
+    Hellfire and Rain of Fire crits; a channel keeps it until the channel ends.
+  - Your demon: its mana comes back from your Intellect, its crit comes from your gear (not all of your crit), its spell
+    power uses the better of your Shadow / Fire spell power, and the Voidwalker hits half as hard.
+  - Hellfire's cast no longer triggers item, set, trinket or enchant effects, Touch of the Grave or Judgement of Wisdom;
+    Rain of Fire's cast no longer triggers Touch of the Grave.
+  - Necropile Raiment 3, Violet Sorcerer's Vestments 4 and Insight trigger at their measured rates; Innervate also counts
+    your gear's mana per 5 seconds.
+  - The DPS moves a little: Shadow Demo about 1% less, Incinerate builds up to 1% less.
+
 ## v0.18.6
 
 - From the website (its v207), resists:

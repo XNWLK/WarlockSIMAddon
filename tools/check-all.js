@@ -2,13 +2,17 @@
 //   node tools/check-all.js          quick: 1 fight per scene in the engine check
 //   node tools/check-all.js full     4 fights per scene
 //   node tools/check-all.js --one    one check after the other, as before (slower; for a computer with few cores)
+//   CHECK_WORKERS=10 node tools/check-all.js   at most 10 at a time
 // The checks do not depend on each other, so they run at the same time, each in its own process (one core each), and the
 // engine check is split into pieces (CHECK_SHARD=i/n: every n-th scene). Each line gives how long its check took.
 const cp = require('child_process'), path = require('path'), os = require('os');
 const args = process.argv.slice(2);
 const full = args.indexOf('full') >= 0, oneByOne = args.indexOf('--one') >= 0;
 const cores = Math.max(1, (os.cpus() || []).length);
-const workers = oneByOne ? 1 : Math.max(1, cores - 1);
+// CHECK_WORKERS=n: at most n at a time (the PC is in use: leave it room). Always at the lowest priority (Idle on Windows,
+// inherited by the checks it starts), so a game on the same PC keeps its speed (Xn, 2026-11-22: "dont drain my performance").
+try { os.setPriority(os.constants.priority.PRIORITY_LOW); } catch (e) { /* not allowed: run as is */ }
+const workers = oneByOne ? 1 : Math.max(1, Math.min(cores - 1, parseInt(process.env.CHECK_WORKERS, 10) || cores - 1));
 const pieces = oneByOne ? 1 : Math.max(1, Math.min(16, workers - 6));   // the engine check's pieces, beside the 7 other checks
 const fightsPerScene = full ? '4' : '1';
 

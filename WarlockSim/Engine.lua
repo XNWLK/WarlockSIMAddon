@@ -322,6 +322,13 @@ function WL.computeStats(build, raceKey, cfg)
     for i = 1, #trEq do a = a + add('spellPen', trEq[i].name, trEq[i].spellPen); b = b + add('mp5', trEq[i].name, trEq[i].mp5) end
     spellPen = spellPen + a; mp5 = mp5 + b
   end
+  -- The part of mp5 that comes as periodic energize ticks (buffs with tick: Blessing of Wisdom, Mana Spring, Restorative
+  -- Totems): Innervate does not scale it (sim v209).
+  local mp5Tick = 0
+  for i = 1, #act do local b = act[i]; mp5Tick = mp5Tick + ((b.tick and b.mp5 and b.mp5 ~= 0) and b.mp5 or 0) end
+  -- Your gear's "+X% critical strike": the sheet crit less its base and your Intellect's share (sim v209), what a demon
+  -- takes from you while cfg.petCrit.fromOwner is false.
+  local gearCritPct = max(0, (gear.critPct or 0) - cb.baseCritPct - (base.int + (gear.int or 0)) * cb.critPerInt)
 
   -- Static caster damage auras per school (they multiply with each other and with the talent spell modifiers).
   local mult = { shadow = 1, fire = 1, all = 1 }
@@ -338,7 +345,7 @@ function WL.computeStats(build, raceKey, cfg)
   for i = 1, #oils do oilNames[i] = oils[i].name end
   return {
     race = raceKey, int = int, spi = spi, sta = sta, maxMana = maxMana, maxHealth = maxHealth,
-    sp = sp, dkSp = dkSp, schoolSp = schoolSp, hitPct = hitPct, hitPctUncapped = hitRaw, critPct = critPct, hastePct = hastePct, mp5 = mp5, pierce = pierce, spellPen = spellPen,
+    sp = sp, dkSp = dkSp, schoolSp = schoolSp, hitPct = hitPct, hitPctUncapped = hitRaw, critPct = critPct, hastePct = hastePct, mp5 = mp5, mp5Tick = mp5Tick, gearCritPct = gearCritPct, pierce = pierce, spellPen = spellPen,
     mult = mult, petActive = petActive, sacrificeActive = sacrificeActive,
     oilName = #oils > 0 and table.concat(oilNames, ' + ') or WL.OILS.none.name, breakdown = bd,
   }
@@ -735,6 +742,23 @@ function WL.equippedEnchantFx(cfg)
   local fx = fxOf(WL.ENCHANT_FX, id)
   if id ~= nil and fx and type(gb.slots) == 'table' and gb.slots.mainHand then out[1] = { slot = 'mainHand', id = tonumber(id), fx = fx } end
   return out
+end
+-- Revelation's trigger chance in % for a hit that does not crit, at your crit chance critPct (sim v209):
+-- combat.revelationChancePct x max(0, 1 - revelationCritFactor x crit). Without revelationCritFactor: 1.
+function WL.revelationChancePct(cb, critPct)
+  local f = (cb and cb.revelationCritFactor ~= nil) and cb.revelationCritFactor or 1
+  return ((cb and cb.revelationChancePct) or 0) * max(0, 1 - f * (critPct or 0) / 100)
+end
+-- A set proc's chance in % on a landing of spell s (a WL.SPELLS entry; nil = unknown) whose cast took castT s (sim v209):
+-- chancePct, or ppm x max(minCast, castT) / 60 x 100; a single-target channel's cast prices as an instant, an area
+-- channel's cast rolls aoeCastPct. nil when the effect has no chance (it never procs).
+function WL.procChancePct(p, s, castT)
+  if not p.ppm or p.ppm == 0 then return p.chancePct end
+  if s and s.kind == 'channel' then
+    if s.aoe then return p.aoeCastPct or 0 end
+    return p.ppm * p.minCast / 60 * 100
+  end
+  return p.ppm * max(p.minCast, castT or 0) / 60 * 100
 end
 -- The trinkets in the two trinket slots that have an effect: { { slot, id, fx } }.
 function WL.equippedTrinkets(cfg)

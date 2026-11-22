@@ -165,6 +165,47 @@ const scenes = [
   S('weapon enchant: Grand Sorcerer', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 }, trinket1: { id: 18820 } }, enchants: { mainHand: { id: 7942 } } }], ['gear.int', 20]]),
   S('weapon enchant: Grand Arcanist, Insight', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 7941 } } }]], { builds: ['demo_pact_fire', 'wrack_succubus'] }),
   S('weapon enchant: Insight', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 8216 } } }], ['gear.spi', 0], ['fight.duration', 300]]),
+  // sim v209: Revelation as measured (taken at the cast, channel ticks crit while it is up, area ticks trigger it)
+  S('Revelation: Drain Life filler', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 8217 } } }], ['combat.revelationChancePct', 40]],
+    { builds: ['sm_ruin_classic', 'wrack_succubus', 'aff_pact_succ_drain'], rotation: r => r.slice(0, -1).concat(['drainLife']) }),
+  S('Revelation: Wrack, pushback', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 8217 } } }], ['combat.revelationChancePct', 40], ['fight.hitEvery', 2]],
+    { builds: ['wrack_ds', 'wrack_succubus'] }),
+  S('Revelation: Hellfire filler 3 targets', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 8217 } } }], ['fight.targets', 3]],
+    { builds: ['destro_incin_imp'], rotation: r => r.slice(0, -1).concat(['hellfire']) }),
+  S('Revelation: Rain of Fire filler 2 targets, low crit', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 8217 } } }], ['fight.targets', 2], ['gear.critPct', 3], ['combat.revelationChancePct', 30]],
+    { builds: ['destro_incin_imp'], rotation: r => r.slice(0, -1).concat(['rainOfFire']) }),
+  S('Revelation: travel time, pushback, 2 targets multi-DoT', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 8217 } } }], ['combat.revelationChancePct', 40],
+    ['fight.travelMs', 500], ['fight.hitEvery', 1.5], ['fight.targets', 2], ['fight.multiDot', true]], { builds: ['demo_pact_succ_sb', 'destro_incin_succ', 'sm_ruin_classic', 'demo_pact_fire'] }),
+  S('Revelation: old chance rule (no crit factor), high crit', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 8217 } } }], ['combat.revelationCritFactor', null], ['gear.critPct', 30]],
+    { builds: ['destro_incin_imp', 'wrack_succubus'] }),
+  // sim v209: demons - mana regen from your Intellect, live crit (own + your gear crit), school spell power, the Voidwalker halved
+  S('demons: every pet, live crit, school spell power', [['gear.critPct', 18], ['gear.shadowSp', 60], ['gear.fireSp', 90]],
+    { builds: ['demo_pact_succ_sb', 'destro_incin_imp', 'wrack_succubus', 'demo_pact_fire'] }),
+  S('demons: Voidwalker', [['gear.critPct', 15]], { builds: ['demo_pact_succ_sb', 'sm_ruin_classic'], mod: b => { b.pet = 'voidwalker'; } }),
+  S('demons: Felhunter', [['gear.critPct', 15], ['gear.shadowSp', 40]], { builds: ['demo_pact_succ_sb', 'sm_ruin_classic'], mod: b => { b.pet = 'felhunter'; } }),
+  S('demons: crit from owner, no school spell power', [['petCrit.fromOwner', true], ['petSchoolSp', false], ['gear.shadowSp', 60]],
+    { builds: ['demo_pact_succ_sb', 'destro_incin_imp', 'wrack_succubus'] }),
+  S('demons: crit from owner, Voidwalker and Felhunter', [['petCrit.fromOwner', true]], { builds: ['sm_ruin_classic', 'destro_incin_imp'], mod: b => { b.pet = b.pet === 'succubus' ? 'voidwalker' : 'felhunter'; } }),
+  S('demons: low Intellect, pets out of mana', [['gear.int', 0], ['fight.duration', 240]], { builds: ['demo_pact_fire', 'destro_incin_imp', 'demo_pact_succ_sb', 'wrack_succubus'],
+    mod: b => { b.rotation = b.rotation.filter(k => k !== 'lifeTapPet'); b.talents.demonicEnergies = 0; } }),
+  S('demons: Felhunter low Intellect, Imp with a trinket', [['gear.int', 0], ['gearBuilder', { on: true, slots: { trinket1: { id: 19812 }, trinket2: { id: 18354 } } }], ['fight.bossType', 'undead']],
+    { builds: ['demo_pact_fire', 'sm_ruin_classic'], mod: b => { if (b.pet === 'succubus') b.pet = 'felhunter'; } }),
+  S('demons: pet swap, Blood Fury and trinkets', [['gearBuilder', { on: true, slots: { trinket1: { id: 18820 }, trinket2: { id: 249469 } } }], ['gear.fireSp', 50]],
+    { builds: ['demo_pact_succ_sb'], rotation: r => ['swapToImp'].concat(r) }),
+  // sim v209: set procs on cast time / per target, Insight's chance, Innervate on MP5, Hellfire's cast rolls nothing
+  S('sets: Necropile 3, Violet Sorcerer 4, 3 targets multi-DoT, travel', [['gearBuilder', { on: true, slots: { head: { id: 273044 }, chest: { id: 273051 }, legs: { id: 286987 }, hands: { id: 286988 },
+    wrist: { id: 14626 }, waist: { id: 14629 }, shoulder: { id: 14631 } } }], ['fight.targets', 3], ['fight.multiDot', true], ['options.useCurseOfElements', true], ['fight.travelMs', 300], ['gear.int', 20], ['fight.duration', 240]]),
+  S('sets: Necropile 3, Violet Sorcerer 4 with Rain of Fire', [['gearBuilder', { on: true, slots: { head: { id: 273044 }, chest: { id: 273051 }, legs: { id: 286987 }, hands: { id: 286988 },
+    wrist: { id: 14626 }, waist: { id: 14629 }, shoulder: { id: 14631 } } }], ['fight.targets', 3]], { builds: ['destro_incin_imp'], rotation: r => r.slice(0, -1).concat(['rainOfFire']) }),
+  S('sets: Necropile 3, Violet Sorcerer 4 with drains and Wrack', [['gearBuilder', { on: true, slots: { head: { id: 273044 }, chest: { id: 273051 }, legs: { id: 286987 }, hands: { id: 286988 },
+    wrist: { id: 14626 }, waist: { id: 14629 }, shoulder: { id: 14631 } } }], ['fight.zone', 'city'], ['gear.int', 30]], { builds: ['wrack_ds', 'sm_ruin_classic'], rotation: r => r.slice(0, -1).concat(['drainLife']) }),
+  S('Hellfire cast rolls no procs', [['gearBuilder', { on: true, slots: { mainHand: { id: 17780 }, trinket1: { id: 273840 }, wrist: { id: 14626 }, waist: { id: 14629 }, shoulder: { id: 14631 } },
+    enchants: { mainHand: { id: 7942 } } }], ['fight.bossType', 'murloc'], ['fight.targets', 3]], { builds: ['destro_incin_imp'], rotation: r => r.slice(0, -1).concat(['hellfire']) }),
+  S('Rain of Fire cast without Touch of the Grave, procs', [['gearBuilder', { on: true, slots: { mainHand: { id: 17780 }, trinket1: { id: 273840 } }, enchants: { mainHand: { id: 8216 } } }],
+    ['fight.bossType', 'murloc'], ['fight.targets', 2]], { builds: ['destro_incin_imp'], rotation: r => r.slice(0, -1).concat(['rainOfFire']) }),
+  S('Innervate on MP5, not on Blessing of Wisdom or Mana Spring', [['buffs.innervate.on', true], ['buffs.innervate.count', 2], ['buffs.manaSpring.on', true], ['gear.mp5', 60], ['gear.int', 20], ['gear.spi', 0], ['fight.duration', 300]]),
+  S('Innervate on MP5 from a trinket and Mageblood', [['buffs.innervate.on', true], ['buffs.blessingOfWisdom.on', false], ['consumables.greaterMageblood.on', true],
+    ['gearBuilder', { on: true, slots: { trinket1: { id: 271903 } } }], ['fight.zone', 'forest'], ['gear.int', 20], ['gear.spi', 0], ['fight.duration', 300]]),
   S('cheat mode', [['options.cheat', { hit: { shadowBolt: true, corruption: true, 'pet:melee': true, 'pet:firebolt': true, hellfire: true }, crit: { shadowBolt: true, immolate: true, 'pet:lashOfPain': true, 'pet:melee': true, incinerate: true } }],
     ['gear.hitPct', 0]]),
   S('dark inspiration + kings', [['buffs.darkInspiration.on', true], ['buffs.blessingOfKings.on', true], ['gear.spi', 120]]),
@@ -217,7 +258,7 @@ scenes.filter((s, si) => (!ONLY || s.name.indexOf(ONLY) >= 0) && si % SHARD[1] =
         cmp('total', r.total, o.total); cmp('endMana', r.endMana, o.endMana); cmp('minMana', r.minMana, o.minMana);
         cmp('health.min', r.health.min, o.healthMin); cmp('health.end', r.health.end, o.healthEnd);
         cmp('lifeTaps', r.lifeTaps, o.lifeTaps); cmp('threat', r.threat, o.threat); cmp('idle', r.idle, o.idle); cmp('clipped', r.clipped, o.clipped);
-        cmp('exDmg', r.exDmg, o.exDmg); cmp('pushbacks', r.pushbacks, o.pushbacks);
+        cmp('exDmg', r.exDmg, o.exDmg); cmp('pushbacks', r.pushbacks, o.pushbacks); cmp('petRegen', r.petRegen == null ? null : r.petRegen, o.petRegen);
         const keys = Object.keys(r.bySpell).filter(k => { const x = r.bySpell[k]; return x.casts || x.dmg || x.misses; });
         const okeys = Object.keys(o.rows).filter(k => { const x = o.rows[k]; return x[0] || x[1] || x[2]; });
         if (keys.slice().sort().join() !== okeys.slice().sort().join()) diffs.push('rows: sim [' + keys.sort().join() + '] addon [' + okeys.sort().join() + ']');
@@ -241,7 +282,7 @@ builds.concat([reach]).forEach(b => {
   RACES.forEach(race => {
     const stats = WL.computeStats(b, race, WL.DEFAULT_CONFIG), table = WL.buildSpellTable(b, stats, WL.DEFAULT_CONFIG);
     const o = JSON.parse(host.eval('return CHK.table("' + race + '")'));
-    ['int', 'spi', 'sta', 'maxMana', 'maxHealth', 'sp', 'hitPct', 'critPct', 'hastePct', 'mp5', 'pierce', 'spellPen'].forEach(k => { if (!near(stats[k], o.stats[k])) { tableBad++; if (!firstBad) firstBad = 'stats ' + b.key + ' ' + race + ' ' + k + ': sim ' + stats[k] + ' addon ' + o.stats[k]; } });
+    ['int', 'spi', 'sta', 'maxMana', 'maxHealth', 'sp', 'hitPct', 'critPct', 'hastePct', 'mp5', 'pierce', 'spellPen', 'mp5Tick', 'gearCritPct'].forEach(k => { if (!near(stats[k], o.stats[k])) { tableBad++; if (!firstBad) firstBad = 'stats ' + b.key + ' ' + race + ' ' + k + ': sim ' + stats[k] + ' addon ' + o.stats[k]; } });
     Object.keys(table).forEach(k => ['cast', 'cd', 'range', 'cost', 'sp', 'critPct', 'critMult', 'directMult', 'periodicMult', 'ticks'].forEach(f => {
       const a = table[k][f], bb = o.table[k] && o.table[k][f];
       if (a !== undefined && !near(a, bb)) { tableBad++; if (!firstBad) firstBad = 'spell table ' + b.key + ' ' + race + ' ' + k + '.' + f + ': sim ' + a + ' addon ' + bb; }
