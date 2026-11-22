@@ -149,6 +149,15 @@ const scenes = [
   // sim v205: each spell's resist rule (binary / hit / tick), demons resisted by the boss
   S('resist rules: Bane of Agony (binary) and ticks against resistance', [['combat.targetResist.shadow', 60]], { builds: ['sm_ruin_classic', 'wrack_ds', 'wrack_succubus'] }),
   S('resist rules: demons and binary spells, high resistance, no curse', [['combat.targetResist.shadow', 90], ['combat.targetResist.fire', 90], ['debuffs.*.on', false]], { builds: ['destro_incin_imp', 'demo_pact_fire', 'demo_pact_succ_sb'], rotation: r => r.filter(k => k !== 'curseOfElements') }),
+  // sim v207: no partial resist above 75%, Rain of Fire ticks at a tenth; four trinkets and Dismantle
+  S('resist rules: the 75% cap, very high resistance', [['combat.targetResist.shadow', 1500], ['combat.targetResist.fire', 1500], ['gear.pierce', 30]], { builds: ['destro_incin_imp', 'demo_pact_succ_sb', 'wrack_succubus'] }),
+  S('resist rules: Rain of Fire ticks against resistance', [['fight.targets', 2], ['combat.targetResist.fire', 120]], { builds: ['destro_incin_imp'], rotation: r => r.slice(0, -1).concat(['rainOfFire']) }),
+  S('trinkets: Blackhands Breadth vs orc, 2 targets, Everlook Pathcarver', [['gearBuilder', { on: true, slots: { trinket1: { id: 13965 }, trinket2: { id: 274759 } } }], ['fight.bossType', 'orc'], ['fight.targets', 2], ['fight.multiDot', true], ['options.trinketUse', { trinket1: 'ready', trinket2: 'ready' }]]),
+  S('trinkets: Everlook Pathcarver vs plant, Zarlas Snack Pouch', [['gearBuilder', { on: true, slots: { trinket1: { id: 274759 }, trinket2: { id: 276744 } } }], ['fight.bossType', 'plant'], ['options.trinketUse', { trinket1: 'ready', trinket2: 'ready' }]]),
+  S('trinkets: Scented Runewood Brooch vs furbolg, Blackhands Breadth', [['gearBuilder', { on: true, slots: { trinket1: { id: 269741 }, trinket2: { id: 13965 } } }], ['fight.bossType', 'furbolg']]),
+  S('trinkets: Scented Runewood Brooch not vs furbolg', [['gearBuilder', { on: true, slots: { trinket1: { id: 269741 }, trinket2: { id: 18467 } } }], ['fight.bossType', 'undead']]),
+  S('weapon enchant: Dismantle vs mechanical', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 7210 } } }], ['fight.bossType', 'mechanical'], ['combat.dismantleChancePct', 30]]),
+  S('weapon enchant: Dismantle not vs mechanical', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 7210 } } }], ['fight.bossType', 'beast']]),
   S('resist model: classic', [['combat.resistModel', 'classic'], ['gear.pierce', 40], ['combat.targetResist.shadow', 60], ['combat.targetResist.fire', 90]]),
   S('resist model: Rune of Perfection in a forest', [['gearBuilder', { on: true, slots: { trinket1: { id: 21565 }, trinket2: { id: 21566 } } }], ['fight.zone', 'forest'], ['combat.targetResist.shadow', 10], ['combat.targetResist.fire', 10]]),
   S('trinkets off: builder off', [['gearBuilder', { on: false, slots: { trinket1: { id: 18820 } } }]], { builds: ['demo_pact_succ_sb'] }),

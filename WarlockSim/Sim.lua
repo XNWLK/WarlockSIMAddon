@@ -538,11 +538,13 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- sk: the spell, for its resist rule (WL.RESIST_RULES: binary / hit / tick; sim v205).
   local RULES = WL.RESIST_RULES
   local resCache, resCacheT = {}, {}                      -- [rule group][curse up?][school]; T: ticks
-  for _, g in ipairs({ '', 'b', 'n' }) do resCache[g] = { [true] = {}, [false] = {} }; resCacheT[g] = { [true] = {}, [false] = {} } end
+  local RGROUP = {}                                       -- spell -> its rule group ('s': ticks at a tenth, Rain of Fire, sim v207)
+  for k, rl in pairs(RULES) do RGROUP[k] = rl.binary and 'b' or ((rl.noBonus and 'n' or '') .. (rl.tickShare and 's' or '')) end
+  resCache[''] = { [true] = {}, [false] = {} }; resCacheT[''] = { [true] = {}, [false] = {} }
+  for _, g in pairs(RGROUP) do resCache[g] = { [true] = {}, [false] = {} }; resCacheT[g] = { [true] = {}, [false] = {} } end
   local xDotLeft, xDebLeft                                -- defined below
   local function resProfile(school, ti, periodic, sk)
-    local rl = sk and RULES[sk]
-    local g = rl and (rl.binary and 'b' or rl.noBonus and 'n' or '') or ''
+    local g = sk and RGROUP[sk] or ''
     local coe
     if (ti or 0) > 1 then coe = xDebLeft(ti, 'coe') > 0
     else
@@ -572,7 +574,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local pr = resProfile(school, ti, periodic, sk)
     local m, dist = pr.flat, pr.dist
     local n = #dist
-    if n > 1 then
+    if n > 1 or dist[1].pct ~= 0 then                          -- one step left: all 75% when the share is 90%+ (the cap)
       local x, acc = Rvuln(), 0
       for i = 1, n do
         acc = acc + dist[i].p
@@ -713,12 +715,14 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     for i = 1, NTRK do local x = TRK[i]; local u = x.fx.use; if u and u.pierce and trUp(x) then p = p + u.pierce end end
     return p
   end
-  TR.crit = function(k)
+  -- x the fight's boss type / zone (Blackhand's Breadth: doubled against Orcs and Ogres); target: a debuff on your target,
+  -- not on extra targets (ti > 1) (sim v207)
+  TR.crit = function(k, ti)
     local c, sp = trIntNow() * cb.critPerInt, SPELLS[k]
     for i = 1, NTRK do
       local x = TRK[i]
       local u = x.fx.use
-      if u and u.kind == 'crit' and trUp(x) and (not u.tree or (sp and sp.tree == u.tree)) then c = c + u.pct end
+      if u and u.kind == 'crit' and trUp(x) and (not u.tree or (sp and sp.tree == u.tree)) and not (u.target and (ti or 0) > 1) then c = c + u.pct * trMult(u) end
     end
     return c
   end
@@ -746,6 +750,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     r.landed = r.landed + 1
     local amt = (u.min + (u.max - u.min) * Rproc()) * trMult(u)  -- x boss type / zone
     if buff('coe') and COE_SCHOOLS[u.school or 'fire'] then amt = amt * (1 + coePct / 100) end   -- not on Holy / Nature
+    if u.school == 'physical' then amt = amt * (1 - armorRed) end   -- Everlook Pathcarver: the boss's armor after debuffs
     local crit = Rcrit() * 100 < stats.critPct
     if crit then amt = amt * cb.critMultiplier end
     deal(key, amt, crit, false)
@@ -790,7 +795,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
         if u.kind == 'spStack' and st.n >= u.casts then st.upTo = -1 end
       end
       if u and u.kind == 'dmgAfter' and st.pending > 0 then st.pending = st.pending - 1; if st.pending == 0 then trHit(x, u) end end
-      if p and not p.onDamage and not (p.icd and S.t < st.icdUntil - EPS) and Rproc() * 100 < (p.chancePct or -1) then
+      if p and not p.onDamage and not (p.icd and S.t < st.icdUntil - EPS) and WL.fxOn(cfg, p) and Rproc() * 100 < (p.chancePct or -1) then   -- onlyVs: Scented Runewood Brooch, Furbolg only
         if p.icd then st.icdUntil = S.t + p.icd end             -- Draconic Infused Emblem: 60 s internal cooldown
         if p.kind == 'dmg' then trHit(x, p)                     -- Cursed Murloc Eye, Necropile Raiment: a hit
         elseif p.kind == 'mana' then                            -- Magister's / Devout 5
@@ -802,7 +807,9 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     for i = 1, #EPR do                                          -- weapon enchants
       local x = EPR[i]
       local p = x.fx.proc
-      if (p.kind == 'sp' or p.kind == 'spiPct') and Rproc() * 100 < p.chancePct then
+      if p.kind == 'dmg' then                                   -- Dismantle: against Mechanical only, a guessed chance (sim v207)
+        if WL.fxOn(cfg, p) and Rproc() * 100 < (cb.dismantleChancePct ~= nil and cb.dismantleChancePct or p.chancePct) then trHit({ id = 'ench' .. x.id, fx = x.fx }, p) end
+      elseif (p.kind == 'sp' or p.kind == 'spiPct') and Rproc() * 100 < p.chancePct then
         eps[x.id].upTo = S.t + p.duration
         if p.mana then local g = min(p.mana, stats.maxMana - S.mana); S.mana = S.mana + g; res.manaFromConsumables = (res.manaFromConsumables or 0) + g end
       end
@@ -857,7 +864,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   end
   local function trUse(x)
     local u, st = x.fx.use, trs[x.slot]
-    if not u or not ready('tr:' .. x.slot) or S.t >= dur - EPS then return false end
+    if not u or not ready('tr:' .. x.slot) or S.t >= dur - EPS or not WL.fxOn(cfg, u) then return false end   -- an onlyVs effect is not used where it does nothing
     cds['tr:' .. x.slot] = S.t + u.cd
     if u.duration then st.upTo = S.t + u.duration * (u.durZones and trMult({ zones = u.durZones }) or 1); st.n = 0 end   -- Golden Banana: longer in Forest areas
     local r = row('trinket:' .. x.id)
@@ -900,7 +907,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- "Activate trinket": every on-use trinket that is ready (off the global cooldown)
   local function trAplOk(x)
     local u = x.fx.use
-    return u ~= nil and u.kind ~= 'mana' and (TRU[x.slot] or 'cds') ~= 'never' and ready('tr:' .. x.slot) and S.t < dur - EPS
+    return u ~= nil and u.kind ~= 'mana' and (TRU[x.slot] or 'cds') ~= 'never' and ready('tr:' .. x.slot) and S.t < dur - EPS and WL.fxOn(cfg, u)
   end
   S.trinketReady = function()
     for i = 1, NTRK do if trAplOk(TRK[i]) then return true end end
@@ -1056,7 +1063,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if s.ramp then amt = amt * s.ramp[i + 1] end
     amt = amt * vulnMult(s.school, ti, true, key)
     local cx = Rcrit() * 100
-    local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
+    local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key, ti) or 0)
     if crit then amt = amt * e.critMult end
     deal(rk, amt, crit, true, ti)
     nightfallRoll(key)
@@ -1083,7 +1090,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       end
       amt = amt * vulnMult(s.school, ti, false, key)
       local cx = Rcrit() * 100
-      local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
+      local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key, ti) or 0)
       if crit then amt = amt * e.critMult end
       deal(rk, amt, crit, false, ti)
       if key == 'shadowBolt' and crit and tv('improvedShadowBolt') ~= 0 then xdeb[ti].isb = S.t + 12 end
@@ -1136,7 +1143,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
         local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * (ti > 1 and liveMultX(key, ti, true) or liveMult(key, true))
         amt = amt * vulnMult(s.school, ti, false, key)
         local cx = Rcrit() * 100
-        local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
+        local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key, ti) or 0)
         if crit then amt = amt * e.critMult end
         deal(rk, amt, crit, true, ti)
       end
@@ -1420,7 +1427,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local function petResRoll(pr)
     local d = pr.dist
     local n = #d
-    if n < 2 then return 1 end
+    if n < 2 and d[1].pct == 0 then return 1 end              -- a single 75% step still counts (sim v207)
     local x, acc = Rpet(), 0
     for i = 1, n do acc = acc + d[i].p; if x < acc or i == n then return 1 + d[i].pct / 100 end end
     return 1

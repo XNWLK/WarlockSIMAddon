@@ -471,22 +471,32 @@ function WL.tenthsDist(a)                                      -- a >= 0 -> { { 
   for k = 0, 10 do local p = 0.5 - 2.5 * abs(k / 10 - a); if p > 1e-12 then out[#out + 1] = { tenths = k, p = p } end end
   return out
 end
+-- Returns { R, flat, dist, mean, share }: share = the average share before the 75% cap (resisted > 0, bonus < 0), a binary
+-- spell's full-resist chance. No partial resist above 75% (sim v207): an 80 / 90 / 100% step is a 75% partial (only the
+-- resisted side; Spell Pierce bonus steps are not capped).
+WL.PARTIAL_CAP_PCT = 75
 function WL.resistProfile(cfg, pierce, school, coeActive, pen, periodic)
   local cb, R = cfg.combat, WL.effectiveResist(cfg, pierce, school, coeActive, pen)
   if cb.resistModel == 'fitted' then
     local a = WL.fittedShare(R, (cb.casterLevel and cb.casterLevel ~= 0) and cb.casterLevel or 60) / (periodic and 10 or 1)
-    local sg, t, d = a > 0 and -1 or 1, nil, {}
+    local sg, t, d, mean, cap = a > 0 and -1 or 1, nil, {}, -a, WL.PARTIAL_CAP_PCT
     t = WL.tenthsDist(abs(a))
-    for i = 1, #t do d[i] = { pct = t[i].tenths ~= 0 and sg * t[i].tenths * 10 or 0, p = t[i].p } end
-    return { R = R, flat = 1, dist = d, mean = -a }
+    for i = 1, #t do
+      local pct = t[i].tenths ~= 0 and sg * t[i].tenths * 10 or 0
+      if pct < -cap then mean = mean + t[i].p * (-pct - cap) / 100; pct = -cap end
+      local o
+      for j = 1, #d do if d[j].pct == pct then o = d[j]; break end end
+      if o then o.p = o.p + t[i].p else d[#d + 1] = { pct = pct, p = t[i].p } end
+    end
+    return { R = R, flat = 1, dist = d, mean = mean, share = a }
   end
   if R > 0 then
     local mr = min(0.75, cb.pierceAvgPerPoint * R)
-    return { R = R, flat = 1, dist = WL.partialResistDist(mr), mean = -mr }
+    return { R = R, flat = 1, dist = WL.partialResistDist(mr), mean = -mr, share = mr }
   end
-  if R == 0 then return { R = 0, flat = 1, dist = { { pct = 0, p = 1 } }, mean = 0 } end
+  if R == 0 then return { R = 0, flat = 1, dist = { { pct = 0, p = 1 } }, mean = 0, share = 0 } end
   local m = cb.pierceAvgPerPoint * -R
-  return { R = R, flat = 1, dist = WL.vulnerableDist(m, cb.vulnerableStepPct / 100, cb.vulnerableSpread), mean = m }
+  return { R = R, flat = 1, dist = WL.vulnerableDist(m, cb.vulnerableStepPct / 100, cb.vulnerableSpread), mean = m, share = -m }
 end
 
 -- Each spell's resist rule (sim v205):
@@ -499,7 +509,7 @@ end
 WL.RESIST_RULES = {
   immolate = { binary = 1 }, incinerate = { binary = 1 }, shadowburn = { binary = 1 }, deathCoil = { binary = 1 },
   baneOfAgony = { binary = 1 }, drainSoul = { binary = 1 },
-  rainOfFire = { noBonus = 1 },
+  rainOfFire = { noBonus = 1, tickShare = 1 },   -- its ticks roll at a tenth of the share, like DoT ticks (sim v207)
 }
 -- { R, flat, dist, mean, landP } for one damage event of spell `key` (tick: a periodic tick). landP = chance a binary
 -- spell is not resisted (1 for the others).
@@ -509,9 +519,9 @@ function WL.spellResist(cfg, pierce, school, coeActive, pen, key, tick)
   if R > 0 then
     if rule.binary then
       local h = WL.resistProfile(cfg, pierce, school, coeActive, pen, false)
-      return { R = R, flat = 1, dist = none, mean = 0, landP = max(0, 1 + h.mean) }
+      return { R = R, flat = 1, dist = none, mean = 0, landP = max(0, 1 - h.share) }   -- a full resist is not capped
     end
-    local p = WL.resistProfile(cfg, pierce, school, coeActive, pen, tick); p.landP = 1; return p
+    local p = WL.resistProfile(cfg, pierce, school, coeActive, pen, tick or not not rule.tickShare); p.landP = 1; return p
   end
   if R < 0 and not tick and not rule.noBonus then
     local b = WL.resistProfile(cfg, pierce, school, coeActive, pen, false); b.landP = 1; return b
@@ -525,7 +535,7 @@ function WL.petResist(cfg, school, coeActive, petKey)
   local R, none = WL.effectiveResist(cfg, 0, school, coeActive, 0), { { pct = 0, p = 1 } }
   if not (R > 0) then return { R = R, flat = 1, dist = none, mean = 0, landP = 1 } end
   local h = WL.resistProfile(cfg, 0, school, coeActive, 0, false)
-  if WL.PET_BINARY[petKey] then return { R = R, flat = 1, dist = none, mean = 0, landP = max(0, 1 + h.mean) } end
+  if WL.PET_BINARY[petKey] then return { R = R, flat = 1, dist = none, mean = 0, landP = max(0, 1 - h.share) } end
   h.landP = 1; return h
 end
 
@@ -796,8 +806,15 @@ function WL.bossIs(cfg, typ)
   end
   return BOSS_IS[k] == typ
 end
--- The multiplier of an effect's vs / zones conditions in this fight (1 = none apply).
+-- Does a use / proc effect count in this fight (onlyVs, sim v207: only against one of its vs types; anything else always)?
+function WL.fxOn(cfg, o)
+  if not (o and o.onlyVs and o.vs) then return true end
+  for k in pairs(o.vs) do if WL.bossIs(cfg, k) then return true end end
+  return false
+end
+-- The multiplier of an effect's vs / zones conditions in this fight (1 = none apply; 0 = an onlyVs effect that does not count).
 function WL.fxMult(cfg, o)
+  if not WL.fxOn(cfg, o) then return 0 end
   local m, z = 1, cfg and cfg.fight and cfg.fight.zone
   if o and o.vs then for k, v in pairs(o.vs) do if WL.bossIs(cfg, k) then m = math.max(m, v) end end end
   if o and o.zones and z and z ~= '' and o.zones[z] ~= nil then m = m * o.zones[z] end
@@ -1053,7 +1070,12 @@ function WL.effectiveRotation(build, cfg)
     end
     local si = indexOf(rot, 'shadowBoltSpread')
     if si and (not fi or si < fi) then fi = si end
-    table.insert(rot, fi or (#rot + 1), 'multiDot')
+    if not fi then fi = #rot + 1 end
+    -- sim v208: right above "Life Tap when needed" when that comes first (only lifeTapNeed; other Life Tap actions keep
+    -- their place)
+    local ti = indexOf(rot, 'lifeTapNeed')
+    if ti and ti < fi then fi = ti end
+    table.insert(rot, fi, 'multiDot')
   end
   return rot
 end

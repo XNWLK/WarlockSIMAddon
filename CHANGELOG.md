@@ -3,6 +3,23 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.18.6
+
+- From the website (its v207), resists:
+  - No hit loses more than 75% to a partial resist any more (from combat logs of the live realms). Against a boss with
+    very high resistance, a hit that would have lost 80% or more now loses 75%.
+  - Rain of Fire's ticks lose a tenth as much as a direct hit, like DoT ticks. Hellfire is unchanged.
+- New trinkets and a weapon enchant the sim plays when you wear them:
+  - Blackhand's Breadth: on use, +5% crit for your spells on your target for 20 s, doubled against Orcs and Ogres.
+  - Everlook Pathcarver: on use, 607 Physical damage (less the boss's armor), doubled against Plants.
+  - Zarla's Snack Pouch: on use, a whelp casts 5 Fireballs of 439 Fire damage.
+  - Scented Runewood Brooch: 84-126 Nature damage with your spells, only against Furbolgs.
+  - Dismantle (weapon enchant): 60-90 Nature damage now and then, only against Mechanical bosses. How often is a guess
+    (10% of your spells).
+- From the website (its v208): with DoTs on 2-3 targets, the DoTs on the extra targets now come before "Life Tap when
+  needed" in every build (a little more DPS on 2-3 targets).
+- The default DPS numbers (one boss) do not change.
+
 ## v0.18.5
 
 - From the website (its v205): resists now follow each spell's own rule.
