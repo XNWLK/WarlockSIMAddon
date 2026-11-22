@@ -16,6 +16,9 @@ What changed in each version, newest first. Download a version from the
   - Necropile Raiment 3, Violet Sorcerer's Vestments 4 and Insight trigger at their measured rates; Innervate also counts
     your gear's mana per 5 seconds.
   - The DPS moves a little: Shadow Demo about 1% less, Incinerate builds up to 1% less.
+- From the website (its v210): Weakness Analyzer has a 6 minute cooldown (was 90 s), as its tooltip says. Deathmist
+  Raiment is recognised as the Forever set (its new item numbers); its 3-piece (8 mana per 5 s) and 6-piece (+23 spell
+  damage) bonuses count as before.
 
 ## v0.18.6
 
