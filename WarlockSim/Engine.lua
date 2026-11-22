@@ -489,6 +489,46 @@ function WL.resistProfile(cfg, pierce, school, coeActive, pen, periodic)
   return { R = R, flat = 1, dist = WL.vulnerableDist(m, cb.vulnerableStepPct / 100, cb.vulnerableSpread), mean = m }
 end
 
+-- Each spell's resist rule (sim v205):
+--   binary: the whole cast lands or is resisted. While resistance is left (R > 0) it is fully resisted with the chance of
+--           the average share; its hit and ticks then roll no partial resists. Immolate (hit and ticks), Bane of Agony,
+--           Drain Soul, Death Coil, Shadowburn, Incinerate.
+--   hit:    a direct hit: partial resists, and Spell Pierce bonus damage once R < 0 (the binary direct hits get the bonus
+--           too). Rain of Fire rolls as a hit but gets no bonus.
+--   tick:   DoT and channel ticks: partial resists at a tenth of the average, never bonus damage.
+WL.RESIST_RULES = {
+  immolate = { binary = 1 }, incinerate = { binary = 1 }, shadowburn = { binary = 1 }, deathCoil = { binary = 1 },
+  baneOfAgony = { binary = 1 }, drainSoul = { binary = 1 },
+  rainOfFire = { noBonus = 1 },
+}
+-- { R, flat, dist, mean, landP } for one damage event of spell `key` (tick: a periodic tick). landP = chance a binary
+-- spell is not resisted (1 for the others).
+function WL.spellResist(cfg, pierce, school, coeActive, pen, key, tick)
+  local rule = WL.RESIST_RULES[key] or {}
+  local R, none = WL.effectiveResist(cfg, pierce, school, coeActive, pen), { { pct = 0, p = 1 } }
+  if R > 0 then
+    if rule.binary then
+      local h = WL.resistProfile(cfg, pierce, school, coeActive, pen, false)
+      return { R = R, flat = 1, dist = none, mean = 0, landP = max(0, 1 + h.mean) }
+    end
+    local p = WL.resistProfile(cfg, pierce, school, coeActive, pen, tick); p.landP = 1; return p
+  end
+  if R < 0 and not tick and not rule.noBonus then
+    local b = WL.resistProfile(cfg, pierce, school, coeActive, pen, false); b.landP = 1; return b
+  end
+  return { R = R, flat = 1, dist = none, mean = 0, landP = 1 }
+end
+-- Demons: resisted by the boss's resistance (after Curse of the Elements), none of your Spell Pierce or Penetration.
+-- Imp Firebolt is binary; Lash of Pain and Demonic Brand are partially resisted.
+WL.PET_BINARY = { firebolt = 1 }
+function WL.petResist(cfg, school, coeActive, petKey)
+  local R, none = WL.effectiveResist(cfg, 0, school, coeActive, 0), { { pct = 0, p = 1 } }
+  if not (R > 0) then return { R = R, flat = 1, dist = none, mean = 0, landP = 1 } end
+  local h = WL.resistProfile(cfg, 0, school, coeActive, 0, false)
+  if WL.PET_BINARY[petKey] then return { R = R, flat = 1, dist = none, mean = 0, landP = max(0, 1 + h.mean) } end
+  h.landP = 1; return h
+end
+
 -- ---------------------------------------------------------------------------------------------------------------------
 -- rotation.js: priority actions. Conditions read the fight state S (see Sim.lua).
 -- ---------------------------------------------------------------------------------------------------------------------

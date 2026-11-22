@@ -535,9 +535,14 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   end
 
   -- Resistance / Spell Pierce roll for one Warlock damage event. ti > 1 = an extra target with its own curse.
-  local resCache = { [true] = {}, [false] = {}, t = { [true] = {}, [false] = {} } }   -- [curse up?][school]; .t: DoT ticks
+  -- sk: the spell, for its resist rule (WL.RESIST_RULES: binary / hit / tick; sim v205).
+  local RULES = WL.RESIST_RULES
+  local resCache, resCacheT = {}, {}                      -- [rule group][curse up?][school]; T: ticks
+  for _, g in ipairs({ '', 'b', 'n' }) do resCache[g] = { [true] = {}, [false] = {} }; resCacheT[g] = { [true] = {}, [false] = {} } end
   local xDotLeft, xDebLeft                                -- defined below
-  local function resProfile(school, ti, periodic)
+  local function resProfile(school, ti, periodic, sk)
+    local rl = sk and RULES[sk]
+    local g = rl and (rl.binary and 'b' or rl.noBonus and 'n' or '') or ''
     local coe
     if (ti or 0) > 1 then coe = xDebLeft(ti, 'coe') > 0
     else
@@ -546,18 +551,25 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     end
     local tp = NTRK > 0 and TR.pierce() or 0                   -- Eye of Moam: -100 resistances while up
     if tp ~= 0 then
-      local k = school .. (coe and '1' or '0') .. 'p' .. tp .. (periodic and 't' or '')
+      local k = school .. (coe and '1' or '0') .. 'p' .. tp .. (periodic and 't' or '') .. g
       local pr = resCache[k]
-      if not pr then pr = WL.resistProfile(cfg, stats.pierce, school, coe, stats.spellPen + tp, periodic); resCache[k] = pr end
+      if not pr then pr = WL.spellResist(cfg, stats.pierce, school, coe, stats.spellPen + tp, sk, periodic); resCache[k] = pr end
       return pr
     end
-    local c = (periodic and resCache.t or resCache)[coe]
+    local c = (periodic and resCacheT or resCache)[g][coe]
     local pr = c[school]
-    if not pr then pr = WL.resistProfile(cfg, stats.pierce, school, coe, stats.spellPen, periodic); c[school] = pr end
+    if not pr then pr = WL.spellResist(cfg, stats.pierce, school, coe, stats.spellPen, sk, periodic); c[school] = pr end
     return pr
   end
-  local function vulnMult(school, ti, periodic)                -- periodic: a DoT tick (a tenth in the fitted model)
-    local pr = resProfile(school, ti, periodic)
+  -- A binary spell that hit: fully resisted while the target has resistance left (sim v205).
+  local function binResisted(key, ti)
+    local rl = RULES[key]
+    if not rl or not rl.binary or CHH[key] then return false end
+    local pr = resProfile(SPELLS[key].school, ti, false, key)
+    return pr.landP < 1 and Rvuln() >= pr.landP
+  end
+  local function vulnMult(school, ti, periodic, sk)            -- periodic: a DoT / channel tick; sk: the spell (its resist rule)
+    local pr = resProfile(school, ti, periodic, sk)
     local m, dist = pr.flat, pr.dist
     local n = #dist
     if n > 1 then
@@ -1042,7 +1054,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local s, e, rk = SPELLS[key], tbl[key], xkey(ti, key)
     local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * liveMultX(key, ti, true) * (snap.castMult or 1)
     if s.ramp then amt = amt * s.ramp[i + 1] end
-    amt = amt * vulnMult(s.school, ti, true)
+    amt = amt * vulnMult(s.school, ti, true, key)
     local cx = Rcrit() * 100
     local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
     if crit then amt = amt * e.critMult end
@@ -1055,6 +1067,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local s, e, rk = SPELLS[key], tbl[key], xkey(ti, key)
     local r = row(rk)
     if Rhit() * 100 >= (TRX and TR.hitNow() or stats.hitPct) and not CHH[key] then r.misses = r.misses + 1; return false end
+    if binResisted(key, ti) then r.misses = r.misses + 1; r.resisted = (r.resisted or 0) + 1; return false end   -- a binary spell fully resisted
     r.landed = r.landed + 1
     if #IFX > 0 then TR.itemOnLand(ti, TR.landCT) end    -- Blade of Eternal Darkness (sim v202)
     if key == 'baneOfAgony' then S.ampUp = false end    -- Amplify Curse spent on a landed Bane
@@ -1068,7 +1081,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       if (key == 'shadowBolt' or key == 'searingPain') and execute and tv('decimation') ~= 0 then
         amt = amt * addOp0(key, tv('decimation', 'dmgPct')); buffs.decimation = S.t + 10
       end
-      amt = amt * vulnMult(s.school, ti)
+      amt = amt * vulnMult(s.school, ti, false, key)
       local cx = Rcrit() * 100
       local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
       if crit then amt = amt * e.critMult end
@@ -1087,7 +1100,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local s, e = SPELLS[key], tbl[key]
     local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * liveMult(key, true) * (snap.castMult or 1)
     if s.ramp then amt = amt * s.ramp[i + 1] end
-    amt = amt * vulnMult(s.school, nil, true)
+    amt = amt * vulnMult(s.school, nil, true, key)
     local cx = Rcrit() * 100
     local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
     if crit then amt = amt * e.critMult end
@@ -1121,7 +1134,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       if Rhit() * 100 >= (TRX and TR.hitNow() or stats.hitPct) and not CHH[key] then r.misses = r.misses + 1
       else
         local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * (ti > 1 and liveMultX(key, ti, true) or liveMult(key, true))
-        amt = amt * vulnMult(s.school, ti)
+        amt = amt * vulnMult(s.school, ti, false, key)
         local cx = Rcrit() * 100
         local crit = CHC[key] or cx < e.critPct + (TRX and TR.crit(key) or 0)
         if crit then amt = amt * e.critMult end
@@ -1136,6 +1149,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if (target or 0) > 1 then return landExtra(key, eureka, castMult, target) end
     local s, e, r = SPELLS[key], tbl[key], bySpell[key] or row(key)
     if Rhit() * 100 >= (TRX and TR.hitNow() or stats.hitPct) and not CHH[key] then r.misses = r.misses + 1; return false end
+    if binResisted(key, nil) then r.misses = r.misses + 1; r.resisted = (r.resisted or 0) + 1; return false end   -- a binary spell fully resisted
     r.landed = r.landed + 1
     if #IFX > 0 then TR.itemOnLand(0, TR.landCT) end     -- Blade of Eternal Darkness (sim v202)
     if key == 'baneOfAgony' then S.ampUp = false end    -- Amplify Curse spent on a landed Bane
@@ -1154,7 +1168,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       amt = amt * addOp0(key, tv('decimation', 'dmgPct'))
       buffs.decimation = S.t + 10
     end
-    amt = amt * vulnMult(s.school)
+    amt = amt * vulnMult(s.school, nil, false, key)
     local revHad = TR.REV and TR.revBonus() or 0                -- Revelation
     local cx = Rcrit() * 100
     local crit = CHC[key] or cx < e.critPct + revHad + (TRX and TR.crit(key) or 0)
@@ -1288,8 +1302,11 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     S.cast = nil
     if s.kind == 'channel' then
       local r = row(key)
-      if not s.aoe and Rhit() * 100 >= (TRX and TR.hitNow() or stats.hitPct) and not CHH[key] then
+      local chMiss = not s.aoe and Rhit() * 100 >= (TRX and TR.hitNow() or stats.hitPct) and not CHH[key]
+      local chRes = not s.aoe and not chMiss and binResisted(key, nil)   -- Drain Soul is binary
+      if chMiss or chRes then
         r.misses = r.misses + 1
+        if chRes then r.resisted = (r.resisted or 0) + 1 end
         if fromTL then TL.turn = true end
         S.busyUntil = S.t; S.gcdReady = S.t + gcdT; scheduleDecide(S.gcdReady)
         return
@@ -1391,6 +1408,23 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     return sp
   end
   local function petSp() return warlockSpNow() * (cfg.petSpPct ~= nil and cfg.petSpPct or 100) / 100 + (stats.dkSp or 0) end
+  -- A demon's spell against the boss's resistance after Curse of the Elements (no Spell Pierce / Penetration of yours;
+  -- sim v205). Rpet rolls only while resistance is left, so the dice stay as they were when it is 0.
+  local petResCache = { [true] = {}, [false] = {} }              -- [curse up?][spell] (a spell's school is the same all fight)
+  local function petRes(school, pk)
+    local coe = buff('coe')
+    local pr = petResCache[coe][pk]
+    if not pr then pr = WL.petResist(cfg, school, coe, pk); petResCache[coe][pk] = pr end
+    return pr
+  end
+  local function petResRoll(pr)
+    local d = pr.dist
+    local n = #d
+    if n < 2 then return 1 end
+    local x, acc = Rpet(), 0
+    for i = 1, n do acc = acc + d[i].p; if x < acc or i == n then return 1 + d[i].pct / 100 end end
+    return 1
+  end
   -- Demonic Brand: a landed pet attack on a branded target spends a charge and adds bonus damage.
   local function brandProc()
     if not buff('brand') or not ((S.brandCharges or 0) > 0) then return end
@@ -1398,6 +1432,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local db, school = cfg.demonicBrand, build.pet == 'imp' and 'fire' or 'shadow'
     local m = petMult(school)
     local amt = ((db.baseMin + db.baseMax) / 2 + db.shadowSpCoef * (warlockSpNow() + (stats.schoolSp.shadow or 0))) * m
+    amt = amt * petResRoll(petRes(school, 'brand'))            -- partial resists
     deal('pet:brand', amt, false, false)
     local r = row('pet:brand'); r.casts = r.casts + 1
   end
@@ -1407,11 +1442,14 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local r = bySpell[key] or row(key)
     r.casts = r.casts + 1
     if Rpet() * 100 >= stats.hitPct and not CHH[key] then r.misses = r.misses + 1; return end
+    local ppr = petRes(sp.school, sp.key)                       -- the boss's resistance, none of your Pierce
+    if ppr.landP < 1 and not CHH[key] and Rpet() >= ppr.landP then r.misses = r.misses + 1; r.resisted = (r.resisted or 0) + 1; return end   -- Firebolt is binary
     r.landed = r.landed + 1
     jowProc(true)
     local base = sp.base * (sp.key == 'lashOfPain' and 1 + tv('improvedSayaad', 'lashPct') / 100 or 1)
     local amt = (base + sp.coef * petSp()) * petMult(sp.school)
     if sp.key == 'firebolt' then amt = amt * (1 + tv('improvedImp', 'firebolt') / 100) end
+    amt = amt * petResRoll(ppr)                                 -- Lash of Pain: partial resists
     local cx = Rpet() * 100
     local crit = CHC[key] or cx < stats.critPct
     if crit then amt = amt * cb.critMultiplier end
@@ -1522,11 +1560,11 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- ---------- end-of-fight DoT check ----------
   do                                                     -- (a block: these names are only needed in here)
   local DOT_END = not (cfg.options and cfg.options.dotEndCheck == false)
-  local function expVuln(school, ti, periodic)
-    local pr = resProfile(school, ti, periodic)
+  local function expVuln(school, ti, periodic, sk)             -- with the spell's resist rule (a binary spell's land chance)
+    local pr = resProfile(school, ti, periodic, sk)
     local a = 0
     for i = 1, #pr.dist do a = a + pr.dist[i].p * (1 + pr.dist[i].pct / 100) end
-    return pr.flat * a
+    return pr.landP * pr.flat * a
   end
   local function expCrit(critPct, critMult) return 1 + max(0, min(100, critPct)) / 100 * (critMult - 1) end
   local function lmult(key, ti, periodic)
@@ -1541,7 +1579,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local amt
     if s.aoe then
       local sum = 0
-      for tj = 1, NT do sum = sum + e.ticks * (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * lmult(key, tj, true) * expVuln(s.school, tj) end
+      for tj = 1, NT do sum = sum + e.ticks * (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * lmult(key, tj, true) * expVuln(s.school, tj, false, key) end
       return hitChance() * sum * expCrit(e.critPct, e.critMult)
     end
     if s.kind == 'channel' then
@@ -1552,7 +1590,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       if key == 'incinerate' and not noImmolate and dotLeft('immolate') > 0 then amt = amt * (1 + s.immolateBonusPct / 100) end
       if (key == 'shadowBolt' or key == 'searingPain') and S.targetHpPct < executePct and tv('decimation') ~= 0 then amt = amt * addOp0(key, tv('decimation', 'dmgPct')) end
     end
-    return hitChance() * amt * expVuln(s.school, ti) * expCrit(e.critPct, e.critMult)
+    return hitChance() * amt * expVuln(s.school, ti, s.kind == 'channel', key) * expCrit(e.critPct, e.critMult)
   end
   -- What the rotation would cast instead of the DoT: the first action below it that picks a damaging direct spell or channel.
   local function altBelow(idx)
@@ -1578,7 +1616,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local cost = (occupies(key) + LAT) * fRate
     local finish, g, value = min(dur, tL + s.duration), gcd(), 0
     local castMult = (key == 'baneOfAgony' and tv('amplifyCurse') ~= 0 and (S.ampUp or (ready('amplifyCurse') and slotGate('amplifyCurse') ~= 0))) and 1 + tv('amplifyCurse', 'boaPct') / 100 or 1
-    local tickAmt = (s.tickBase + s.tickCoef * spNow(e)) * castMult * e.periodicMult * lmult(key, ti, true) * expVuln(s.school, ti, true) * expCrit(e.critPct, e.critMult)
+    local tickAmt = (s.tickBase + s.tickCoef * spNow(e)) * castMult * e.periodicMult * lmult(key, ti, true) * expVuln(s.school, ti, true, key) * expCrit(e.critPct, e.critMult)
     -- Wrack as the filler (patch of 2026-11-10): this DoT ticks faster. Its tick times: the normal pace until Wrack can start
     -- after this cast, then faster by Wrack's share of the fight so far (80% until 20 s have passed).
     local times = nil

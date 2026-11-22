@@ -146,6 +146,9 @@ const scenes = [
   S('sets: Violet Sorcerer 4, not in a city, three pieces of Magister', [['gearBuilder', { on: true, slots: { head: { id: 273044 }, chest: { id: 273051 }, legs: { id: 286987 }, hands: { id: 286988 }, feet: { id: 16682 }, wrist: { id: 16683 }, waist: { id: 16685 } } }], ['gear.spi', 80], ['fight.duration', 240]]),
   S('resist model: fitted, high resistance, level 40', [['combat.targetResist.shadow', 150], ['combat.targetResist.fire', 250], ['combat.casterLevel', 40]]),
   S('resist model: fitted, Spell Pierce past the curse, extra targets', [['gear.pierce', 120], ['combat.targetResist.shadow', 20], ['fight.targets', 3]]),
+  // sim v205: each spell's resist rule (binary / hit / tick), demons resisted by the boss
+  S('resist rules: Bane of Agony (binary) and ticks against resistance', [['combat.targetResist.shadow', 60]], { builds: ['sm_ruin_classic', 'wrack_ds', 'wrack_succubus'] }),
+  S('resist rules: demons and binary spells, high resistance, no curse', [['combat.targetResist.shadow', 90], ['combat.targetResist.fire', 90], ['debuffs.*.on', false]], { builds: ['destro_incin_imp', 'demo_pact_fire', 'demo_pact_succ_sb'], rotation: r => r.filter(k => k !== 'curseOfElements') }),
   S('resist model: classic', [['combat.resistModel', 'classic'], ['gear.pierce', 40], ['combat.targetResist.shadow', 60], ['combat.targetResist.fire', 90]]),
   S('resist model: Rune of Perfection in a forest', [['gearBuilder', { on: true, slots: { trinket1: { id: 21565 }, trinket2: { id: 21566 } } }], ['fight.zone', 'forest'], ['combat.targetResist.shadow', 10], ['combat.targetResist.fire', 10]]),
   S('trinkets off: builder off', [['gearBuilder', { on: false, slots: { trinket1: { id: 18820 } } }]], { builds: ['demo_pact_succ_sb'] }),

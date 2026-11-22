@@ -3,6 +3,18 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.18.5
+
+- From the website (its v205): resists now follow each spell's own rule.
+  - Immolate, Incinerate, Shadowburn, Death Coil, Bane of Agony and Drain Soul are all or nothing: while the boss has
+    resistance left, the whole cast is sometimes resisted (it counts as a miss), and it never loses part of its damage.
+  - Shadow Bolt, Searing Pain, Soul Fire, Conflagrate, Hellfire and Rain of Fire can lose part of a hit, as before.
+  - DoT and channel ticks lose a tenth as much.
+  - Spell Pierce past the boss's resistance adds damage only to direct hits, never to ticks or Rain of Fire.
+  - Your demon's spells are now resisted by the boss: the Imp's Firebolt all or nothing, Lash of Pain and Demonic Brand
+    in part. Your Spell Pierce does not help them.
+  - The DPS moves by less than 1 in most fights; Spell Pierce is worth less in the stat weights.
+
 ## v0.18.4
 
 - Items page: a new box, *Also over each item you wear*. Untick it to hide the numbers over your items on the character
