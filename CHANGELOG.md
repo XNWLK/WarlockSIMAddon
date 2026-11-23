@@ -3,6 +3,13 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.18.8
+
+- A sacrificed Imp is recognised. Its buff in Forever is *Burning Shadow* (+15% Shadow damage), which has the spell
+  number the old table gave the Succubus, so a sacrificed Imp was read as the Succubus and simmed with +15% Fire. The
+  sacrifice is now matched by its spell number first. (Succubus and Voidwalker: not seen in the game yet. If one of them
+  is read wrong, type `/wsim dump` with it sacrificed.)
+
 ## v0.18.7
 
 - From the website (its v209), measured from public combat logs of the live realms:

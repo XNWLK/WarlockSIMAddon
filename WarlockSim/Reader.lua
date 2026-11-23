@@ -19,13 +19,16 @@ local function num(v) return (type(v) == 'number' and not isSecret(v)) and v or 
 
 local RACE_BY_FILE = { Human = 'human', Gnome = 'gnome', Orc = 'orc', Scourge = 'undead', Undead = 'undead', Troll = 'troll' }
 local PET_BY_NPC = { ['416'] = 'imp', ['1863'] = 'succubus', ['417'] = 'felhunter', ['1860'] = 'voidwalker' }
--- Demonic Sacrifice's buff per demon, checked by spell id and name. Forever swapped what the sacrifices do (Imp +15%
--- Shadow, Succubus +15% Fire, Voidwalker mana, Felhunter health), and the classic buffs moved with them: with the
--- Felhunter sacrificed the game reports Fel Stamina 18790 (Xn's dump, 2026-11-19; it was read as the Voidwalker before).
--- Imp sacrificed = Touch of Shadow (Xn hovered the buff, 2026-11-19). Succubus = Burning Wish and Voidwalker = Fel Energy
--- follow the same swap (not yet seen).
+-- Demonic Sacrifice's buff per demon. Forever changed what the sacrifices do (Imp +15% Shadow, Succubus +15% Fire,
+-- Voidwalker mana, Felhunter health). Seen in the game (Xn's dumps):
+--   Imp sacrificed       = Burning Shadow 18789, "Shadow damage done increased by 15%" (2026-11-23; classic: the
+--                          Imp's Burning Wish, same spell id, new name and effect; it was read as the Succubus before)
+--   Felhunter sacrificed = Fel Stamina 18790 (2026-11-19; classic: the Voidwalker's)
+-- Not seen yet (guesses): Succubus = 18791 (its classic spell id, like the Imp's), Voidwalker = 18792.
+-- Matched by spell id first; a name only when no id matched, and only the names seen in Forever (the classic names now
+-- belong to other demons' ids or effects, so they are not used).
 local SACRIFICE_AURAS = {
-  { 'imp', 18791, 'Touch of Shadow' }, { 'voidwalker', 18792, 'Fel Energy' }, { 'succubus', 18789, 'Burning Wish' }, { 'felhunter', 18790, 'Fel Stamina' },
+  { 'imp', 18789, 'Burning Shadow' }, { 'felhunter', 18790, 'Fel Stamina' }, { 'succubus', 18791 }, { 'voidwalker', 18792 },
 }
 -- Raid buffs of the sim that can sit on you as a buff, with the names they go by.
 local BUFF_NAMES = {
@@ -210,13 +213,14 @@ function WL.readCharacter()
       if hit and b then buffs[key] = true; used[i] = true end
     end
   end
-  for s = 1, #SACRIFICE_AURAS do
-    local sa = SACRIFICE_AURAS[s]
-    local own = spellName(sa[2])
-    for i = 1, #auras do
-      if auras[i].id == sa[2] or auras[i].name == sa[3] or (own and auras[i].name == own) then
-        c.sacrifice = sa[1]; used[i] = true
-        c.sacrificeAura = { id = auras[i].id, name = auras[i].name }   -- what the game called it (kept with the character, for checking)
+  for pass = 1, 2 do                                       -- 1: by spell id; 2: by a name seen in Forever (none matched by id)
+    for s = 1, #SACRIFICE_AURAS do
+      local sa = SACRIFICE_AURAS[s]
+      for i = 1, #auras do
+        if not c.sacrificeAura and ((pass == 1 and auras[i].id == sa[2]) or (pass == 2 and sa[3] and auras[i].name == sa[3])) then
+          c.sacrifice = sa[1]; used[i] = true
+          c.sacrificeAura = { id = auras[i].id, name = auras[i].name }   -- what the game called it (kept with the character, for checking)
+        end
       end
     end
   end

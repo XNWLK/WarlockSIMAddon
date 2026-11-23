@@ -10,7 +10,7 @@ A.set = { raidDps = 3500, length = 150, hideHealth = false, hideAuras = false, h
 A.RACES = { human = { 'Human', 'Human' }, gnome = { 'Gnome', 'Gnome' }, orc = { 'Orc', 'Orc' }, undead = { 'Undead', 'Scourge' }, troll = { 'Troll', 'Troll' } }
 A.race = 'orc'
 A.PET_NPC = { imp = '416', succubus = '1863', felhunter = '417', voidwalker = '1860' }
-A.SAC_AURA = { imp = { 18791, 'Touch of Shadow' }, voidwalker = { 18792, 'Fel Energy' }, succubus = { 18789, 'Burning Wish' }, felhunter = { 18790, 'Fel Stamina' } }   -- Forever's swap (Reader.lua)
+A.SAC_AURA = { imp = { 18789, 'Burning Shadow' }, voidwalker = { 18792, 'Sacrifice' }, succubus = { 18791, 'Sacrifice' }, felhunter = { 18790, 'Fel Stamina' } }   -- Forever's swap (Reader.lua)
 local PRESSABLE = { 'shadowBolt', 'searingPain', 'incinerate', 'immolate', 'corruption', 'baneOfAgony', 'baneOfDoom', 'siphonLife', 'curseOfElements',
                     'conflagrate', 'shadowburn', 'soulFire', 'wrack', 'deathCoil', 'lifeTap' }
 local KEYS = { '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'Q', 'E', 'R', 'F', 'T', 'G' }

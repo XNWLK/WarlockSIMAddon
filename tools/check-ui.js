@@ -48,6 +48,13 @@ step('read the character', `SlashCmdList.WARLOCKSIM("read"); local c = WLX.char;
   assert(#c.otherAuras == 1 and c.otherAuras[1] == "Demon Armor", "other auras")
   assert(c.sheet.sp == 712 and c.sheet.spShadow == 733 and c.sheet.crit == 18.4 and c.sheet.hit == 9 and c.sheet.mp5 == 40)
   return string.format("gear: SP %s, Int %s, Sta %s, crit %s, hit %s, shadow +%s; template %s", c.gear.sp, c.gear.int, c.gear.sta, c.gear.critPct, c.gear.hitPct, c.gear.shadowSp, WLX.bestTemplate(c.talents, WLX.templates(), c.pet))`);
+step('the sacrificed demon by its buff: the Imp is Burning Shadow 18789 (as in the game), a name alone only when seen in Forever', `local keep
+  for i, a in ipairs(MOCK.auras) do if a.spellId == 18791 then keep = i end end; assert(keep, 'the mock sacrifice aura')
+  local was = MOCK.auras[keep]
+  MOCK.auras[keep] = { name = 'Burning Shadow', spellId = 18789 }; SlashCmdList.WARLOCKSIM('read'); assert(WLX.char.sacrifice == 'imp' and WLX.char.sacrificeAura.id == 18789, 'Burning Shadow: ' .. tostring(WLX.char.sacrifice))
+  MOCK.auras[keep] = { name = 'Fel Stamina', spellId = 1300001 }; SlashCmdList.WARLOCKSIM('read'); assert(WLX.char.sacrifice == 'felhunter', 'Fel Stamina by name: ' .. tostring(WLX.char.sacrifice))
+  MOCK.auras[keep] = { name = 'Touch of Shadow', spellId = 1300002 }; SlashCmdList.WARLOCKSIM('read'); assert(WLX.char.sacrifice == nil, 'a classic name is not a demon: ' .. tostring(WLX.char.sacrifice))
+  MOCK.auras[keep] = was; SlashCmdList.WARLOCKSIM('read'); assert(WLX.char.sacrifice == 'succubus', 'back: ' .. tostring(WLX.char.sacrifice))`);
 step('Demonic Sacrifice talented: a warning when nothing (or another demon) is sacrificed', `local c = WLX.char; local keep, keepT, keepP, keepTpl = c.sacrifice, c.talents.demonicSacrifice, c.pet, WLX.db.options.template
   local tk; for _, b in ipairs(WLX.BUILDS) do if b.sacrifice == "succubus" and not tk then tk = b.key end end; assert(tk, "a build that sacrifices the Succubus")
   c.talents.demonicSacrifice = 1; c.pet = nil; c.sacrifice = "succubus"; WLX.db.options.template = tk
@@ -397,7 +404,7 @@ step('an item that completes a set bonus: the item, the set bonus and the total'
   MOCK.equipped[1], MOCK.equipped[5], MOCK.equipped[7] = keep[1], keep[2], keep[3]; WLX.doReadCharacter(); ${pump}
   return string.format('a third Magister piece: item %+.1f, set bonus %+.1f, total %+.1f DPS', it, st, total)`);
 step('/wsim test', 'SlashCmdList.WARLOCKSIM("test"); local t = WLX.db.selfTest; assert(t and t.ok, "self-test failed: " .. table.concat(t and t.lines or {}, " | ")); return t.fights .. " fights match"');
-step('/wsim dump, read, help, close', 'WLX.char.raw = {}; SlashCmdList.WARLOCKSIM("dump"); assert(WLX.db.dump.character.raw.nodeCount == #WLX.TALENTS and #WLX.db.dump.character.raw.auras > 0, "the dump reads the character fresh"); local sa = WLX.db.dump.character.sacrificeAura; assert(sa and sa.name == "Burning Wish" and sa.id == 18789, "the sacrifice buff as the game named it"); SlashCmdList.WARLOCKSIM("read"); SlashCmdList.WARLOCKSIM("help"); SlashCmdList.WARLOCKSIM(""); assert(not WarlockSimFrame:IsShown()); MOCK.fire("PLAYER_LOGOUT"); assert(WLX.db.settings.v == 1)');
+step('/wsim dump, read, help, close', 'WLX.char.raw = {}; SlashCmdList.WARLOCKSIM("dump"); assert(WLX.db.dump.character.raw.nodeCount == #WLX.TALENTS and #WLX.db.dump.character.raw.auras > 0, "the dump reads the character fresh"); local sa = WLX.db.dump.character.sacrificeAura; assert(sa and sa.name == "Burning Fel" and sa.id == 18791, "the sacrifice buff as the game named it"); SlashCmdList.WARLOCKSIM("read"); SlashCmdList.WARLOCKSIM("help"); SlashCmdList.WARLOCKSIM(""); assert(not WarlockSimFrame:IsShown()); MOCK.fire("PLAYER_LOGOUT"); assert(WLX.db.settings.v == 1)');
 step('a second session starts from the saved settings', 'local saved = WarlockSimDB; MOCK.fire("ADDON_LOADED", "WarlockSim"); assert(WLX.db == saved and WLX.cfg.fight.duration == 180)');
 console.log('\n' + host.limits());
 console.log('Chat lines the addon printed: ' + lua('return #MOCK.chat'));
