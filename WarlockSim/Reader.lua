@@ -24,11 +24,13 @@ local PET_BY_NPC = { ['416'] = 'imp', ['1863'] = 'succubus', ['417'] = 'felhunte
 --   Imp sacrificed       = Burning Shadow 18789, "Shadow damage done increased by 15%" (2026-11-23; classic: the
 --                          Imp's Burning Wish, same spell id, new name and effect; it was read as the Succubus before)
 --   Felhunter sacrificed = Fel Stamina 18790 (2026-11-19; classic: the Voidwalker's)
--- Not seen yet (guesses): Succubus = 18791 (its classic spell id, like the Imp's), Voidwalker = 18792.
+--   Succubus sacrificed  = Touch of Fire, "Fire damage done increased by 15%" (Xn's screenshot, 2026-11-23; its spell id
+--                          not seen: 18791 inferred, the classic Succubus's, as the Imp kept its own)
+-- Not seen yet: Voidwalker = 18792 (a guess: the classic Felhunter's, as the Felhunter took the Voidwalker's).
 -- Matched by spell id first; a name only when no id matched, and only the names seen in Forever (the classic names now
 -- belong to other demons' ids or effects, so they are not used).
 local SACRIFICE_AURAS = {
-  { 'imp', 18789, 'Burning Shadow' }, { 'felhunter', 18790, 'Fel Stamina' }, { 'succubus', 18791 }, { 'voidwalker', 18792 },
+  { 'imp', 18789, 'Burning Shadow' }, { 'felhunter', 18790, 'Fel Stamina' }, { 'succubus', 18791, 'Touch of Fire' }, { 'voidwalker', 18792 },
 }
 -- Raid buffs of the sim that can sit on you as a buff, with the names they go by.
 local BUFF_NAMES = {

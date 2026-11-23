@@ -53,6 +53,7 @@ step('the sacrificed demon by its buff: the Imp is Burning Shadow 18789 (as in t
   local was = MOCK.auras[keep]
   MOCK.auras[keep] = { name = 'Burning Shadow', spellId = 18789 }; SlashCmdList.WARLOCKSIM('read'); assert(WLX.char.sacrifice == 'imp' and WLX.char.sacrificeAura.id == 18789, 'Burning Shadow: ' .. tostring(WLX.char.sacrifice))
   MOCK.auras[keep] = { name = 'Fel Stamina', spellId = 1300001 }; SlashCmdList.WARLOCKSIM('read'); assert(WLX.char.sacrifice == 'felhunter', 'Fel Stamina by name: ' .. tostring(WLX.char.sacrifice))
+  MOCK.auras[keep] = { name = 'Touch of Fire', spellId = 1300003 }; SlashCmdList.WARLOCKSIM('read'); assert(WLX.char.sacrifice == 'succubus', 'Touch of Fire by name: ' .. tostring(WLX.char.sacrifice))
   MOCK.auras[keep] = { name = 'Touch of Shadow', spellId = 1300002 }; SlashCmdList.WARLOCKSIM('read'); assert(WLX.char.sacrifice == nil, 'a classic name is not a demon: ' .. tostring(WLX.char.sacrifice))
   MOCK.auras[keep] = was; SlashCmdList.WARLOCKSIM('read'); assert(WLX.char.sacrifice == 'succubus', 'back: ' .. tostring(WLX.char.sacrifice))`);
 step('Demonic Sacrifice talented: a warning when nothing (or another demon) is sacrificed', `local c = WLX.char; local keep, keepT, keepP, keepTpl = c.sacrifice, c.talents.demonicSacrifice, c.pet, WLX.db.options.template

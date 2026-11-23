@@ -7,8 +7,8 @@ What changed in each version, newest first. Download a version from the
 
 - A sacrificed Imp is recognised. Its buff in Forever is *Burning Shadow* (+15% Shadow damage), which has the spell
   number the old table gave the Succubus, so a sacrificed Imp was read as the Succubus and simmed with +15% Fire. The
-  sacrifice is now matched by its spell number first. (Succubus and Voidwalker: not seen in the game yet. If one of them
-  is read wrong, type `/wsim dump` with it sacrificed.)
+  sacrifice is now matched by its spell number first. The Succubus's *Touch of Fire* (+15% Fire) is recognised too. (Voidwalker: not seen in the game
+  yet. If it is read wrong, type `/wsim dump` with it sacrificed.)
 
 ## v0.18.7
 
