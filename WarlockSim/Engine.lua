@@ -196,26 +196,61 @@ function WL.computeStats(build, raceKey, cfg)
 
   -- Primary stats. Buffs that share a `group` do not stack: only the biggest value of a stat counts.
   local act = WL.activeBuffs(cfg)
+  local cons = {}
+  do
+    local all = WL.activeConsumables(cfg)
+    for i = 1, #all do if all[i].group ~= 'weapon' and all[i].group ~= 'stone' then cons[#cons + 1] = all[i] end end
+  end
+  -- Elixir stats (sim v213, public in-game checks, Forever 2026-11-23): of the active elixirs marked elixirStats only the
+  -- largest amount of each stat counts (Elixir of the Owl + Cerebral Cortex Compound = +25 Intellect), and a raid buff with
+  -- overwritesElixir (Arcane Intellect, Divine Spirit, Power Word: Fortitude) replaces that stat of the elixirs while it is
+  -- up. Spirit of Zanza and food are not marked and still add up.
+  local function elixirsOf(s)
+    local out = {}
+    for i = 1, #cons do local c = cons[i]; if c.elixirStats and c[s] and c[s] > 0 then out[#out + 1] = c end end
+    return out
+  end
+  local function overwriter(s)
+    for i = 1, #act do
+      local ow = act[i].overwritesElixir
+      if ow then
+        if type(ow) == 'table' then for j = 1, #ow do if ow[j] == s then return act[i] end end
+        elseif ow == s then return act[i] end
+      end
+    end
+    return nil
+  end
+  local function names(list, skip)
+    local t = {}
+    for i = 1, #list do if list[i] ~= skip then t[#t + 1] = list[i].name end end
+    return table.concat(t, ', ')
+  end
   local function buffStat(s)
-    local sum, best = 0, {}
+    local sum, best, ow = 0, {}, overwriter(s)
+    local gone = ow and names(elixirsOf(s)) or ''
     for i = 1, #act do
       local b = act[i]
       if b[s] and b[s] ~= 0 and b.group and (not best[b.group] or b[s] > best[b.group][s]) then best[b.group] = b end
     end
     for i = 1, #act do
       local b = act[i]
-      if b[s] and b[s] ~= 0 and (not b.group or best[b.group] == b) then sum = sum + add(s, b.name, b[s]) end
+      if b[s] and b[s] ~= 0 and (not b.group or best[b.group] == b) then
+        sum = sum + add(s, b.name .. ((b == ow and gone ~= '') and (' (replaces ' .. gone .. ')') or ''), b[s])
+      end
     end
     return sum
   end
-  local cons = {}
-  do
-    local all = WL.activeConsumables(cfg)
-    for i = 1, #all do if all[i].group ~= 'weapon' and all[i].group ~= 'stone' then cons[#cons + 1] = all[i] end end
-  end
   local function conStat(s)
-    local sum = 0
-    for i = 1, #cons do local c = cons[i]; if c[s] and c[s] ~= 0 then sum = sum + add(s, c.name, c[s]) end end
+    local sum, el = 0, elixirsOf(s)
+    local isEl = {}
+    for i = 1, #el do isEl[el[i]] = true end
+    for i = 1, #cons do local c = cons[i]; if c[s] and c[s] ~= 0 and not isEl[c] then sum = sum + add(s, c.name, c[s]) end end
+    if #el > 0 and not overwriter(s) then                                  -- the strongest elixir alone
+      local top = el[1]
+      for i = 2, #el do if el[i][s] > top[s] then top = el[i] end end
+      local rest = names(el, top)
+      sum = sum + add(s, top.name .. (rest ~= '' and (' (does not add to ' .. rest .. ')') or ''), top[s])
+    end
     return sum
   end
   -- Crit from consumables: items that share a critGroup do not stack their crit.
@@ -530,10 +565,17 @@ function WL.spellResist(cfg, pierce, school, coeActive, pen, key, tick)
     end
     local p = WL.resistProfile(cfg, pierce, school, coeActive, pen, tick or not not rule.tickShare); p.landP = 1; return p
   end
-  if R < 0 and not tick and not rule.noBonus then
+  if R < 0 and not tick and not rule.noBonus and WL.pierceBonusOn(cfg, R) then
     local b = WL.resistProfile(cfg, pierce, school, coeActive, pen, false); b.landP = 1; return b
   end
   return { R = R, flat = 1, dist = none, mean = 0, landP = 1 }
+end
+-- Spell Pierce 1% cut (sim v213, a public log study, Forever 2026-11-23): Spell Pierce beyond the resistance gives no
+-- bonus while its share |R| / (|R| + 8 x your level + 19) is under 1% (level 60: 5 points = 0.992% none, 6 = 1.19% a bonus).
+WL.PIERCE_MIN_SHARE = 0.01
+function WL.pierceBonusOn(cfg, R)
+  local lv = cfg.combat.casterLevel
+  return R < 0 and WL.fittedShare(-R, (lv and lv ~= 0) and lv or 60) >= WL.PIERCE_MIN_SHARE
 end
 -- Demons: resisted by the boss's resistance (after Curse of the Elements), none of your Spell Pierce or Penetration.
 -- Imp Firebolt is binary; Lash of Pain and Demonic Brand are partially resisted.

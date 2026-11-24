@@ -66,7 +66,15 @@ const scenes = [
   S('engineering', [['professions.engineering', true], ['consumables.goblinSapper.on', true], ['consumables.denseDynamite.on', true]]),
   S('book ranks, old dot rule, no curse', [['options.bookRanks', true], ['options.dotEndCheck', false], ['options.useCurseOfElements', false], ['debuffs.coeOther.on', true]]),
   S('spell pierce + resist', [['gear.pierce', 60], ['combat.targetResist.shadow', 30], ['combat.targetResist.fire', 70]]),
-  S('spell penetration + pierce + resist', [['gear.spellPen', 50], ['gear.pierce', 20], ['combat.targetResist.shadow', 30], ['combat.targetResist.fire', 120]]),
+  // sim v213: of the elixirs only the largest amount of a stat counts; Arcane Intellect / Divine Spirit / Fortitude replace it
+S('elixirs alone: Owl + Cerebral Cortex + Sages + Zanza', [['buffs.*.on', false], ['consumables.elixirOwl.on', true], ['consumables.cerebralCortex.on', true],
+['consumables.elixirSages.on', true], ['consumables.spiritOfZanza.on', true]]),
+S('elixirs under Arcane Intellect, Divine Spirit, Fortitude', [['consumables.elixirOwl.on', true], ['consumables.cerebralCortex.on', true],
+['consumables.elixirSages.on', true], ['consumables.spiritOfZanza.on', true]]),
+// sim v213: Spell Pierce beyond the resistance gives no bonus under a 1% share (5 points at level 60: none, 6: a bonus)
+S('spell pierce 5 beyond zero resistance', [['gear.pierce', 5], ['combat.targetResist.shadow', 0], ['combat.targetResist.fire', 0]]),
+S('spell pierce 6 beyond zero resistance', [['gear.pierce', 6], ['combat.targetResist.shadow', 0], ['combat.targetResist.fire', 0]]),
+S('spell penetration + pierce + resist',[['gear.spellPen', 50], ['gear.pierce', 20], ['combat.targetResist.shadow', 30], ['combat.targetResist.fire', 120]]),
   S('no level resist, no 5s rule, no heal', [['combat.levelResist.on', false], ['combat.fsrSeconds', 0], ['fight.healAmount', 0]]),
   S('crit includes all, no pets', [['gear.critIncludesAll', true], ['options.includePetDamage', false]]),
   S('custom cooldown timeline', [['options.activesPolicy', 'custom'], ['options.activesTimeline', { racial: [10, 'exec'], pi: ['doom'], majorSpellblasting: [0, 130], demonicRune: [40] }],

@@ -3,6 +3,18 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.18.10
+
+- From the website (its v213), both from public in-game checks and log studies in Forever:
+  - Elixir stats count once. Of the elixirs only the largest amount of each stat counts (Elixir of the Owl + Cerebral
+    Cortex Compound = +25 Intellect, not +50). Arcane Intellect, Divine Spirit and Power Word: Fortitude replace that
+    stat of the elixirs while they are up (Arcane Intellect + Owl = 31 Intellect, not 56). The elixirs' crit, Mark of
+    the Wild, Kings, food, flasks and Spirit of Zanza are unchanged.
+  - Spell Pierce beyond the boss's resistance gives no bonus damage while its share is under 1% (at level 60: 5 points
+    give none, 6 give a bonus).
+- The default fights lose about 7 to 9 DPS. Your character sheet already follows the elixir rule in the game; the
+  addon now follows it too for the buffs and consumables you switch on in its window.
+
 ## v0.18.9
 
 - From the website (its v212): better cooldown timing for the Wrack builds (any build that never casts Bane of Doom,
