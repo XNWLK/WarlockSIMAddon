@@ -173,7 +173,7 @@ S('spell penetration + pierce + resist',[['gear.spellPen', 50], ['gear.pierce', 
   S('weapon enchant: Grand Sorcerer', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 }, trinket1: { id: 18820 } }, enchants: { mainHand: { id: 7942 } } }], ['gear.int', 20]]),
   S('weapon enchant: Grand Arcanist, Insight', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 7941 } } }]], { builds: ['demo_pact_fire', 'wrack_succubus'] }),
   S('weapon enchant: Insight', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 8216 } } }], ['gear.spi', 0], ['fight.duration', 300]]),
-  // sim v209: Revelation as measured (taken at the cast, channel ticks crit while it is up, area ticks trigger it)
+  // sim v209: Revelation as measured (taken at the cast, area ticks trigger it); sim v214: a channel tick takes it, one roll per area tick
   S('Revelation: Drain Life filler', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 8217 } } }], ['combat.revelationChancePct', 40]],
     { builds: ['sm_ruin_classic', 'wrack_succubus', 'aff_pact_succ_drain'], rotation: r => r.slice(0, -1).concat(['drainLife']) }),
   S('Revelation: Wrack, pushback', [['gearBuilder', { on: true, slots: { mainHand: { id: 1 } }, enchants: { mainHand: { id: 8217 } } }], ['combat.revelationChancePct', 40], ['fight.hitEvery', 2]],

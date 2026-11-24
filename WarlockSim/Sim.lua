@@ -904,25 +904,19 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     for i = 1, NTRK do local x = TRK[i]; if x.slot == slot then trHit(x, x.fx.use); return end end
   end
   -- Revelation (sim v209): + pct % crit for 15 s (a new trigger while it is up resets the 15 s).
-  --  * Trigger: a landed direct hit that does not crit (any target), and each landed Hellfire / Rain of Fire tick that does
-  --    not crit, on each target (WL.revelationChancePct at your sheet crit). Never: DoT ticks, drain / Wrack ticks, your
-  --    demon, trinket and item procs.
+  --  * Trigger: a landed direct hit that does not crit (any target), and each Hellfire / Rain of Fire tick with a landed
+  --    hit that did not crit, once per tick (sim v214) (WL.revelationChancePct at your sheet crit). Never: DoT ticks,
+  --    drain / Wrack ticks, your demon, trinket and item procs.
   --  * Spent at the cast: a direct spell (or Immolate's direct part) takes it when its cast completes (instants: when
   --    cast) and crits when it lands, even after travel time - or not at all if it misses.
-  --  * Channels: while it is up every tick of a channel crits; the channel holds it (rv.ch) and it is spent when that
-  --    channel ends (completes or is cut).
+  --  * Channels (sim v214, a live hotfix): a channel tick that comes while it is up takes it and spends it (TR.revTick):
+  --    that one tick crits (an area tick on every target it hits), the rest of the channel does not. No channel holds it.
   if REV then
     local rv, revPct, revCh = eps[REV.id], REV.fx.proc.pct, WL.revelationChancePct(cb, stats.critPct)
-    rv.ch = nil
-    local function revUp()                                      -- is it up now (a holding channel that ended spent it)
-      if rv.ch ~= nil and not (S.channel and S.channel.inst == rv.ch) then rv.upTo = -1; rv.ch = nil end
-      return rv.upTo > S.t + EPS
-    end
-    TR.revRoll = function(crit, tick)                           -- a landed direct hit / area tick (tick: of the running channel)
+    local function revUp() return rv.upTo > S.t + EPS end      -- is it up now
+    TR.revRoll = function(crit)                                 -- a landed direct hit / an area tick
       if crit or Rproc() * 100 >= revCh then return end
-      revUp()                                                   -- a channel that held the old one and has ended: spent first
       rv.upTo = S.t + REV.fx.proc.duration
-      if tick and S.channel then rv.ch = S.channel.inst end     -- that channel keeps it (spent when it ends)
     end
     TR.revTake = function(key)                                  -- the cast of key completes now: does it use (and spend) it?
       local k = SPELLS[key].kind
@@ -930,9 +924,9 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       rv.upTo = -1
       return true
     end
-    TR.revChan = function()                                     -- a channel tick now: + pct while it is up (the channel holds it)
-      if not S.channel or not revUp() then return 0 end
-      rv.ch = S.channel.inst
+    TR.revTick = function()                                     -- a channel tick now: + pct and spent, while it is up (sim v214)
+      if not revUp() then return 0 end
+      rv.upTo = -1
       return revPct
     end
     TR.revPct = revPct
@@ -1187,7 +1181,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * liveMult(key, true) * (snap.castMult or 1)
     if s.ramp then amt = amt * s.ramp[i + 1] end
     amt = amt * vulnMult(s.school, nil, true, key)
-    local rvc = (isChannel and TR.revChan) and TR.revChan() or 0   -- a channel tick crits while Revelation is up (sim v209)
+    local rvc = (isChannel and TR.revTick) and TR.revTick() or 0   -- a channel tick takes Revelation (crits) and spends it (sim v214)
     local cx = Rcrit() * 100
     local crit = CHC[key] or cx < e.critPct + rvc + (TRX and TR.crit(key) or 0)
     if crit then amt = amt * e.critMult end
@@ -1215,6 +1209,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- A tick of an area channel (Hellfire, Rain of Fire): every target takes its own damage event.
   local function aoeTick(key, i)
     local s, e = SPELLS[key], tbl[key]
+    local rvc, plain = TR.revTick and TR.revTick() or 0, false  -- sim v214: checked once per tick; plain = a landed hit did not crit
     for ti = 1, NT do
       local rk = ti > 1 and xkey(ti, key) or key
       local r = row(rk)
@@ -1222,14 +1217,14 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       else
         local amt = (s.tickBase + s.tickCoef * spNow(e)) * e.periodicMult * (ti > 1 and liveMultX(key, ti, true) or liveMult(key, true))
         amt = amt * vulnMult(s.school, ti, false, key)
-        local rvc = TR.revChan and TR.revChan() or 0             -- crits while Revelation is up (sim v209)
         local cx = Rcrit() * 100
         local crit = CHC[key] or cx < e.critPct + rvc + (TRX and TR.crit(key, ti) or 0)
-        if TR.revRoll and rvc == 0 then TR.revRoll(crit, true) end   -- a tick that does not crit may trigger it (each target)
+        if not crit then plain = true end
         if crit then amt = amt * e.critMult end
         deal(rk, amt, crit, true, ti)
       end
     end
+    if TR.revRoll and rvc == 0 and plain then TR.revRoll(false) end   -- one trigger roll per tick (sim v214)
     if s.selfDamage then loseHealth(selfTick(key), 'self') end
   end
 
@@ -1418,7 +1413,6 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       local id = inst
       local nCh, chDur = e.ticks, s.duration
       S.channel = { key = key, inst = id, snap = makeSnap(), start = S.t, finish = S.t + chDur, ticks = nCh, tl = fromTL and true or false, idx = actIdx }
-      if TR.revChan then TR.revChan() end                 -- a channel started while Revelation is up holds it until it ends
       for i = 1, nCh do push({ t = S.t + i * s.tickEvery, o = 0, type = 'chanTick', key = key, inst = id, i = i - 1 }) end
       S.busyUntil = S.t + chDur; S.gcdReady = S.t + gcdT
       r.castTime = r.castTime + chDur

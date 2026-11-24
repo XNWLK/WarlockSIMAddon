@@ -12,6 +12,10 @@ What changed in each version, newest first. Download a version from the
     the Wild, Kings, food, flasks and Spirit of Zanza are unchanged.
   - Spell Pierce beyond the boss's resistance gives no bonus damage while its share is under 1% (at level 60: 5 points
     give none, 6 give a bonus).
+- Revelation hotfix (the website's v214, from the live hotfix): a Revelation charge that is up when a channel tick lands
+  (Hellfire, Rain of Fire, Drain Life, Drain Soul, Wrack) makes only that one tick crit and is used up there. Before, it
+  made the whole channel crit. Hellfire and Rain of Fire now get one chance per tick to trigger it, not one per target
+  hit. One target barely changes; Hellfire and Rain of Fire on 2 or 3 targets lose a few percent.
 - The default fights lose about 7 to 9 DPS. Your character sheet already follows the elixir rule in the game; the
   addon now follows it too for the buffs and consumables you switch on in its window.
 
