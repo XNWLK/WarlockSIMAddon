@@ -81,6 +81,7 @@ function H.context()
   C.rot = WL.effectiveRotation(build, cfg)
   C.acts = {}
   for i = 1, #C.rot do C.acts[i] = WL.actionOf(C.rot[i], build) end
+  for i = 1, #C.rot do local a = C.acts[i]; if a and (a.filler or a.preFiller) then C.hasFill = true end end   -- the opener rule (sim v212)
   C.tapGain = (C.SPELLS.lifeTap.manaBase + stats.spi) * (1 + WL.talentValue(build, 'improvedLifeTap', 'manaPct') / 100)
   C.lat = max(0, (cfg.fight.latencyMs or 0) / 1000)
   local rc = WL.RACES[race] and WL.RACES[race].racials or {}
@@ -295,14 +296,20 @@ function H.decide(C, P, S, excludeFrom)
 end
 
 -- When the racial, the Spellblasting potion and "with cooldowns" trinkets may be used ("Pop cooldowns", Fight tab).
-function H.activesOpen(C, P, S, key)
+-- fill: the spell comes from a filler of the priority (true / false; nil: not known). A build that never casts Bane of Doom
+-- opens them right before its first filler, once the DoTs and the curse are up (sim v212). The sim's wait of Blood Fury /
+-- Power Infusion for an Amplify Curse Bane of Agony is not followed here (the helper does not track Amplify Curse).
+function H.activesOpen(C, P, S, key, fill)
   if P.actOpen then return true end
   local pol = C.cfg.options.activesPolicy or 'pull'
   local open
   if pol == 'execute' then open = S.targetHpPct < C.cfg.fight.executePct
   elseif pol == 'doom' then
     local d = P.dots.baneOfDoom
-    if not d or d <= P.t + EPS then open = P.doomSeen or not C.castsDoom or (P.dots.baneOfAgony or 0) > P.t + EPS
+    if not d or d <= P.t + EPS then
+      if P.doomSeen then open = true
+      elseif C.castsDoom then open = (P.dots.baneOfAgony or 0) > P.t + EPS
+      else open = fill ~= false end
     else
       local toBoom = d - P.t
       open = toBoom > S.remaining or toBoom <= H.occupies(C, P, key) + EPS
@@ -312,7 +319,7 @@ function H.activesOpen(C, P, S, key)
   return open
 end
 -- What to use together with the next spell: cooldowns before a damaging cast, mana items once their mana is missing.
-function H.extras(C, P, S, key)
+function H.extras(C, P, S, key, idx)
   local out = {}
   local miss = C.stats.maxMana - P.mana
   for i = 1, #C.items do
@@ -330,9 +337,12 @@ function H.extras(C, P, S, key)
   end
   local s = C.SPELLS[key]
   if not s or s.kind == 'utility' or key == 'lifeTap' or P.mana < C.tbl[key].cost then return out end
-  local open = H.activesOpen(C, P, S, key)
+  local fill = nil
+  if C.hasFill then local a = idx and C.acts[idx]; fill = (a and (a.filler or a.preFiller)) and true or false end
+  local open = H.activesOpen(C, P, S, key, fill)
   local r = C.racial
-  if r and open and S.ready('racial') then
+  local pol = C.cfg.options.activesPolicy or 'pull'
+  if r and (open or (r.hastePct and pol == 'doom' and not C.castsDoom)) and S.ready('racial') then   -- Berserking: still on the pull
     local ok = true
     if r.dmgPct then local len = s.kind == 'channel' and s.duration or H.castTime(C, P, key); ok = (s.kind == 'direct' or s.kind == 'channel') and len >= 1.4 end
     if ok then out[#out + 1] = { spell = r.id, label = r.name } end
@@ -601,10 +611,10 @@ function H.plan(now)
   P.t = free
   v.wait = max(0, free - tNow)
   for n = 1, 3 do
-    local k = H.decide(C, P, S)
+    local k, ki = H.decide(C, P, S)
     if not k then break end
     v.keys[n] = k
-    if n == 1 then v.extras = H.extras(C, P, S, k); F.actOpen = P.actOpen or F.actOpen end
+    if n == 1 then v.extras = H.extras(C, P, S, k, ki); F.actOpen = P.actOpen or F.actOpen end
     local s = C.SPELLS[k]
     local done = (k == 'lifeTap' or (s and s.kind == 'channel')) and P.t or P.t + H.castTime(C, P, k)
     local nextT = P.t + H.occupies(C, P, k) + C.lat

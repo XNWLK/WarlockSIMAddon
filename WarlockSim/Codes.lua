@@ -250,7 +250,7 @@ function WL.decodeSettings(code)
 end
 local function isNum(x) return type(x) == 'number' and x == x and x ~= huge and x ~= -huge end
 -- Applies a snapshot onto config `c` in place. Returns the list of names in the code that this version does not know, and
--- true when the code is in the website's Pre-BiS gear mode (each build in its own list of items: no gear numbers in it, the
+-- true when the code is in the website's Pre-BiS or Max Pre-BiS gear mode (each build in its own list of items: no gear numbers in it, the
 -- addon has no such lists and keeps the gear numbers it had).
 function WL.applySettings(c, o)
   local unknown = {}
@@ -296,7 +296,7 @@ function WL.applySettings(c, o)
       b.count = (isNum(n) and n > 0) and math.min(b.maxCount or 5, floor(n + 0.5)) or 1
     end
   end
-  return unknown, o.gm == 'preBis'
+  return unknown, o.gm == 'preBis' or o.gm == 'maxBis'               -- sim v212: + Max Pre-BiS (each build its own items too)
 end
 
 -- ---------------------------------------------------------------------------------------------------------------------

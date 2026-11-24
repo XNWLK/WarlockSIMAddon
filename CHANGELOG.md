@@ -3,6 +3,17 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.18.9
+
+- From the website (its v212): better cooldown timing for the Wrack builds (any build that never casts Bane of Doom,
+  with *Pop cooldowns* on "When Bane of Doom explodes", the default). The racial, the Spellblasting potion and Power
+  Infusion are no longer used on the pull but right before the first Wrack or Shadow Bolt, once the DoTs and the curse
+  are up. Blood Fury and Power Infusion also wait for the last 17 s of a Bane of Agony with Amplify Curse, its strongest
+  ticks. Berserking stays on the pull. Wrack DS gains about 5 DPS in a 3 minute fight; the Bane of Doom builds do not
+  change. The helper bar suggests the racial and potion at that first Wrack too (it does not follow Amplify Curse, so it
+  does not wait for the Bane).
+- A website settings code with the new *Max Pre-BiS* gear says it uses the website's gear, like Realistic Pre-BiS.
+
 ## v0.18.8
 
 - A sacrificed Imp is recognised. Its buff in Forever is *Burning Shadow* (+15% Shadow damage), which has the spell

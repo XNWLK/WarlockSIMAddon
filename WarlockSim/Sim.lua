@@ -401,6 +401,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   end
   local RSLOT = (cfg.options and cfg.options.activesRacialSplit) and ('racial_' .. raceKey) or 'racial'
   local gateKey = nil
+  local popFill = nil                                     -- the cast about to start is a filler (decide sets it); nil: not known (sim v212)
   local function castsDoom()
     if ACT_DOOM == nil then
       ACT_DOOM = indexOf(ROT, 'bane') ~= nil
@@ -441,7 +442,10 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     castsDoom()
     local d = dots.baneOfDoom
     if d then doomSeen = true end
-    if not d or d.expires <= S.t + EPS then actOpen = doomSeen or not ACT_DOOM or dotLeft('baneOfAgony') > 0; return actOpen end
+    if not d or d.expires <= S.t + EPS then                 -- no Doom: after the opener (popFill, sim v212)
+      if doomSeen then actOpen = true elseif ACT_DOOM then actOpen = dotLeft('baneOfAgony') > 0 else actOpen = popFill ~= false end
+      return actOpen
+    end
     local toBoom, sp = d.expires - S.t, SPELLS[key]
     local len = sp.kind == 'channel' and sp.duration or max(castTime(key), gcd())
     actOpen = toBoom > S.remaining or toBoom <= len + EPS
@@ -489,22 +493,42 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local NTRK, TRX, TR = #TRK, #TRK > 0 or #EPR > 0, {}
   TR.apl = false   -- "Activate trinket" in the priority: it uses the on-use trinkets, not options.trinketUse (set once ROT is built)
   -- Racial cooldown, Spellblasting potion and Power Infusion, right before a damaging cast.
-  local function popActives(key)
-    if NTRK > 0 then gateKey = key; TR.useTrinkets(key); gateKey = nil end   -- each trinket follows its own use setting
-    if not ACT_TL then
-      if activesOk(key) then useRacials(key); useSpPotion(); usePowerInfusion() end
-      return
+  -- Sim v212: under 'doom' (and a custom timeline's unplaced rows) a build that never casts Bane of Doom pops them right
+  -- before its first filler cast (popFill); Blood Fury and Power Infusion also wait for an Amplify Curse Bane of Agony
+  -- until it has options.activesAmpLeft s or less left (ampHold). Berserking stays on the pull.
+  local popActives
+  do
+    local ACT_AMP = (cfg.options and cfg.options.activesAmpLeft ~= nil) and (tonumber(cfg.options.activesAmpLeft) or 0) or 17
+    local function ampHold()                              -- hold Blood Fury / Power Infusion for the Amplify Curse Bane?
+      if not (ACT_AMP > 0) or ACT_DOOM ~= false or (ACT_POL ~= 'doom' and ACT_POL ~= 'custom') or tv('amplifyCurse') == 0 or not tbl.baneOfAgony then return false end
+      if S.ampUp then return true end                     -- taken, its Bane of Agony has not landed yet
+      local d = dots.baneOfAgony
+      if d and d.expires > S.t + EPS and d.snap and (d.snap.castMult or 1) > 1 then return d.expires - S.t > ACT_AMP + EPS end
+      return ready('amplifyCurse') and slotGate('amplifyCurse') ~= 0 and S.remaining > SPELLS.baneOfAgony.duration   -- the next Bane of Agony takes it
     end
-    gateKey = key
-    local g = slotGate(RSLOT)
-    if g == 1 or (g == 2 and (ACT_TL[RSLOT] or activesOk(key))) then if useRacials(key) then slotUsed(RSLOT) end end
-    if spPot then
-      g = slotGate(spPot.key)
-      if g == 1 or (g == 2 and (ACT_TL[spPot.key] or activesOk(key))) then if useSpPotion() then slotUsed(spPot.key) end end
+    local function racialOk(key)                          -- the racial by the automatic rule
+      local cd = racialCd
+      if activesOk(key) then return not (cd and cd.spPct and ampHold()) end   -- Blood Fury: also the Amplify Curse Bane
+      return (cd and cd.hastePct and ACT_DOOM == false) and true or false     -- Berserking: still on the pull
     end
-    g = slotGate('pi')
-    if g == 1 or (g == 2 and (ACT_TL.pi or activesOk(key))) then if usePowerInfusion() then slotUsed('pi') end end
-    gateKey = nil
+    popActives = function(key)
+      if NTRK > 0 then gateKey = key; TR.useTrinkets(key); gateKey = nil end   -- each trinket follows its own use setting
+      if not ACT_TL then
+        if racialOk(key) then useRacials(key) end
+        if activesOk(key) then useSpPotion(); if not ampHold() then usePowerInfusion() end end
+        return
+      end
+      gateKey = key
+      local g = slotGate(RSLOT)
+      if g == 1 or (g == 2 and (ACT_TL[RSLOT] or racialOk(key))) then if useRacials(key) then slotUsed(RSLOT) end end
+      if spPot then
+        g = slotGate(spPot.key)
+        if g == 1 or (g == 2 and (ACT_TL[spPot.key] or activesOk(key))) then if useSpPotion() then slotUsed(spPot.key) end end
+      end
+      g = slotGate('pi')
+      if g == 1 or (g == 2 and (ACT_TL.pi or (activesOk(key) and not ampHold()))) then if usePowerInfusion() then slotUsed('pi') end end
+      gateKey = nil
+    end
   end
   -- Mana potion / rune: when at least their amount of mana is missing.
   local function useManaItems()
@@ -592,7 +616,12 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local HAV_T = HAV ~= 0 and 2 or 0
   ROT = WL.effectiveRotation(build, cfg)
   local ACTS = {}                                        -- the action of each entry: built-in, or one of the build's rules
-  for i = 1, #ROT do ACTS[i] = WL.actionOf(ROT[i], build) end
+  ACTS.hasFill = false                                   -- ACT_HASFILL: has the priority a filler (the opener rule, sim v212)?
+  for i = 1, #ROT do
+    local a = WL.actionOf(ROT[i], build)
+    ACTS[i] = a
+    if a and (a.filler or a.preFiller) then ACTS.hasFill = true end
+  end
   TR.apl = WL.indexOf(ROT, 'activateTrinket') ~= nil
   -- Fight timeline: an optional list of spells at fixed start times on top of the priority.
   if build.timeline and #build.timeline > 0 then
@@ -1869,7 +1898,13 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if sub(key, 1, 5) == 'swap:' then doSwap(sub(key, 6)); return end
     -- Racial cooldowns fire only right before an actual damaging cast (never before a curse or a Life Tap).
     local damaging = SPELLS[key].kind ~= 'utility'
-    if damaging and S.mana >= discountedCost(key) then popActives(key) end
+    if damaging and S.mana >= discountedCost(key) then
+      if ACTS.hasFill then                                 -- the opener rule (sim v212)
+        local a = ACTS[index]
+        popFill = (a and (a.filler or a.preFiller)) and true or false
+      else popFill = nil end
+      popActives(key); popFill = nil
+    end
     if S.mana < effectiveCost(key) then
       if stats.maxMana < effectiveCost(key) then res.oom = res.oom + 1; scheduleDecide(S.t + 1); return end
       lifeTap(); return

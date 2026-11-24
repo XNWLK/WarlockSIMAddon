@@ -833,7 +833,7 @@ local function buildRaidPage(p)
   end, function()
     local v = WL.cfg.options.activesPolicy
     return (v == 'pull' or v == 'doom' or v == 'execute') and v or 'doom'
-  end, function(v) WL.cfg.options.activesPolicy = v end, 'When the racial cooldown, the Spellblasting potion and Power Infusion are used for the first time. Afterwards each is used again whenever it is ready.')), 100)
+  end, function(v) WL.cfg.options.activesPolicy = v end, 'When the racial cooldown, the Spellblasting potion and Power Infusion are used for the first time. Afterwards each is used again whenever it is ready.\n\n"When Bane of Doom explodes" with a build that never casts Bane of Doom (the Wrack builds): right before the first Wrack or Shadow Bolt, once the DoTs and the curse are up. Blood Fury and Power Infusion also wait for the last 17 s of a Bane of Agony with Amplify Curse, its strongest ticks. Berserking stays on the pull.')), 100)
   r = row(24, 'fight')
   label(r, 'Trinkets', 8)
   place(r, keep(Dropdown(r, 190, function()

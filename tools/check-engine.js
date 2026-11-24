@@ -214,6 +214,17 @@ const scenes = [
     if (b.rotation.indexOf('drainLife') < 0) b.rotation.push('drainLife');
   } }),
   S('timeline', [], { builds: ['demo_pact_fire', 'sm_ruin_classic'], timeline: [{ t: 0, k: 'curseOfElements' }, { t: 1.5, k: 'corruption' }, { t: 3.5, k: 'immolate' }, { t: 30, k: 'lifeTap' }, { t: 45, k: 'soulFire' }, { t: 60, k: 'drainLife' }] }),
+  // sim v212: under 'doom' a build without Bane of Doom pops racial / potion / Power Infusion right before its first filler;
+  // Blood Fury and Power Infusion also wait for the Amplify Curse Bane of Agony (options.activesAmpLeft s left); Berserking on the pull
+  S('wrack DS cooldowns: Doom rule, Power Infusion, potion', [['buffs.powerInfusion.on', true], ['consumables.majorSpellblasting.on', true]], { builds: ['wrack_ds', 'wrack_succubus'] }),
+  S('wrack DS cooldowns: no wait for the Bane (activesAmpLeft 0)', [['options.activesAmpLeft', 0], ['buffs.powerInfusion.on', true], ['consumables.majorSpellblasting.on', true]], { builds: ['wrack_ds'] }),
+  S('wrack DS cooldowns: activesAmpLeft 8, long fight, two Priests', [['options.activesAmpLeft', 8], ['buffs.powerInfusion.on', true], ['buffs.powerInfusion.count', 2],
+    ['consumables.majorSpellblasting.on', true], ['fight.duration', 300]], { builds: ['wrack_ds'] }),
+  S('wrack DS cooldowns: short fight, no potion', [['buffs.powerInfusion.on', true], ['fight.duration', 40]], { builds: ['wrack_ds'] }),
+  S('wrack DS cooldowns: custom timeline, unplaced racial and Power Infusion', [['options.activesPolicy', 'custom'], ['options.activesTimeline', { majorSpellblasting: [25] }],
+    ['buffs.powerInfusion.on', true], ['consumables.majorSpellblasting.on', true], ['fight.duration', 200]], { builds: ['wrack_ds'] }),
+  S('wrack DS cooldowns: custom timeline, every row unplaced', [['options.activesPolicy', 'custom'], ['options.activesTimeline', {}], ['options.activesAmpLeft', 12],
+    ['buffs.powerInfusion.on', true], ['consumables.majorSpellblasting.on', true]], { builds: ['wrack_ds', 'sm_ruin_classic'] }),
 ];
 
 const builds = WL.BUILDS.slice();
