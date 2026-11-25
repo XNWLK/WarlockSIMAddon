@@ -179,6 +179,84 @@ step('a loot roll popup: a Sim button beside it sims the item', `GroupLootFrame1
   MOCK.rolls[7] = 1007; ${frames}; assert(not b:IsShown(), 'bread (not wearable): no button')
   MOCK.rolls[7] = 1001; ${frames}; assert(b:IsShown(), 'back'); WLX.db.options.itemClick = 'off'; ${frames}; assert(not b:IsShown(), 'off together with item sims')
   WLX.db.options.itemClick = 'shift-right'; GroupLootFrame1:Hide(); ${frames}; assert(not b:IsShown(), 'gone with the popup')`);
+step('EllesmereUI loot rolls: each live gear row gets its own Sim button', `
+  local anchor = CreateFrame('Frame', 'EllesmereUILootRolls', UIParent)
+  local ring, staff, bread, preview = CreateFrame('Frame', nil, anchor), CreateFrame('Frame', nil, anchor),
+    CreateFrame('Frame', nil, anchor), CreateFrame('Frame', nil, anchor)
+  ring.data = { rollID = 10, link = MOCK.link(1001) }; staff.data = { rollID = 11, link = MOCK.link(1004) }
+  bread.data = { rollID = 12, link = MOCK.link(1007) }; preview.data = { link = MOCK.link(1001) }
+  local function button(row)
+    local found
+    for _, f in ipairs(MOCK.frames) do
+      if f.__kind == 'Button' and f.text == 'Sim' and f.anchor == row and f:IsVisible() then
+        assert(not found, 'duplicate Sim button'); found = f
+      end
+    end
+    return found
+  end
+  ${frames}; ${frames}; local a, b = button(ring), button(staff)
+  assert(a and b, 'no Sim buttons beside the EllesmereUI rows')
+  assert(not button(bread) and not button(preview), 'bread or preview got a Sim button')
+  assert(a:GetPoint() == 'RIGHT', 'Sim normally sits to the left of the row')
+  ring.GetLeft = function() return 10 end; ${frames}
+  local side, relative, edge, offset = a:GetPoint()
+  assert(side == 'LEFT' and relative == ring and edge == 'RIGHT' and offset > 0, 'Sim stays beside a left-docked row')
+  ring.GetLeft = function() return 200 end; ${frames}; assert(a:GetPoint() == 'RIGHT', 'Sim returns to the left')
+  bread.data = { rollID = 15 }; ${frames}; assert(not button(bread), 'no Sim before the gear link is available')
+  MOCK.rolls[15] = 1004; ${frames}; assert(button(bread), 'an initially missing link can arrive later'); MOCK.rolls[15] = nil
+  a.scripts.OnClick(a, 'LeftButton'); assert(WLX.jobRunning() and WarlockSimItemPanel.title.text == 'Ring of Tests')
+  ${pump}; ${frames}; assert(WarlockSimItemPanel.text.text:find('Instead of Old Band', 1, true)); WarlockSimItemPanel:Hide()
+  staff.data.done = true; b.scripts.OnClick(b, 'LeftButton'); assert(not WLX.jobRunning(), 'finished roll can be clicked')
+  ${frames}; assert(not b:IsVisible(), 'finished roll still has a Sim button')
+  ring.data.closed = true; ${frames}; assert(not a:IsVisible(), 'closed roll still has a Sim button')
+  staff:Hide(); staff.data = nil; staff.data = { rollID = 13, link = MOCK.link(1004) }; staff:Show()
+  ${frames}; assert(button(staff) == b, 'a pooled row needs only one button')
+  staff:Hide(); staff.data = nil; assert(not b:IsVisible(), 'released row still shows its button')
+  staff.data = { rollID = 14, link = MOCK.link(1001) }; staff:Show()
+  b.scripts.OnClick(b, 'LeftButton'); assert(not WLX.jobRunning(), 'click while the row is being reused')
+  ${frames}; assert(button(staff) == b); b.scripts.OnClick(b, 'LeftButton')
+  assert(WLX.jobRunning() and WarlockSimItemPanel.title.text == 'Ring of Tests', 'the reused row sims its new item')
+  WLX.cancelJob(); WarlockSimItemPanel:Hide()
+  WLX.db.options.itemClick = 'off'; b.scripts.OnClick(b, 'LeftButton'); assert(not WLX.jobRunning(), 'off before the next update')
+  ${frames}; assert(not b:IsVisible(), 'off hides the button'); WLX.db.options.itemClick = 'shift-right'
+  ${frames}; assert(button(staff) == b); anchor:Hide(); assert(not b:IsVisible(), 'hiding the anchor hides Sim immediately')
+  b.scripts.OnClick(b, 'LeftButton'); assert(not WLX.jobRunning(), 'hidden ancestor blocks clicks')`);
+step('ElvUI loot rolls: queued bars, compact rows and the item icon', `
+  local parent = CreateFrame('Frame', 'ElvUIParent', UIParent); parent:SetScale(0.8)
+  local bar
+  for i = 1, 9 do bar = CreateFrame('Frame', 'ElvUI_LootRollFrame' .. i, parent) end
+  local icon = CreateFrame('Button', nil, bar); bar.button = icon
+  icon.questIcon = icon:CreateTexture(nil, 'OVERLAY'); icon.questIcon:Hide()
+  bar.rollID, icon.rollID, icon.link = 20, 20, MOCK.link(1001)
+  bar.GetRight = function() return 1100 end; UIParent.GetRight = function() return 1000 end
+  ${frames}; local b
+  for _, f in ipairs(MOCK.frames) do
+    if f.__kind == 'Button' and f.text == 'Sim' and f.parent == bar and f:IsVisible() then b = f end
+  end
+  assert(b, 'no Sim button on the ninth ElvUI roll bar')
+  local side, relative, edge = b:GetPoint()
+  assert(side == 'LEFT' and relative == bar and edge == 'RIGHT', 'Sim avoids the item icon on the left')
+  bar.pass = CreateFrame('Button', nil, bar); bar.pass.GetRight = function() return 1130 end
+  ${frames}; assert(select(2, b:GetPoint()) == bar.pass, 'Sim clears Pass when the controls extend right of the bar')
+  bar.pass.GetRight = function() return 1095 end
+  bar.GetRight = function() return 1240 end; ${frames}; side, relative, edge = b:GetPoint()
+  assert(side == 'RIGHT' and relative == icon and edge == 'LEFT', 'Sim fits to the left of the icon at the screen edge')
+  icon.questIcon:Show(); ${frames}; assert(select(2, b:GetPoint()) == icon.questIcon, 'Sim makes room for the quest icon')
+  icon.questIcon:Hide(); ${frames}; assert(select(2, b:GetPoint()) == icon, 'Sim returns next to the item icon')
+  bar.need = CreateFrame('Button', nil, bar); bar.need.GetLeft = function() return 1000 end; icon.GetLeft = function() return 1100 end
+  ${frames}; assert(select(2, b:GetPoint()) == bar.need, 'Sim clears Need when the controls extend left of the icon')
+  bar.GetCenter = function() return 1200, 250 end; bar.need.GetCenter = function() return 1020, 279 end
+  bar:SetHeight(14); ${frames}
+  assert(b:GetHeight() * b:GetEffectiveScale() <= bar:GetHeight() * bar:GetEffectiveScale() + 0.001, 'compact rolls do not overlap')
+  local _, _, _, _, y = b:GetPoint()
+  assert(math.abs(279 + y * b:GetEffectiveScale() / bar:GetEffectiveScale() - 250) < 0.001, 'Sim stays vertically centered on the bar')
+  bar.rollID = nil; b.scripts.OnClick(b, 'LeftButton'); assert(not WLX.jobRunning(), 'cancel leaves a stale link on the icon')
+  bar.rollID, icon.rollID = 21, 21; b.scripts.OnClick(b, 'LeftButton'); assert(not WLX.jobRunning(), 'same link on a queued roll still needs a refresh')
+  ${frames}; b.scripts.OnClick(b, 'LeftButton')
+  assert(WLX.jobRunning() and WarlockSimItemPanel.title.text == 'Ring of Tests', 'the queued roll starts the matching item sim')
+  WLX.cancelJob(); WarlockSimItemPanel:Hide()
+  bar.rollID, icon.rollID, icon.link = 22, 22, MOCK.link(1007); ${frames}; assert(not b:IsVisible(), 'bread has no Sim button')
+  parent:Hide(); UIParent.GetRight = nil`);
 step('the click can be chosen; the tip names it', `local bag = MOCK.bagLocation()
   assert(MOCK.findLike("FontString", "Shift %+ right%-click any item"), "the tip line names Shift + right-click")
   WLX.db.options.itemClick = "alt-right"; WLX.refresh(); assert(MOCK.findLike("FontString", "Alt %+ right%-click any item"), "the tip follows the choice")
