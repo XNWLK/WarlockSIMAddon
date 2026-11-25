@@ -547,26 +547,28 @@ local function clickMatches()
   return alt == (bind:find('alt', 1, true) ~= nil) and shift == (bind:find('shift', 1, true) ~= nil) and ctrl == (bind:find('ctrl', 1, true) ~= nil)
 end
 
--- The loot roll popups (GroupLootFrame1, 2, ...): their item icon takes left clicks only, so a right-click there never
--- reaches the game's handler for item clicks. Beside each popup of an item you can wear: a small button of ours, on the
--- screen and only anchored to the popup (the popup itself is not touched; its roll id and the item link are only read).
+-- Loot roll icons take left clicks only. Add a Sim button beside a roll for an item with a supported equipment slot.
 local rollButtons = {}
-local function rollLink(f)
-  if not f or not f.IsShown or not f:IsShown() then return nil end
-  local id = f.rollID
-  if id == nil or isSecret(id) or not GetLootRollItemLink then return nil end
-  local link = try(GetLootRollItemLink, id)
+local function simRollLink(link)
   if type(link) ~= 'string' or isSecret(link) or not link:find('item:', 1, true) then return nil end
   local _, _, _, equipLoc = try(C_Item.GetItemInfoInstant, link)
   if not WL.ITEM_SLOTS[equipLoc or ''] then return nil end
   return link
 end
-local function rollButton(i)
-  local b = CreateFrame('Button', nil, UIParent, 'UIPanelButtonTemplate')
+local function rollLink(f)
+  if not f or not f.IsShown or not f:IsShown() then return nil end
+  local id = f.rollID
+  if id == nil or isSecret(id) or not GetLootRollItemLink then return nil end
+  return simRollLink(try(GetLootRollItemLink, id))
+end
+local function rollButton(parent, linkOnClick)
+  local b = CreateFrame('Button', nil, parent, 'UIPanelButtonTemplate')
   b:SetSize(44, 22); b:SetText('Sim'); b:SetFrameStrata('DIALOG')
   b:SetScript('OnClick', function(self)
-    if not self.link then return end
-    show(self.link, false, false)
+    local link = self.link
+    if linkOnClick then link = linkOnClick(self) end
+    if not link then return end
+    show(link, false, false)
     start()
   end)
   b:SetScript('OnEnter', function(self)
@@ -577,16 +579,113 @@ local function rollButton(i)
   end)
   b:SetScript('OnLeave', function() GameTooltip:Hide() end)
   b:Hide()
-  rollButtons[i] = b
   return b
 end
+
+local addonRollButtons = {}
+local function addonRollLink(id, link)
+  if type(id) ~= 'number' or isSecret(id) then return end
+  if isSecret(link) then return end
+  if not link then link = try(GetLootRollItemLink, id) end
+  return simRollLink(link), id
+end
+local function ellesmereRollLink(row)
+  local data = row.data
+  if type(data) ~= 'table' or data.closed or data.done then return end
+  return addonRollLink(data.rollID, data.link)
+end
+local function elvRollLink(bar)
+  return addonRollLink(bar.rollID, bar.button and bar.button.link)
+end
+local function elvRollEdges(bar)
+  local icon = bar.button
+  local questIcon = icon and icon.questIcon
+  local left, right = questIcon and questIcon:IsShown() and questIcon or icon or bar, bar
+  -- ElvUI can put the Need/Greed/Pass controls outside a narrow bar.
+  local needLeft, passRight = bar.need and bar.need:GetLeft(), bar.pass and bar.pass:GetRight()
+  local xLeft, xRight = left:GetLeft(), right:GetRight()
+  if needLeft and xLeft and needLeft < xLeft then left = bar.need end
+  if passRight and xRight and passRight > xRight then right = bar.pass end
+  return left, right
+end
+local function positionAddonRollButton(b, row, edges)
+  -- A fixed-height button could overlap the one on the next compact roll bar.
+  local height = row:GetHeight()
+  local scale = height > 0 and math.min(1, height / b:GetHeight()) or 1
+  if b.rowScale ~= scale then b:SetScale(scale); b.rowScale = scale end
+
+  local needed = (b:GetWidth() + 2) * scale
+  local anchor, onRight = row, false
+  if edges then
+    -- ElvUI's clickable item icon is outside the bar on the left.
+    local left, right = edges(row)
+    local xRight, screenRight = right:GetRight(), UIParent:GetRight()
+    onRight = not xRight or not screenRight
+      or (xRight + needed) * row:GetEffectiveScale() <= screenRight * UIParent:GetEffectiveScale()
+    anchor = onRight and right or left
+  else
+    local left = row:GetLeft()
+    onRight = left ~= nil and left < needed
+  end
+  local y = 0
+  if anchor ~= row then
+    -- ElvUI can draw its roll controls above the bar. Keep Sim centered on the row.
+    local _, rowY = row:GetCenter()
+    local _, anchorY = anchor:GetCenter()
+    if rowY and anchorY then
+      y = (rowY * row:GetEffectiveScale() - anchorY * anchor:GetEffectiveScale()) / b:GetEffectiveScale()
+    end
+  end
+  if b.rollAnchor == anchor and b.onRight == onRight and b.rollY == y then return end
+  b:ClearAllPoints()
+  if onRight then b:SetPoint('LEFT', anchor, 'RIGHT', 2, y)
+  else b:SetPoint('RIGHT', anchor, 'LEFT', -2, y) end
+  b.rollAnchor, b.onRight, b.rollY = anchor, onRight, y
+end
+local function updateAddonRollButton(row, linkFor, on, edges)
+  local link, id
+  if on and row:IsVisible() then link, id = linkFor(row) end
+  local b = addonRollButtons[row]
+  if link and not b then
+    b = rollButton(row, function(self)
+      if not enabled() or not self:IsVisible() then return end
+      -- The row may have ended or been reused since the last update.
+      local current, rollID = linkFor(row)
+      if rollID == self.rollID and current == self.link then return current end
+    end)
+    addonRollButtons[row] = b
+  end
+  if b then
+    b.link, b.rollID = link, id
+    if link then positionAddonRollButton(b, row, edges) end
+    b:SetShown(link ~= nil)
+  end
+end
+local function updateAddonRollButtons(on)
+  -- EllesmereUI QoL pools rows under an anchor. Its preview rows have no roll ID.
+  local anchor = _G.EllesmereUILootRolls
+  if anchor and anchor:IsVisible() then
+    for _, row in ipairs({ anchor:GetChildren() }) do
+      updateAddonRollButton(row, ellesmereRollLink, on)
+    end
+  end
+  -- ElvUI creates its numbered bars in order up to the user's configured limit.
+  local i, bar = 1, _G.ElvUI_LootRollFrame1
+  while bar do
+    updateAddonRollButton(bar, elvRollLink, on, elvRollEdges)
+    i = i + 1
+    bar = _G['ElvUI_LootRollFrame' .. i]
+  end
+end
+
 local function updateRollButtons()
   local on = enabled()
   for i = 1, 8 do
     local f = _G['GroupLootFrame' .. i]
     if not f and not rollButtons[i] then break end
     local link = on and rollLink(f) or nil
-    local b = rollButtons[i] or (link and rollButton(i))
+    local b = rollButtons[i]
+    if link and not b then b = rollButton(UIParent); rollButtons[i] = b end
     if b then
       if link then
         if b.owner ~= f then b:ClearAllPoints(); b:SetPoint('RIGHT', f, 'LEFT', -2, 0); b.owner = f end
@@ -595,6 +694,7 @@ local function updateRollButtons()
       elseif b:IsShown() then b.link = nil; b:Hide() end
     end
   end
+  updateAddonRollButtons(on)
 end
 
 local watcher, since = CreateFrame('Frame'), 0

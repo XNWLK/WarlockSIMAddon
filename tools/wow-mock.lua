@@ -14,7 +14,14 @@ local function newObject(kind, name)
     Hide = function(self) local was = self.shown; self.shown = false; if was and self.scripts.OnHide then self.scripts.OnHide(self) end end,
     SetShown = function(self, v) if v then self:Show() else self:Hide() end end,
     IsShown = function(self) return self.shown end,
-    IsVisible = function(self) return self.shown end,
+    IsVisible = function(self) return self.shown and (not self.parent or self.parent:IsVisible()) end,
+    GetChildren = function(self)
+      local children = {}
+      for _, f in ipairs(MOCK.frames) do
+        if f.parent == self and f.__kind ~= 'FontString' and f.__kind ~= 'Texture' then children[#children + 1] = f end
+      end
+      return table.unpack(children)
+    end,
     SetText = function(self, t) assert(type(t) == 'string' or type(t) == 'number', 'SetText needs text, got ' .. type(t)); self.text = tostring(t) end,
     GetText = function(self) return self.text end,
     SetChecked = function(self, v) self.checked = v and true or false end,
@@ -24,6 +31,8 @@ local function newObject(kind, name)
     SetHeight = function(self, h) assert(type(h) == 'number'); self.height = h; self.hSet = true end,
     GetWidth = function(self) return self.width end,
     GetHeight = function(self) return self.height end,
+    SetScale = function(self, v) self.scale = v end,
+    GetEffectiveScale = function(self) return (self.scale or 1) * (self.parent and self.parent:GetEffectiveScale() or 1) end,
     GetStringWidth = function(self) return #self.text * 6 end,
     GetPoint = function(self) local q = self.points and self.points[1]; if q then return q[1], q[2], q[3], q[4], q[5] end; return 'CENTER', nil, 'CENTER', 0, 0 end,
     SetPoint = function(self, p, rel, rp, x, y)
