@@ -904,8 +904,8 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     for i = 1, NTRK do local x = TRK[i]; if x.slot == slot then trHit(x, x.fx.use); return end end
   end
   -- Revelation (sim v209): + pct % crit for 15 s (a new trigger while it is up resets the 15 s).
-  --  * Trigger: a landed direct hit that does not crit (any target), and each Hellfire / Rain of Fire tick with a landed
-  --    hit that did not crit, once per tick (sim v214) (WL.revelationChancePct at your sheet crit). Never: DoT ticks,
+  --  * Trigger: a landed direct hit that does not crit (any target), and each Hellfire / Rain of Fire tick whose first
+  --    landed hit did not crit, once per tick (sim v217; v214-v216: any landed hit that did not crit) (WL.revelationChancePct at your sheet crit). Never: DoT ticks,
   --    drain / Wrack ticks, your demon, trinket and item procs.
   --  * Spent at the cast: a direct spell (or Immolate's direct part) takes it when its cast completes (instants: when
   --    cast) and crits when it lands, even after travel time - or not at all if it misses.
@@ -1209,7 +1209,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   -- A tick of an area channel (Hellfire, Rain of Fire): every target takes its own damage event.
   local function aoeTick(key, i)
     local s, e = SPELLS[key], tbl[key]
-    local rvc, plain = TR.revTick and TR.revTick() or 0, false  -- sim v214: checked once per tick; plain = a landed hit did not crit
+    local rvc, first = TR.revTick and TR.revTick() or 0, nil    -- sim v214: checked once per tick; first = the crit of its first landed hit (v217)
     for ti = 1, NT do
       local rk = ti > 1 and xkey(ti, key) or key
       local r = row(rk)
@@ -1219,12 +1219,12 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
         amt = amt * vulnMult(s.school, ti, false, key)
         local cx = Rcrit() * 100
         local crit = CHC[key] or cx < e.critPct + rvc + (TRX and TR.crit(key, ti) or 0)
-        if not crit then plain = true end
+        if first == nil then first = crit and true or false end
         if crit then amt = amt * e.critMult end
         deal(rk, amt, crit, true, ti)
       end
     end
-    if TR.revRoll and rvc == 0 and plain then TR.revRoll(false) end   -- one trigger roll per tick (sim v214)
+    if TR.revRoll and rvc == 0 and first == false then TR.revRoll(false) end   -- one roll per tick, only if its first landing did not crit (sim v217)
     if s.selfDamage then loseHealth(selfTick(key), 'self') end
   end
 

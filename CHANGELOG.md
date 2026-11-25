@@ -3,6 +3,12 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.18.11
+
+- From the website (its v217, from a public log study after the hotfix): a Hellfire or Rain of Fire tick gets its one
+  chance to trigger Revelation only when the first target it lands on is not a crit. Before, any target that was not a
+  crit was enough. Only area spells on 2 or 3 targets change, by a little.
+
 ## v0.18.10
 
 - From the website (its v213), both from public in-game checks and log studies in Forever:
