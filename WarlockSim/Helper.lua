@@ -523,7 +523,7 @@ function H.readGame(C, F, now)
   end
   for i = 1, #C.trinkets do
     local x = C.trinkets[i]
-    local inv = x.slot == 'trinket1' and 13 or 14
+    local inv = (x.slot == 'trinket1' and 13) or (x.slot == 'offHand' and 17) or 14   -- an on-use off hand (Book of the Dead) as a trinket
     local st, d = call(GetInventoryItemCooldown, 'player', inv)
     if type(st) == 'number' and type(d) == 'number' then F.cds['tr:' .. x.slot] = (st > 0 and d > 1.5) and st + d - F.t0 or nil end
   end

@@ -802,7 +802,8 @@ function WL.procChancePct(p, s, castT)
   end
   return p.ppm * max(p.minCast, castT or 0) / 60 * 100
 end
--- The trinkets in the two trinket slots that have an effect: { { slot, id, fx } }.
+-- The trinkets in the two trinket slots that have an effect: { { slot, id, fx } }. Sim v224: then the other worn items
+-- with an on-use effect (WL.ITEM_FX use: Book of the Dead), slot = their slot ('offHand'; options.trinketUse.offHand).
 function WL.equippedTrinkets(cfg)
   local gb = cfg and cfg.gearBuilder
   if type(gb) ~= 'table' or not gb.on or type(gb.slots) ~= 'table' then return {} end
@@ -813,20 +814,37 @@ function WL.equippedTrinkets(cfg)
     local fx = id and fxOf(WL.TRINKET_FX, id)
     if fx then out[#out + 1] = { slot = slot, id = tonumber(id), fx = fx } end
   end
+  local it = WL.equippedItemFx(cfg)
+  for i = 1, #it do if it[i].fx.use then out[#out + 1] = it[i] end end
   return out
 end
+-- The item in a gear-builder slot entry, or nil: a custom item ({ custom = { slot, ... } }), else WL.ITEMS[id] when the
+-- item list is loaded (the website's WL.gearItem; the addon has no item list, so an entry by id alone is unknown here).
+function WL.gearItem(entry)
+  if type(entry) ~= 'table' then return nil end
+  if type(entry.custom) == 'table' then return entry.custom end
+  return entry.id ~= nil and WL.ITEMS and WL.ITEMS[entry.id] or nil
+end
+-- A two-handed weapon in the main hand leaves the off hand empty (the website's WL.gearOffHandBlocked). In the game you
+-- cannot wear both; the item sims take the off hand off with a two-hander (ItemUI.lua).
+function WL.gearOffHandBlocked(gb)
+  local mh = WL.gearItem(type(gb) == 'table' and type(gb.slots) == 'table' and gb.slots.mainHand or nil)
+  return (mh and mh.slot == 'twoHand') and true or false
+end
 -- Other gear with an effect in the fight (WL.ITEM_FX, sim v202: Blade of Eternal Darkness), worn in its slot: { { slot, id, fx } }.
+-- Sim v224: an off hand counts only while the main hand is not a two-hander.
 function WL.equippedItemFx(cfg)
   local gb = cfg and cfg.gearBuilder
   if type(gb) ~= 'table' or not gb.on or type(gb.slots) ~= 'table' then return {} end
   local out, ids = {}, {}
+  local ohBlocked = WL.gearOffHandBlocked(gb)
   for id in pairs(WL.ITEM_FX or {}) do ids[#ids + 1] = tonumber(id) end
   table.sort(ids)                                               -- the order of the website's Object.keys (numbers: ascending)
   for _, id in ipairs(ids) do
     local fx = fxOf(WL.ITEM_FX, id)
     local e = gb.slots[fx.slot]
     local wid = type(e) == 'table' and (e.id ~= nil and e.id or (type(e.custom) == 'table' and e.custom.id)) or nil
-    if wid ~= nil and tonumber(wid) == id then out[#out + 1] = { slot = fx.slot, id = id, fx = fx } end
+    if wid ~= nil and tonumber(wid) == id and not (fx.slot == 'offHand' and ohBlocked) then out[#out + 1] = { slot = fx.slot, id = id, fx = fx } end
   end
   return out
 end

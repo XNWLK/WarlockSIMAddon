@@ -72,6 +72,25 @@ do
   n = n + 1
   if WL.wornGearBuilder({ items = { [1] = 271207 } }) ~= nil then bad[#bad + 1] = 'one set piece gave a bonus' end
 end
+-- an on-use off hand (Book of the Dead, 13353): in the fight as a trinket use (slot offHand), named once; taken off: gone;
+-- a character read before the off hand was kept on its own (only in items[17]) has it too; under a two-hander: not
+do
+  local worn = { mainHand = 1, offHand = 13353, items = { [16] = 1, [17] = 13353 } }
+  local gb = WL.wornGearBuilder(worn)
+  local t = gb and WL.equippedTrinkets({ gearBuilder = gb }) or {}
+  n = n + 1
+  if #t ~= 1 or t[1].slot ~= 'offHand' or t[1].id ~= 13353 then bad[#bad + 1] = 'Book of the Dead as a use: ' .. #t end
+  local names = WL.wornEffectNames(worn)
+  n = n + 1
+  if #names ~= 1 or names[1] ~= 'Book of the Dead' then bad[#bad + 1] = 'Book of the Dead named: ' .. table.concat(names, ', ') end
+  n = n + 1
+  if WL.wornGearBuilder(WL.wornSwap(worn, 17, nil)) ~= nil then bad[#bad + 1] = 'Book of the Dead taken off still counts' end
+  local old = WL.wornGearBuilder({ mainHand = 1, items = { [16] = 1, [17] = 13353 } })
+  n = n + 1
+  if not (old and old.slots.offHand and old.slots.offHand.id == 13353) then bad[#bad + 1] = 'an old saved character loses its off hand' end
+  n = n + 1
+  if #WL.equippedTrinkets({ gearBuilder = { on = true, slots = { mainHand = { custom = { id = 2, slot = 'twoHand' } }, offHand = { id = 13353 } } } }) ~= 0 then bad[#bad + 1] = 'Book of the Dead under a two-hander' end
+end
 return n .. '|' .. table.concat(bad, '\\n')
 `);
 const [n, bad] = out.split('|');

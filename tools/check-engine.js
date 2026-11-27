@@ -14,7 +14,10 @@ const FIGHTS = parseInt(process.argv[2], 10) || 4, ONLY = process.argv[3] || '';
 // CHECK_SHARD=i/n (tools/check-all.js runs several at once): only every n-th scene from the i-th (0-based); shard 0 also
 // compares the stats and spell tables.
 const SHARD = (process.env.CHECK_SHARD || '0/1').split('/').map(Number);
-const WL = require(path.join(SIM, 'tools', 'load-wl.js')).load(SIM, fs.existsSync(path.join(SIM, 'tests', 'retired-builds.js')) ? ['tests/retired-builds.js'] : []);
+// app/gear-builder.js: WL.gearOffHandBlocked (sim v224: an off hand counts only while the main hand is not a two-hander; the
+// engine asks it when it is there). Without the item list (WL.ITEMS), as in the addon, only a custom item tells its slot.
+const WL = require(path.join(SIM, 'tools', 'load-wl.js')).load(SIM, ['tests/retired-builds.js', 'app/gear-builder.js'].filter(f => fs.existsSync(path.join(SIM, f))));
+if (!WL.ITEMS) WL.ITEMS = {};
 const host = newLua();
 host.loadAddon(['Data.lua', 'Engine.lua', 'Sim.lua', 'Codes.lua'].filter(f => fs.existsSync(path.join(ROOT, 'WarlockSim', f))));
 host.run(fs.readFileSync(path.join(__dirname, 'check-engine.lua'), 'utf8'), '@check-engine.lua');
@@ -145,6 +148,21 @@ S('spell penetration + pierce + resist',[['gear.spellPen', 50], ['gear.pierce', 
   S('consumables vs a boss type: Elemental Purging vs elemental, Blessed Wizard Oil (not undead)', [['consumables.blessedWizardOil.on', true], ['consumables.elementalPurging.on', true], ['consumables.bakedSalmon.on', true], ['fight.bossType', 'elemental']]),
   S('Blade of Eternal Darkness', [['gearBuilder', { on: true, slots: { mainHand: { id: 17780 } } }], ['fight.duration', 300]]),
   S('Blade of Eternal Darkness: 3 targets multi-DoT, Curse of the Elements, a trinket', [['gearBuilder', { on: true, slots: { mainHand: { id: 17780 }, trinket1: { id: 18820 } } }], ['fight.targets', 3], ['fight.multiDot', true], ['options.useCurseOfElements', true], ['fight.travelMs', 300]]),
+  // sim v224: Kindling Stave (a proc without mana, x3 against Plants, rolled on each enemy of Rain of Fire's cast), Book of the
+  // Dead (an off hand whose use summons a fighter that swings on its own attack table; not under a two-hander)
+  S('Kindling Stave vs plant, Rain of Fire on 3 targets', [['gearBuilder', { on: true, slots: { mainHand: { id: 11750 } } }], ['fight.bossType', 'plant'], ['fight.targets', 3]],
+    { builds: ['destro_incin_imp', 'demo_pact_fire'], rotation: r => r.slice(0, -1).concat(['rainOfFire']) }),
+  S('Kindling Stave vs a normal boss', [['gearBuilder', { on: true, slots: { mainHand: { id: 11750 } } }], ['fight.duration', 300]]),
+  S('Kindling Stave: Rain of Fire on 2 targets, Curse of the Elements, travel, a trinket', [['gearBuilder', { on: true, slots: { mainHand: { id: 11750 }, trinket1: { id: 273840 } } }],
+    ['fight.targets', 2], ['options.useCurseOfElements', true], ['fight.travelMs', 300], ['fight.bossType', 'plant']], { builds: ['destro_incin_imp', 'sm_ruin_classic'], rotation: r => r.slice(0, -1).concat(['rainOfFire']) }),
+  S('Book of the Dead with a one-hand main hand', [['gearBuilder', { on: true, slots: { mainHand: { id: 17780 }, offHand: { id: 13353 } } }], ['fight.duration', 200]]),
+  S('Book of the Dead: when ready, no armor debuffs, Zarlas Snack Pouch vs plant', [['gearBuilder', { on: true, slots: { offHand: { id: 13353 }, trinket1: { id: 276744 } } }],
+    ['options.trinketUse', { trinket1: 'ready', offHand: 'ready' }], ['debuffs.sunderArmor.on', false], ['debuffs.faerieFire.on', false], ['debuffs.exposeArmor.on', false], ['fight.bossType', 'plant']]),
+  S('Book of the Dead: execute phase, long fight', [['gearBuilder', { on: true, slots: { offHand: { custom: { id: 13353 } } } }], ['options.trinketUse', { offHand: 'execute' }], ['fight.duration', 400]], { builds: ['demo_pact_succ_sb', 'wrack_ds', 'destro_incin_imp'] }),
+  S('Book of the Dead in a custom timeline, short fight', [['gearBuilder', { on: true, slots: { offHand: { id: 13353 }, trinket1: { id: 18820 } } }], ['options.activesPolicy', 'custom'],
+    ['options.activesTimeline', { racial: [10], trinket1: [5], offHand: [30] }], ['fight.duration', 70]], { builds: ['demo_pact_fire', 'destro_incin_imp', 'wrack_succubus'] }),
+  S('Book of the Dead under a two-hander does not play', [['gearBuilder', { on: true, slots: { mainHand: { custom: { id: 11750, name: 'Kindling Stave', slot: 'twoHand', stats: {} } }, offHand: { id: 13353 } } }]],
+    { noRow: 'trinket:13353' }),
   S('trinkets: zone equip in a forest', [['gearBuilder', { on: true, slots: { trinket1: { id: 271903 }, trinket2: { id: 270225 } } }], ['fight.zone', 'forest'], ['combat.targetResist.shadow', 40], ['combat.targetResist.fire', 40]]),
   S('trinkets: fire hits vs plant, Second Wind not in its zone', [['gearBuilder', { on: true, slots: { trinket1: { id: 13171 }, trinket2: { id: 11819 } } }], ['fight.bossType', 'plant'], ['fight.zone', 'desert'], ['options.trinketUse', { trinket1: 'ready' }]]),
   // sim v179 (round 210): set bonuses in the fight, the fitted resist model (DoT ticks a tenth), Spell Pierce on a trinket
@@ -280,6 +298,7 @@ scenes.filter((s, si) => (!ONLY || s.name.indexOf(ONLY) >= 0) && si % SHARD[1] =
         cmp('exDmg', r.exDmg, o.exDmg); cmp('pushbacks', r.pushbacks, o.pushbacks); cmp('petRegen', r.petRegen == null ? null : r.petRegen, o.petRegen);
         const keys = Object.keys(r.bySpell).filter(k => { const x = r.bySpell[k]; return x.casts || x.dmg || x.misses; });
         const okeys = Object.keys(o.rows).filter(k => { const x = o.rows[k]; return x[0] || x[1] || x[2]; });
+        if (sc.noRow && ((r.bySpell[sc.noRow] && (r.bySpell[sc.noRow].casts || r.bySpell[sc.noRow].dmg)) || (o.rows[sc.noRow] && (o.rows[sc.noRow][0] || o.rows[sc.noRow][1])))) diffs.push(sc.noRow + ' plays: it must not');
         if (keys.slice().sort().join() !== okeys.slice().sort().join()) diffs.push('rows: sim [' + keys.sort().join() + '] addon [' + okeys.sort().join() + ']');
         else keys.forEach(k => { const x = r.bySpell[k], y = o.rows[k]; cmp(k + '.casts', x.casts, y[0]); cmp(k + '.dmg', x.dmg, y[1]); cmp(k + '.misses', x.misses, y[2]); cmp(k + '.crits', x.crits + x.tickCrits, y[3]); cmp(k + '.castTime', x.castTime, y[4]); });
         fights++; sceneFights++;

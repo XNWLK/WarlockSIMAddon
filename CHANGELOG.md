@@ -12,6 +12,13 @@ What changed in each version, newest first. Download a version from the
     instead of Unholy Power), Incinerate DS 8/11/32 (Improved Life Tap, one point less in Aftermath and Improved
     Corruption), and Fire Demo moves points from Demonic Embrace into Demonic Energies and Demonic Brand.
 - Your own character is simmed with your own talents as before; only the ready builds and their ranking change.
+- From the website (its v224, from public combat-log studies):
+  - Bolt's Charged Eyeball hits you 26% of the time (was 32%).
+  - Kindling Stave's fire proc is in the fight: 60 to 81 Fire damage (three times as much against Plants), about 1.85
+    times a minute, on landed spells you cast at an enemy; Rain of Fire's cast rolls it on each enemy in its area.
+  - Book of the Dead's use is in the fight: a Summoned Skeleton for 60 s that swings every 2 s for 104 to 138 Physical
+    damage less the boss's armor (it can miss, be dodged or glance; it never crits, and it is not your demon). It is used
+    like an on-use trinket and follows the same *Trinkets* choice on the Raid setup page.
 
 ## v0.18.11
 

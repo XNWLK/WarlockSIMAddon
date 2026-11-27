@@ -242,8 +242,9 @@ function WL.readCharacter()
     c.weaponEffect = hasMain and true or false
   end
 
-  -- the items whose effects the fight knows: the two trinkets and the main hand with its enchant (Character.lua)
-  local worn = { trinket1 = num((try(GetInventoryItemID, 'player', 13))), trinket2 = num((try(GetInventoryItemID, 'player', 14))), mainHand = itemID }
+  -- the items whose effects the fight knows: the two trinkets, the main hand with its enchant, the off hand (Character.lua)
+  local worn = { trinket1 = num((try(GetInventoryItemID, 'player', 13))), trinket2 = num((try(GetInventoryItemID, 'player', 14))), mainHand = itemID,
+                 offHand = num((try(GetInventoryItemID, 'player', 17))) }
   local mainLink = try(GetInventoryItemLink, 'player', 16)
   if type(mainLink) == 'string' then worn.mainEnchant = tonumber(mainLink:match('item:%d+:(%d+)')) end
   worn.items = {}                                                    -- every worn item: set bonuses the fight plays

@@ -490,6 +490,11 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   do local sf = WL.equippedSetFx(cfg); for i = 1, #sf do TRK[#TRK + 1] = sf[i] end end   -- set bonuses with an effect, shaped like trinkets
   local EPR = WL.equippedEnchantFx(cfg)
   local IFX = WL.equippedItemFx(cfg)                     -- other gear with an effect (sim v202: Blade of Eternal Darkness)
+  do                                                     -- sim v224: only items with a proc (Book of the Dead's use is in TRK, with the trinkets)
+    local j = 0
+    for i = 1, #IFX do if IFX[i].fx.proc then j = j + 1; IFX[j] = IFX[i] end end
+    for i = #IFX, j + 1, -1 do IFX[i] = nil end
+  end
   local NTRK, TRX, TR = #TRK, #TRK > 0 or #EPR > 0, {}
   TR.apl = false   -- "Activate trinket" in the priority: it uses the on-use trinkets, not options.trinketUse (set once ROT is built)
   -- Racial cooldown, Spellblasting potion and Power Infusion, right before a damaging cast.
@@ -799,21 +804,25 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local ifs = {}
   for i = 1, #IFX do ifs[IFX[i].id] = { icdUntil = -1 } end
   TR.landCT = 0
-  TR.itemOnLand = function(ti, castT)
+  -- areaCast (sim v224): an extra target of an area channel's cast; only an item with areaCastPerTarget rolls on it.
+  TR.itemOnLand = function(ti, castT, areaCast)
     for i = 1, #IFX do
       local x = IFX[i]
       local p, st = x.fx.proc, ifs[x.id]
-      if p.kind == 'ppmCast' and not (S.t < st.icdUntil - EPS) and not (Rproc() >= p.procsPerMin * max(p.minCast, castT or 0) / 60) then
+      if p.kind == 'ppmCast' and not (S.t < st.icdUntil - EPS) and not (areaCast and not p.areaCastPerTarget)
+        and not (Rproc() >= p.procsPerMin * max(p.minCast, castT or 0) / 60) then
         st.icdUntil = S.t + p.icd
-        local g = min(p.mana, stats.maxMana - S.mana)          -- also when its hit is resisted
-        S.mana = S.mana + g; res.manaFromItems = (res.manaFromItems or 0) + g
+        if p.mana and p.mana ~= 0 then                       -- also when its hit is resisted (sim v224: Kindling Stave has none)
+          local g = min(p.mana, stats.maxMana - S.mana)
+          S.mana = S.mana + g; res.manaFromItems = (res.manaFromItems or 0) + g
+        end
         local key = 'trinket:' .. x.id
         local r = row(key)                                   -- one row for every target (it hits target ti)
         r.casts = r.casts + 1
         if Rhit() * 100 >= hitNow() then r.misses = r.misses + 1
         else
           r.landed = r.landed + 1
-          local amt = p.min + (p.max - p.min) * Rproc()
+          local amt = (p.min + (p.max - p.min) * Rproc()) * trMult(p)   -- sim v224: x boss type (Kindling Stave: x3 against Plants)
           local coe
           if ti > 1 then coe = xDebLeft(ti, 'coe') > 0 else coe = buff('coe') end
           if coe and COE_SCHOOLS[p.school] then amt = amt * (1 + coePct / 100) end
@@ -903,6 +912,25 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   TR.shot = function(slot)                                      -- one shot of a summoned helper (Cannonball Runner)
     for i = 1, NTRK do local x = TRK[i]; if x.slot == slot then trHit(x, x.fx.use); return end end
   end
+  -- Sim v224 (the sim's trSwing): one swing of a summoned fighter (Book of the Dead's Summoned Skeleton) - its own one-roll
+  -- table (miss -> dodge -> glancing -> hit, never a crit), not your spell hit or crit; Physical, the boss's armor after
+  -- debuffs; no spell power, no demon buffs, no Demonic Brand. Booked on the item's row (swings in landed / misses).
+  TR.swing = function(slot)
+    for i = 1, NTRK do
+      local x = TRK[i]
+      if x.slot == slot then
+        local u = x.fx.use
+        local key = 'trinket:' .. x.id
+        local r, roll = row(key), Rproc() * 100
+        if roll < u.missPct + u.dodgePct then r.misses = r.misses + 1; return end
+        r.landed = r.landed + 1
+        local amt = (u.min + (u.max - u.min) * Rproc()) * trMult(u) * (1 - armorRed)
+        if roll < u.missPct + u.dodgePct + u.glancePct then amt = amt * (u.glanceDmgPct / 100); r.glances = r.glances + 1 end
+        deal(key, amt, false, false)
+        return
+      end
+    end
+  end
   -- Revelation (sim v209): + pct % crit for 15 s (a new trigger while it is up resets the 15 s).
   --  * Trigger: a landed direct hit that does not crit (any target), and each Hellfire / Rain of Fire tick whose first
   --    landed hit did not crit, once per tick (sim v217; v214-v216: any landed hit that did not crit) (WL.revelationChancePct at your sheet crit). Never: DoT ticks,
@@ -945,6 +973,11 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       r.casts = r.casts + 1                                     -- u.first (sim v222): when the first shot lands (default u.every)
       local f0 = u.first ~= nil and u.first or u.every
       for si = 0, u.shots - 1 do push({ t = S.t + f0 + si * u.every, o = 0, type = 'trShot', slot = x.slot }) end
+    end
+    if u.kind == 'melee' then                                   -- Book of the Dead (sim v224): swings from u.first s after the use,
+      r.casts = r.casts + 1                                     -- one every u.every s while it lasts (a running sum, as the sim)
+      local mt = u.first
+      while mt < u.duration - EPS do push({ t = S.t + mt, o = 0, type = 'trSwing', slot = x.slot }); mt = mt + u.every end
     end
     if u.kind == 'dmgAfter' then
       r.casts = r.casts + 1; st.pending = u.casts
@@ -1407,6 +1440,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       -- Touch of the Grave, no Judgement of Wisdom. Its ticks never did.
       if not s.castOnSelf then
         if #IFX > 0 then TR.itemOnLand(0, 0) end          -- on cast (a channel prices as an instant), not on its ticks
+        if #IFX > 0 and s.aoe then for ati = 2, S.multiTargets do TR.itemOnLand(ati, 0, true) end end   -- sim v224: Rain of Fire's cast on each enemy in its area (Kindling Stave)
         touchOfTheGrave(0, key)
         jowProc(false)
       end
@@ -1982,6 +2016,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if ty == 'decide' then
       if ev.token == decideToken then decide() end
     elseif ty == 'trShot' then TR.shot(ev.slot)                -- a summoned helper's shot (Cannonball Runner)
+    elseif ty == 'trSwing' then TR.swing(ev.slot)              -- a summoned fighter's swing (Book of the Dead, sim v224)
     elseif ty == 'dotTick' then
       local d = dots[ev.key]
       if d and d.inst == ev.inst then                      -- else: refreshed or consumed

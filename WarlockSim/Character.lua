@@ -123,14 +123,15 @@ function WL.characterBuild(char, template)
 end
 
 -- ---------- the trinkets and main-hand enchant you wear, for the fight (WL.TRINKET_FX / WL.ENCHANT_FX) ----------
--- worn = { trinket1 = item id, trinket2 = item id, mainHand = item id, mainEnchant = enchant id,
+-- worn = { trinket1 = item id, trinket2 = item id, mainHand = item id, offHand = item id, mainEnchant = enchant id,
 --          items = { [inventory slot] = item id } (every worn item: the pieces of sets with a bonus the fight plays) } (Reader.lua).
-WL.FX_SLOTS = { [13] = 'trinket1', [14] = 'trinket2', [16] = 'mainHand' }   -- inventory slot -> the fight's slot name
+WL.FX_SLOTS = { [13] = 'trinket1', [14] = 'trinket2', [16] = 'mainHand', [17] = 'offHand' }   -- inventory slot -> the fight's slot name (off hand: Book of the Dead)
 -- The fight's cfg.gearBuilder for what you wear, or nil when nothing of it has an effect the sim knows.
 function WL.wornGearBuilder(worn)
   if type(worn) ~= 'table' then return nil end
   local gb = { on = true, slots = {}, enchants = {} }
-  for _, k in ipairs({ 'trinket1', 'trinket2', 'mainHand' }) do if worn[k] then gb.slots[k] = { id = worn[k] } end end
+  for _, k in ipairs({ 'trinket1', 'trinket2', 'mainHand', 'offHand' }) do if worn[k] then gb.slots[k] = { id = worn[k] } end end
+  if not worn.offHand and type(worn.items) == 'table' and worn.items[17] then gb.slots.offHand = { id = worn.items[17] } end   -- read before the off hand was kept on its own
   if worn.mainEnchant then gb.enchants.mainHand = { id = worn.mainEnchant } end
   if type(worn.items) == 'table' then for inv, id in pairs(worn.items) do if not WL.FX_SLOTS[inv] then gb.slots['inv' .. inv] = { id = id } end end end
   local c = { gearBuilder = gb }
@@ -155,7 +156,7 @@ function WL.wornEffectNames(worn)
   for i = 1, #t do out[#out + 1] = t[i].fx.name end
   for i = 1, #e do out[#out + 1] = e[i].fx.name end
   local it = WL.equippedItemFx(c)
-  for i = 1, #it do out[#out + 1] = it[i].fx.name end
+  for i = 1, #it do if not it[i].fx.use then out[#out + 1] = it[i].fx.name end end   -- an on-use one (Book of the Dead) is in t already
   local s = WL.equippedSetFx(c)
   for i = 1, #s do out[#out + 1] = s[i].fx.name .. ' (set bonus)' end
   return out
@@ -170,7 +171,7 @@ function WL.fxKey(cfg)
   local sets = WL.equippedSetFx(cfg)
   local sk = ''
   for i = 1, #sets do sk = sk .. ',' .. sets[i].slot end
-  return lv .. '|fx:' .. id(s.trinket1) .. ',' .. id(s.trinket2) .. ',' .. id(s.mainHand) .. ',' .. id(gb.enchants and gb.enchants.mainHand) .. sk
+  return lv .. '|fx:' .. id(s.trinket1) .. ',' .. id(s.trinket2) .. ',' .. id(s.mainHand) .. ',' .. id(gb.enchants and gb.enchants.mainHand) .. ',' .. id(s.offHand) .. sk
 end
 
 -- Talent points per tree as "21/30/0", and their sum.

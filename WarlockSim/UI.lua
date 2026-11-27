@@ -841,8 +841,8 @@ local function buildRaidPage(p)
   end, function()
     local tu = WL.cfg.options.trinketUse or {}
     return tu.trinket1 or 'cds'
-  end, function(v) WL.cfg.options.trinketUse = { trinket1 = v, trinket2 = v } end,
-    'When the trinkets you wear are used, if the sim knows what they do (Talisman of Ephemeral Power, Zandalarian Hero Charm, The Black Book and more). "With cooldowns": together with your racial and Power Infusion ("Pop cooldowns"). "When ready": from the pull on, again whenever ready. "Execute phase": only once the boss is low. "Never": not at all.\n\nA build with "Activate trinket" in its priority (most ready builds) uses them at that step instead, whenever they are ready and its condition holds; "Never" still keeps them unused.\n\nA mana trinket is used when its mana is missing. A trinket\'s plain stats always count, and so does what your main-hand enchant does (Revelation, Grand Sorcerer, Grand Arcanist, Insight).')), 100)
+  end, function(v) WL.cfg.options.trinketUse = { trinket1 = v, trinket2 = v, offHand = v } end,
+    'When the trinkets you wear are used, if the sim knows what they do (Talisman of Ephemeral Power, Zandalarian Hero Charm, The Black Book and more), and an off hand with a use effect (Book of the Dead). "With cooldowns": together with your racial and Power Infusion ("Pop cooldowns"). "When ready": from the pull on, again whenever ready. "Execute phase": only once the boss is low. "Never": not at all.\n\nA build with "Activate trinket" in its priority (most ready builds) uses them at that step instead, whenever they are ready and its condition holds; "Never" still keeps them unused.\n\nA mana trinket is used when its mana is missing. A trinket\'s plain stats always count, and so does what your main-hand enchant does (Revelation, Grand Sorcerer, Grand Arcanist, Insight).')), 100)
   local function typeList(list) return function() local items = {}; for i = 1, #list do items[i] = { value = list[i].key, label = list[i].name } end; return items end end
   r = row(24, 'fight')
   label(r, 'Boss type', 8)
