@@ -942,8 +942,9 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local r = row('trinket:' .. x.id)
     if u.kind == 'dmg' then r.casts = r.casts + 1; trHit(x, u) end
     if u.kind == 'dmgOver' then                                 -- Cannonball Runner: shots, one every u.every s
-      r.casts = r.casts + 1
-      for si = 1, u.shots do push({ t = S.t + si * u.every, o = 0, type = 'trShot', slot = x.slot }) end
+      r.casts = r.casts + 1                                     -- u.first (sim v222): when the first shot lands (default u.every)
+      local f0 = u.first ~= nil and u.first or u.every
+      for si = 0, u.shots - 1 do push({ t = S.t + f0 + si * u.every, o = 0, type = 'trShot', slot = x.slot }) end
     end
     if u.kind == 'dmgAfter' then
       r.casts = r.casts + 1; st.pending = u.casts

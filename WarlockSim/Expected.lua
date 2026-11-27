@@ -4,12 +4,12 @@ if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads 
 WL.EXPECTED = { fights = {
   { build = "demo_pact_succ_sb", race = "human", i = 0, total = 129896.7126838454 },
   { build = "demo_pact_succ_sb", race = "orc", i = 1, total = 122208.02252244348 },
-  { build = "demo_pact_fire", race = "gnome", i = 0, total = 125507.24893967074 },
-  { build = "demo_pact_fire", race = "undead", i = 1, total = 128953.04549923794 },
-  { build = "destro_incin_succ", race = "orc", i = 0, total = 123176.79359218315 },
-  { build = "destro_incin_succ", race = "troll", i = 1, total = 128556.1742728792 },
-  { build = "destro_incin_ds", race = "undead", i = 0, total = 122009.32807669969 },
-  { build = "destro_incin_ds", race = "human", i = 1, total = 119032.43966349975 },
+  { build = "demo_pact_fire", race = "gnome", i = 0, total = 124151.79490742304 },
+  { build = "demo_pact_fire", race = "undead", i = 1, total = 129609.68500808194 },
+  { build = "destro_incin_succ", race = "orc", i = 0, total = 121092.31630330272 },
+  { build = "destro_incin_succ", race = "troll", i = 1, total = 123526.94049074028 },
+  { build = "destro_incin_ds", race = "undead", i = 0, total = 120114.21608274987 },
+  { build = "destro_incin_ds", race = "human", i = 1, total = 119119.11681119988 },
   { build = "wrack_ds", race = "troll", i = 0, total = 124491.23841413065 },
   { build = "wrack_ds", race = "gnome", i = 1, total = 133381.6104448246 },
 } }

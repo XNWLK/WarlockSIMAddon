@@ -3,6 +3,16 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.18.12
+
+- From the website (its v222 and v223):
+  - Zarla's Snack Pouch as combat logs show it: 4 Fireballs of 213 to 254 damage, landing 4 s after use and then every
+    3.3 s, with your hit, crit and Curse of the Elements (was 5 hits of 439 every 3 s).
+  - New talents in three ready builds: Incinerate Pandemic is now 18/0/33 (Malevolence and more Improved Corruption
+    instead of Unholy Power), Incinerate DS 8/11/32 (Improved Life Tap, one point less in Aftermath and Improved
+    Corruption), and Fire Demo moves points from Demonic Embrace into Demonic Energies and Demonic Brand.
+- Your own character is simmed with your own talents as before; only the ready builds and their ranking change.
+
 ## v0.18.11
 
 - From the website (its v217, from a public log study after the hotfix): a Hellfire or Rain of Fire tick gets its one
