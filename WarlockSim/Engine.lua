@@ -138,15 +138,25 @@ end
 -- does it hold in this fight (fight.bossType)? Without the boss-type check (WL.fxHolds) it does not.
 function WL.consumableHolds(cfg, c) return not c.vs or (WL.fxHolds and WL.fxHolds(cfg, c) or false) end
 
+-- The WL.OILS key of the stone this build carries in these settings (sim v228): auto (buildOil) = the build's own
+-- (build.oil); Major Spellstone / Major Firestone (`stone`) = that one for every build; no stone chosen = 'none'.
+function WL.stoneKey(build, cfg)
+  local act, stone = WL.activeConsumables(cfg), nil
+  for i = 1, #act do if not stone and act[i].group == 'stone' then stone = act[i] end end
+  if not cfg.consumables or next(cfg.consumables) == nil then stone = { buildOil = true } end   -- configs without consumables
+  local k = 'none'
+  if stone then
+    if stone.stone then k = stone.stone elseif stone.buildOil then k = build and build.oil end
+  end
+  return (k and WL.OILS[k]) and k or 'none'
+end
 function WL.weaponEffects(build, cfg)
-  local act, out = WL.activeConsumables(cfg), {}
-  local stone, w
+  local act, out, sk = WL.activeConsumables(cfg), {}, WL.stoneKey(build, cfg)
+  local w
   for i = 1, #act do
-    if not stone and act[i].group == 'stone' then stone = act[i] end
     if not w and act[i].group == 'weapon' then w = act[i] end
   end
-  if not cfg.consumables or next(cfg.consumables) == nil then stone = { buildOil = true } end
-  if stone and stone.buildOil and WL.OILS[build.oil] and build.oil ~= 'none' then out[#out + 1] = WL.OILS[build.oil] end
+  if sk ~= 'none' then out[#out + 1] = WL.OILS[sk] end
   if w and w.oil and WL.consumableHolds(cfg, w) then out[#out + 1] = { name = w.name, sp = w.oil.sp or 0, critPct = w.oil.critPct or 0, mp5 = w.oil.mp5 or 0, hastePct = 0 } end
   return out
 end
@@ -552,6 +562,9 @@ WL.RESIST_RULES = {
   immolate = { binary = 1 }, incinerate = { binary = 1 }, shadowburn = { binary = 1 }, deathCoil = { binary = 1 },
   baneOfAgony = { binary = 1 }, drainSoul = { binary = 1 },
   rainOfFire = { noBonus = 1, tickShare = 1 },   -- its ticks roll at a tenth of the share, like DoT ticks (sim v207)
+  -- Blade of Eternal Darkness's Engulfing Shadows (sim v230, live-realm combat logs): binary, and the one binary hit seen to
+  -- take no Spell Pierce bonus (Sim.lua TR.itemOnLand, proc.binary)
+  engulfingShadows = { binary = 1, noBonus = 1 },
 }
 -- { R, flat, dist, mean, landP } for one damage event of spell `key` (tick: a periodic tick). landP = chance a binary
 -- spell is not resisted (1 for the others).

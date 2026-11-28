@@ -3,6 +3,21 @@
 What changed in each version, newest first. Download a version from the
 [Releases page](https://github.com/XNWLK/WarlockSIMAddon/releases).
 
+## v0.18.13
+
+- New in the consumables on the Raid setup page (the website's v228):
+  - **Hot Smoked Bass** as a food (+1% crit).
+  - The weapon stone is now a choice of three: **Spellstone / Firestone (auto: best for the build)**, ticked by default,
+    then **Major Spellstone** and **Major Firestone**, each for every build. One stone at a time; untick it for none.
+  - With your character read: on "Already in my numbers" no stone is added. "Add a Major Spellstone / Firestone" counts
+    while the Raid setup stone is on auto; a single stone picked in Raid setup counts for everyone and wins.
+- From the website (its v229 and v230, public combat-log studies):
+  - Decimation's extra damage to Shadow Bolt and Searing Pain now counts at any boss health; only its faster Soul Fire
+    still needs the boss low. The Demonology builds gain about 12 to 15 DPS.
+  - Draconic Infused Emblem also procs on Curse of the Elements and Bane of Havoc, and Rain of Fire's cast rolls it once
+    more for each extra enemy.
+  - Blade of Eternal Darkness's shadow proc is resisted in full or not at all, and gets no Spell Pierce bonus.
+
 ## v0.18.12
 
 - From the website (its v222 and v223):

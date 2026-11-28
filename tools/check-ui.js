@@ -128,7 +128,26 @@ step('the website\'s presets; settings widgets write through; a loaded build rem
   WLX.addImportedBuild(WLX.encodeBuild(WLX.BUILDS[1])); WLX.addImportedBuild(WLX.encodeBuild(WLX.BUILDS[2])); WLX.addImportedBuild(WLX.encodeBuild(WLX.BUILDS[3]))
   WLX.db.options.template = "import3"; assert(WLX.removeImportedBuild(1) and WLX.db.options.template == "import2" and WLX.imported[2].key == "import2" and #WLX.db.builds == 2, "the builds after it move up")
   WLX.removeImportedBuild(1); WLX.removeImportedBuild(1); assert(#WLX.imported == 0); WLX.db.options.template = nil`);
-step('stop a running sim', 'WLX.db.options.fights = 5000; MOCK.click("Sim"); MOCK.frame(); assert(WLX.jobRunning()); MOCK.click("Stop"); assert(not WLX.jobRunning()); WLX.db.options.fights = 10');
+step('Raid setup: the stone (Auto, Spellstone, Firestone; one at a time), Hot Smoked Bass a food; a read character\'s stone counts once', `local C, o = WLX.cfg.consumables, WLX.db.options
+  local function box(name) for i, f in ipairs(MOCK.frames) do if f.__kind == "CheckButton" and f.label and f.label.text == name then return f, i end end; error("no check box " .. name) end
+  local function tick(cb) cb:SetChecked(true); cb.scripts.OnClick(cb) end
+  local auto, ia = box(C.buildOil.name); local ss, is = box(C.majorSpellstone.name); local fs, iff = box(C.majorFirestone.name)
+  assert(ia < is and is < iff, "the order: auto, Spellstone, Firestone")
+  assert(C.buildOil.on and not C.majorSpellstone.on and not C.majorFirestone.on, "auto by default")
+  tick(fs); assert(C.majorFirestone.on and not C.buildOil.on and not C.majorSpellstone.on, "Firestone alone")
+  tick(ss); assert(C.majorSpellstone.on and not C.majorFirestone.on and not C.buildOil.on, "Spellstone alone")
+  C.bakedSalmon.on = true; tick(box(C.hotSmokedBass.name)); assert(C.hotSmokedBass.on and not C.bakedSalmon.on, "one food")
+  local function stones(b, cfg) local n = 0; for _, e in ipairs(WLX.weaponEffects(b, cfg)) do if e == WLX.OILS.spellstone or e == WLX.OILS.firestone then n = n + 1 end end; return n end
+  local keep, own = o.stone, nil; for _, b in ipairs(WLX.BUILDS) do if b.oil == "firestone" then own = b end end; assert(own, "a ready build with a Firestone")
+  o.stone = "sheet"; local b, cfg = WLX.characterBuildNow(), WLX.characterConfig()
+  assert(WLX.stoneKey(b, cfg) == "none" and WLX.stoneKey(own, cfg) == "none" and stones(b, cfg) == 0, "already in my numbers: no stone added")
+  o.stone = "firestone"; b, cfg = WLX.characterBuildNow(), WLX.characterConfig()
+  assert(WLX.stoneKey(b, cfg) == "spellstone" and WLX.stoneKey(own, cfg) == "spellstone" and stones(b, cfg) == 1, "Raid setup's single stone for every build, one stone")
+  tick(auto); b, cfg = WLX.characterBuildNow(), WLX.characterConfig()
+  assert(WLX.stoneKey(b, cfg) == "firestone" and stones(b, cfg) == 1, "auto: the stone picked for the character")
+  o.stone = keep; MOCK.click("Back to the sim's settings"); assert(WLX.cfg.consumables.buildOil.on and not WLX.cfg.consumables.hotSmokedBass.on, "back to the sim's settings")
+  return "order and one-of-a-group ok; sheet: none, add Firestone + Raid Spellstone: Spellstone, + Auto: Firestone"`);
+step('stop a running sim','WLX.db.options.fights = 5000; MOCK.click("Sim"); MOCK.frame(); assert(WLX.jobRunning()); MOCK.click("Stop"); assert(not WLX.jobRunning()); WLX.db.options.fights = 10');
 const frames = 'for i = 1, 16 do MOCK.frame() end';
 step('item link window: a ring against both rings', `MOCK.refItem = 1001; ItemRefTooltip.shown = true; ${frames}
   assert(WarlockSimItemPanel and WarlockSimItemPanel:IsShown(), "no panel under the item window"); MOCK.click("Sim this item"); assert(WLX.jobRunning(), "no item sim started"); ${pump}; ${frames}

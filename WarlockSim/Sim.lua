@@ -571,7 +571,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
   local RULES = WL.RESIST_RULES
   local resCache, resCacheT = {}, {}                      -- [rule group][curse up?][school]; T: ticks
   local RGROUP = {}                                       -- spell -> its rule group ('s': ticks at a tenth, Rain of Fire, sim v207)
-  for k, rl in pairs(RULES) do RGROUP[k] = rl.binary and 'b' or ((rl.noBonus and 'n' or '') .. (rl.tickShare and 's' or '')) end
+  for k, rl in pairs(RULES) do RGROUP[k] = rl.binary and ('b' .. (rl.noBonus and 'n' or '')) or ((rl.noBonus and 'n' or '') .. (rl.tickShare and 's' or '')) end   -- 'bn': Engulfing Shadows (sim v230)
   resCache[''] = { [true] = {}, [false] = {} }; resCacheT[''] = { [true] = {}, [false] = {} }
   for _, g in pairs(RGROUP) do resCache[g] = { [true] = {}, [false] = {} }; resCacheT[g] = { [true] = {}, [false] = {} } end
   local xDotLeft, xDebLeft                                -- defined below
@@ -821,14 +821,18 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
         r.casts = r.casts + 1
         if Rhit() * 100 >= hitNow() then r.misses = r.misses + 1
         else
-          r.landed = r.landed + 1
-          local amt = (p.min + (p.max - p.min) * Rproc()) * trMult(p)   -- sim v224: x boss type (Kindling Stave: x3 against Plants)
-          local coe
-          if ti > 1 then coe = xDebLeft(ti, 'coe') > 0 else coe = buff('coe') end
-          if coe and COE_SCHOOLS[p.school] then amt = amt * (1 + coePct / 100) end
-          local crit = Rcrit() * 100 < stats.critPct
-          if crit then amt = amt * cb.critMultiplier end
-          deal(key, amt, crit, false, ti > 1 and ti or nil)
+          local bp = p.binary and resProfile(p.school, ti, false, p.binary)   -- sim v230: Engulfing Shadows is binary (fully resisted at the share while R > 0, no Spell Pierce bonus)
+          if bp and bp.landP < 1 and Rvuln() >= bp.landP then r.misses = r.misses + 1; r.resisted = (r.resisted or 0) + 1
+          else
+            r.landed = r.landed + 1
+            local amt = (p.min + (p.max - p.min) * Rproc()) * trMult(p)   -- sim v224: x boss type (Kindling Stave: x3 against Plants)
+            local coe
+            if ti > 1 then coe = xDebLeft(ti, 'coe') > 0 else coe = buff('coe') end
+            if coe and COE_SCHOOLS[p.school] then amt = amt * (1 + coePct / 100) end
+            local crit = Rcrit() * 100 < stats.critPct
+            if crit then amt = amt * cb.critMultiplier end
+            deal(key, amt, crit, false, ti > 1 and ti or nil)
+          end
         end
       end
     end
@@ -872,6 +876,30 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
         if p.kind == 'dmg' then trHit(x, p, ti)
         elseif p.kind == 'castRegen' then trs[x.slot].procUntil = S.t + p.duration end
       end
+    end
+  end
+  -- Sim v229 (sim trOnCurse): a proc with onCurse also rolls on a landed curse that deals no damage (Curse of the Elements,
+  -- on any target; Bane of Havoc's cast): "on harmful spellcast". Only buff procs (kind 'sp') use it. TR.C: any such proc.
+  -- Sim v230 (sim trOnAreaCast): a buff proc with areaCastPerTarget rolls once more for each extra enemy in an area cast's
+  -- area (Rain of Fire; the boss's roll is the usual TR.onCast): Draconic Infused Emblem, 1 - 0.92^n a cast. TR.A: any such proc.
+  TR.C, TR.A = false, false
+  for i = 1, NTRK do
+    local p = TRK[i].fx.proc
+    if p and p.onCurse then TR.C = true end
+    if p and p.areaCastPerTarget and p.kind == 'sp' then TR.A = true end
+  end
+  TR.onCurse = function(key)
+    for i = 1, NTRK do
+      local x = TRK[i]
+      local p = x.fx.proc
+      if p and p.onCurse and WL.fxOn(cfg, p) and Rproc() * 100 < (procChancePct(p, key) or -1) then trs[x.slot].procUntil = S.t + p.duration end
+    end
+  end
+  TR.onAreaCast = function(key)
+    for i = 1, NTRK do
+      local x = TRK[i]
+      local p = x.fx.proc
+      if p and p.areaCastPerTarget and p.kind == 'sp' and WL.fxOn(cfg, p) and Rproc() * 100 < (procChancePct(p, key) or -1) then trs[x.slot].procUntil = S.t + p.duration end
     end
   end
   if #TRD > 0 then
@@ -1185,14 +1213,15 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if #IFX > 0 then TR.itemOnLand(ti, TR.landCT) end    -- Blade of Eternal Darkness (sim v202)
     if key == 'baneOfAgony' then S.ampUp = false end    -- Amplify Curse spent on a landed Bane
     if s.kind == 'utility' then
-      if key == 'curseOfElements' then xdeb[ti].coe = S.t + s.duration end
+      if key == 'curseOfElements' then xdeb[ti].coe = S.t + s.duration; if TR.C then TR.onCurse(key) end end   -- sim v229
       return true
     end
     if s.kind == 'hybrid' or s.kind == 'direct' then
       local amt = (s.base + s.coef * spNow(e)) * e.directMult * liveMultX(key, ti, false) * (eureka and eurekaMult(key, false) or 1)
       local execute = S.targetHpPct < executePct
-      if (key == 'shadowBolt' or key == 'searingPain') and execute and tv('decimation') ~= 0 then
-        amt = amt * addOp0(key, tv('decimation', 'dmgPct')); buffs.decimation = S.t + 10
+      -- Sim v230: Decimation's +3 / 6% damage at any boss health; only the Soul Fire buff needs the execute phase.
+      if (key == 'shadowBolt' or key == 'searingPain') and tv('decimation') ~= 0 then
+        amt = amt * addOp0(key, tv('decimation', 'dmgPct')); if execute then buffs.decimation = S.t + 10 end
       end
       amt = amt * vulnMult(s.school, ti, false, key)
       local cx = Rcrit() * 100
@@ -1273,7 +1302,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     if #IFX > 0 then TR.itemOnLand(0, TR.landCT) end     -- Blade of Eternal Darkness (sim v202)
     if key == 'baneOfAgony' then S.ampUp = false end    -- Amplify Curse spent on a landed Bane
     if s.kind == 'utility' then
-      if key == 'curseOfElements' then buffs.coe = S.t + s.duration end
+      if key == 'curseOfElements' then buffs.coe = S.t + s.duration; if TR.C then TR.onCurse(key) end end   -- sim v229
       jowProc(false)
       return true
     end
@@ -1283,9 +1312,9 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     local amt = (s.base + s.coef * sp) * e.directMult * liveMult(key, false) * (eureka and eurekaMult(key, false) or 1)
     if key == 'incinerate' and dotLeft('immolate') > 0 then amt = amt * (1 + s.immolateBonusPct / 100) end
     local execute = S.targetHpPct < executePct
-    if (key == 'shadowBolt' or key == 'searingPain') and execute and tv('decimation') ~= 0 then
+    if (key == 'shadowBolt' or key == 'searingPain') and tv('decimation') ~= 0 then
       amt = amt * addOp0(key, tv('decimation', 'dmgPct'))
-      buffs.decimation = S.t + 10
+      if execute then buffs.decimation = S.t + 10 end   -- sim v230: the damage at any boss health, the Soul Fire buff only below the execute line
     end
     amt = amt * vulnMult(s.school, nil, false, key)
     local cx = Rcrit() * 100
@@ -1441,6 +1470,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       if not s.castOnSelf then
         if #IFX > 0 then TR.itemOnLand(0, 0) end          -- on cast (a channel prices as an instant), not on its ticks
         if #IFX > 0 and s.aoe then for ati = 2, S.multiTargets do TR.itemOnLand(ati, 0, true) end end   -- sim v224: Rain of Fire's cast on each enemy in its area (Kindling Stave)
+        if TR.A and s.aoe then for ati = 2, S.multiTargets do TR.onAreaCast(key) end end   -- sim v230: Draconic Infused Emblem once more per extra enemy
         touchOfTheGrave(0, key)
         jowProc(false)
       end
@@ -1742,7 +1772,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
     else
       amt = (s.base + s.coef * spNow(e)) * e.directMult * lmult(key, ti, false)
       if key == 'incinerate' and not noImmolate and dotLeft('immolate') > 0 then amt = amt * (1 + s.immolateBonusPct / 100) end
-      if (key == 'shadowBolt' or key == 'searingPain') and S.targetHpPct < executePct and tv('decimation') ~= 0 then amt = amt * addOp0(key, tv('decimation', 'dmgPct')) end
+      if (key == 'shadowBolt' or key == 'searingPain') and tv('decimation') ~= 0 then amt = amt * addOp0(key, tv('decimation', 'dmgPct')) end   -- at any health (sim v230)
     end
     return hitChance() * amt * expVuln(s.school, ti, s.kind == 'channel', key) * expCrit(e.critPct, e.critMult)
   end
@@ -1910,6 +1940,7 @@ function WL.simulateOnce(build, raceKey, cfg, opt)
       if tbl.baneOfHavoc.cost > 0 then S.lastSpend = S.t end
       local r = row('baneOfHavoc'); r.casts = r.casts + 1; r.castTime = r.castTime + hg
       if #IFX > 0 then TR.itemOnLand(HAV_T, 0) end         -- a curse on target 2 (sim v202)
+      if TR.C then TR.onCurse('baneOfHavoc') end            -- sim v229: a harmful cast (Draconic Infused Emblem)
       S.busyUntil = S.t; S.gcdReady = S.t + hg; scheduleDecide(S.gcdReady); return
     end
     manaBuffCheck()

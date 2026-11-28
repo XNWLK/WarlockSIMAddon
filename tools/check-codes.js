@@ -41,6 +41,39 @@ variants.forEach((v, i) => {
   n++;
 });
 
+// sim v228: a website code with a single stone for every build (Major Firestone) and Hot Smoked Bass reads in the addon
+// with the same keys, picks the same stone for every build as the page does, and the addon's code reads back on the page
+{
+  const cfg = norm(WL.DEFAULT_CONFIG);
+  Object.keys(cfg.consumables).forEach(k => { const c = cfg.consumables[k]; if (c.group === 'stone' || c.group === 'food') c.on = false; });
+  cfg.consumables.majorFirestone.on = true; cfg.consumables.hotSmokedBass.on = true;
+  const snap = norm(WL.settingsSnapshot(cfg));
+  assert(snap.cons.indexOf('majorFirestone') >= 0 && snap.cons.indexOf('hotSmokedBass') >= 0 && snap.cons.indexOf('buildOil') < 0, 'page code: ' + snap.cons);
+  const code = 'WFS1:' + b64(JSON.stringify(snap));
+  const back = host.eval('local o = WLX.decodeSettings(' + q(code) + '); local c = WLX.copy(WLX.DEFAULT_CONFIG); local u = WLX.applySettings(c, o); local ks = {}; ' +
+    'for i = 1, #WLX.BUILDS do ks[i] = WLX.stoneKey(WLX.BUILDS[i], c) end; local act = {}; for _, x in ipairs(WLX.activeConsumables(c)) do if x.group == "stone" or x.group == "food" then act[#act + 1] = x.key end end; ' +
+    'return #u .. "|" .. table.concat(ks, ",") .. "|" .. table.concat(act, ",") .. "|" .. WLX.encodeSettings(c)');
+  const [unknown, ks, act, code2] = back.split('|');
+  assert.strictEqual(unknown, '0', 'unknown settings');
+  assert.strictEqual(ks, WL.BUILDS.map(b => WL.stoneKey(b, cfg)).join(','), 'the stone each build gets');
+  assert(ks.split(',').every(k => k === 'firestone'), 'Major Firestone for every build: ' + ks);
+  assert.strictEqual(act, 'hotSmokedBass,majorFirestone', 'active food and stone');
+  const snap2 = JSON.parse(unb64(code2.slice(5)));
+  assert.deepStrictEqual(snap2, snap, 'stone / food code back');
+  const c3 = norm(WL.DEFAULT_CONFIG); assert.strictEqual(WL.applySettings(c3, snap2).length, 0);
+  assert.deepStrictEqual(norm(WL.settingsSnapshot(c3)), snap);
+  // auto (the build's own stone), Major Spellstone, no stone: the same stone per build in both
+  [['buildOil'], ['majorSpellstone'], []].forEach(on => {
+    const c = norm(WL.DEFAULT_CONFIG);
+    Object.keys(c.consumables).forEach(k => { if (c.consumables[k].group === 'stone') c.consumables[k].on = on.indexOf(k) >= 0; });
+    const cd = 'WFS1:' + b64(JSON.stringify(norm(WL.settingsSnapshot(c))));
+    const got = host.eval('local o = WLX.decodeSettings(' + q(cd) + '); local c = WLX.copy(WLX.DEFAULT_CONFIG); WLX.applySettings(c, o); local ks = {}; for i = 1, #WLX.BUILDS do ks[i] = WLX.stoneKey(WLX.BUILDS[i], c) end; return table.concat(ks, ",")');
+    assert.strictEqual(got, WL.BUILDS.map(b => WL.stoneKey(b, c)).join(','), 'stones with ' + (on[0] || 'no stone'));
+  });
+  assert.strictEqual(host.eval('return WLX.stoneKey(WLX.BUILDS[1], { consumables = {} })'), WL.stoneKey(WL.BUILDS[0], { consumables: {} }), 'no consumables: the build\'s own');
+  n++;
+}
+
 // a code in the website's Pre-BiS gear mode (its default): no gear numbers in it; the addon keeps its own and says so
 {
   const pc = norm(WL.pageDefaultConfig()); const snap = norm(WL.settingsSnapshot(pc));

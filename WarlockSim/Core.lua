@@ -3,7 +3,7 @@
 local ADDON, WL = ...
 if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 
-WL.VERSION = '0.18.12'
+WL.VERSION = '0.18.13'
 local copy = WL.copy
 local function now() return debugprofilestop and debugprofilestop() or (GetTime() * 1000) end
 function WL.print(msg)
@@ -145,7 +145,9 @@ function WL.characterConfig()
   local cfg = copy(WL.cfg)
   if WL.char and WL.char.gear then
     cfg.gear = copy(WL.char.gear)
-    if WL.db.options.stone == 'sheet' and cfg.consumables.buildOil then cfg.consumables.buildOil.on = false end   -- the stone is in your numbers already
+    if WL.db.options.stone == 'sheet' then                             -- the stone is in your numbers already: no stone added
+      for _, c in pairs(cfg.consumables or {}) do if c.group == 'stone' then c.on = false end end
+    end
   end
   if WL.char and WL.char.worn then cfg.gearBuilder = WL.wornGearBuilder(WL.char.worn) end   -- trinkets / main-hand enchant with an effect
   if WL.char and (tonumber(WL.char.level) or 0) > 0 then cfg.combat.casterLevel = WL.char.level end   -- resistances: your level

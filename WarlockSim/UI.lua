@@ -548,7 +548,7 @@ local function buildDpsPage(p)
   keep(Dropdown(p.moreRow, 160, function()
     return { { value = 'sheet', label = 'Already in my numbers (or none)' }, { value = 'spellstone', label = 'Add a Major Spellstone' }, { value = 'firestone', label = 'Add a Major Firestone' } }
   end, function() return opts().stone end, function(v) opts().stone = v end,
-    'If a Spellstone or Firestone was active while your character was read, its bonus is inside your numbers already: leave this on the first choice. Pick a stone here only if you read your character without one.')):SetPoint('TOPLEFT', 286, 0)
+    'If a Spellstone or Firestone was active while your character was read, its bonus is inside your numbers already: leave this on the first choice. Pick a stone here only if you read your character without one.\n\nOn the first choice no stone is added at all, whatever the stone in Raid setup says (also not for the ready builds compared with your numbers). A stone picked here counts while the stone in Raid setup is on Auto; a single stone picked in Raid setup counts for every build, yours too. One stone at a time, never two.')):SetPoint('TOPLEFT', 286, 0)
   p.view = newView(p, { 'No result yet', 'Press Sim: your character is read and played.' }, true)
   views.dps = p.view
   p.layout = function()

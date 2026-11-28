@@ -2,10 +2,10 @@
 local ADDON, WL = ...
 if WL.notWarlock then return end   -- not a Warlock: nothing of the addon loads (Class.lua)
 WL.EXPECTED = { fights = {
-  { build = "demo_pact_succ_sb", race = "human", i = 0, total = 129896.7126838454 },
-  { build = "demo_pact_succ_sb", race = "orc", i = 1, total = 122208.02252244348 },
-  { build = "demo_pact_fire", race = "gnome", i = 0, total = 124151.79490742304 },
-  { build = "demo_pact_fire", race = "undead", i = 1, total = 129609.68500808194 },
+  { build = "demo_pact_succ_sb", race = "human", i = 0, total = 131929.55697401465 },
+  { build = "demo_pact_succ_sb", race = "orc", i = 1, total = 124491.59404883633 },
+  { build = "demo_pact_fire", race = "gnome", i = 0, total = 125658.2424241301 },
+  { build = "demo_pact_fire", race = "undead", i = 1, total = 131364.82499908408 },
   { build = "destro_incin_succ", race = "orc", i = 0, total = 121092.31630330272 },
   { build = "destro_incin_succ", race = "troll", i = 1, total = 123526.94049074028 },
   { build = "destro_incin_ds", race = "undead", i = 0, total = 120114.21608274987 },
